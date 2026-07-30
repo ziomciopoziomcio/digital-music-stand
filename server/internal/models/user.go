@@ -13,6 +13,6 @@ type User struct {
 	Name         string         `gorm:"not null"`
 	Surname      string         `gorm:"not null"`
 	CreatedAt    time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
-	UpdatedAt    *time.Time     `gorm:"autoUpdateTime"`
+	UpdatedAt    time.Time      `gorm:"autoUpdateTime"`
 	DeletedAt    gorm.DeletedAt `gorm:"index"`
 }
