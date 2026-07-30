@@ -16,3 +16,5 @@ type Score struct {
 	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
+
+type SharedUserScore struct{}
