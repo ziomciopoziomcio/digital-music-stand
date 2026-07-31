@@ -1,9 +1,3 @@
-/*
-rpc CreateScore
-rpc ListMyScore
-rpc ShareScore
-*/
-
 syntax = "proto3";
 
 package digital_music_stand.score;

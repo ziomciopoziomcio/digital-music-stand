@@ -1,9 +1,3 @@
-/*
-rpc RegisterUser
-rpc LoginUser
-rpc GetProfile
-*/
-
 syntax = "proto3";
 
 package digital_music_stand.user;
