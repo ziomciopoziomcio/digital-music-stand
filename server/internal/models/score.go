@@ -17,4 +17,14 @@ type Score struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-type SharedUserScore struct{}
+type SharedUserScore struct {
+	ID        uint           `gorm:"primaryKey"`
+	ScoreID   uint           `gorm:"not null;uniqueIndex:idx_score_user"`
+	UserID    uint           `gorm:"not null;uniqueIndex:idx_score_user"`
+	CreatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+
+	Score Score `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	User  User  `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
