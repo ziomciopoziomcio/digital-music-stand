@@ -19,4 +19,14 @@ type Band struct {
 
 type BandMember struct{}
 
-type SharedBandScore struct{}
+type SharedBandScore struct {
+	ID        uint           `gorm:"primaryKey"`
+	ScoreID   uint           `gorm:"not null;uniqueIndex:idx_band_score"`
+	BandID    uint           `gorm:"not null;uniqueIndex:idx_band_score"`
+	CreatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+
+	Score Score `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Band  Band  `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
