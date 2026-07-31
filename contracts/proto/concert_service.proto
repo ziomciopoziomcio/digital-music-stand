@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package digital_music_stand.concert;
+option go_package = "github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb";
+
+service ConcertService {
+  rpc CreateConcert(CreateConcertRequest) returns (CreateConcertResponse);
+  rpc AddConcertItem(AddConcertItemRequest) returns (AddConcertItemResponse);
+  rpc GetConcertSetlist(GetConcertSetlistRequest) returns (GetConcertSetlistResponse);
+}
+
+message CreateConcertRequest {
+  string name = 1;
+  optional uint32 band_id = 2;
+  optional uint32 user_id = 3;
+}
+
+message CreateConcertResponse {
+  uint32 id = 1;
+  string message = 2;
+}
+
+message AddConcertItemRequest {
+  uint32 concert_id = 1;
+  optional uint32 score_id = 2;
+  optional uint32 break_min = 3;
+  uint32 order = 4;
+}
+
+message AddConcertItemResponse {
+  uint32 id = 1;
+  string message = 2;
+}
+
+message GetConcertSetlistRequest {
+  uint32 concert_id = 1;
+}
+
+message GetConcertSetlistResponse {
+  repeated ConcertItem items = 1;
+}
+
+message ConcertItem {
+  uint32 id = 1;
+  uint32 order = 2;
+
+  optional uint32 score_id = 3;
+  optional string score_name = 4;
+  optional string file_path = 5;
+
+  optional uint32 break_min = 6;
+}

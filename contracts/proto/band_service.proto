@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package digital_music_stand.band;
+option go_package = "github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb";
+
+service BandService {
+  rpc CreateBand(CreateBandRequest) returns (CreateBandResponse);
+  rpc AddBandMember(AddBandMemberRequest) returns (AddBandMemberResponse);
+  rpc ListBandMembers(ListBandMembersRequest) returns (ListBandMembersResponse);
+}
+
+message CreateBandRequest {
+  string name = 1;
+  uint32 manager_id = 2;
+}
+
+message CreateBandResponse {
+  uint32 id = 1;
+  string message = 2;
+}
+
+message AddBandMemberRequest {
+  uint32 band_id = 1;
+  uint32 user_id = 2;
+}
+
+message AddBandMemberResponse {
+  string message = 1;
+}
+
+message ListBandMembersRequest {
+  uint32 band_id = 1;
+}
+
+message ListBandMembersResponse {
+  repeated BandMember members = 1;
+}
+
+message BandMember {
+  uint32 id = 1;
+  string name = 2;
+  string surname = 3;
+}
