@@ -3,3 +3,46 @@ rpc RegisterUser
 rpc LoginUser
 rpc GetProfile
 */
+
+syntax = "proto3";
+
+package digital_music_stand.user;
+option go_package = "github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpb";
+
+service UserService {
+  rpc RegisterUser(RegisterUserRequest) returns (RegisterUserResponse);
+  rpc LoginUser(LoginUserRequest) returns (LoginUserResponse);
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+}
+
+message RegisterUserRequest {
+  string email = 1;
+  string password = 2;
+  string name = 3;
+  string surname = 4;
+}
+
+message RegisterUserResponse {
+  uint32  id = 1;
+  string message = 2;
+}
+
+message LoginUserRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginUserResponse {
+  string token = 1;
+}
+
+message GetProfileRequest {
+  uint32 id = 1;
+}
+
+message GetProfileResponse {
+  uint32 id = 1;
+  string email = 2;
+  string name = 3;
+  string surname = 4;
+}
