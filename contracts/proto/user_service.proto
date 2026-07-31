@@ -1,0 +1,5 @@
+/*
+rpc RegisterUser
+rpc LoginUser
+rpc GetProfile
+*/
