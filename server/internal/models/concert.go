@@ -18,3 +18,17 @@ type Concert struct {
 	Band Band `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	User User `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
+
+type ConcertItem struct {
+	ID        uint `gorm:"primaryKey"`
+	ConcertID uint `gorm:"not null;uniqueIndex:idx_concert_sort"`
+	SortOrder int  `gorm:"not null;uniqueIndex:idx_concert_sort"`
+	ScoreID   *uint
+	BreakMin  *int
+	CreatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+
+	Concert Concert `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Score   Score   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
