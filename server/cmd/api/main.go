@@ -3,8 +3,16 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
+	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/services"
+	"google.golang.org/grpc"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -34,4 +42,22 @@ func main() {
 		log.Fatalf("failed to migrate database: %v", err)
 	}
 	fmt.Println("Migrated database")
+
+	lis, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	grpcServer := grpc.NewServer()
+
+	userpb.RegisterUserServiceServer(grpcServer, services.NewUserService(db))
+	scorepb.RegisterScoreServiceServer(grpcServer, services.NewScoreService(db))
+	bandpb.RegisterBandServiceServer(grpcServer, services.NewBandService(db))
+	concertpb.RegisterConcertServiceServer(grpcServer, services.NewConcertService(db))
+	syncpb.RegisterLiveSyncServiceServer(grpcServer, services.NewLiveSyncService())
+
+	log.Println("Listening on", lis.Addr())
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
 }
