@@ -14,12 +14,14 @@ import (
 
 type UserService struct {
 	userpb.UnimplementedUserServiceServer
-	db *gorm.DB
+	db        *gorm.DB
+	jwtSecret []byte
 }
 
 func NewUserService(db *gorm.DB) *UserService {
 	return &UserService{
-		db: db,
+		db:        db,
+		jwtSecret: jwtSecretKey,
 	}
 }
 
