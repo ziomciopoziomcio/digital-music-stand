@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
@@ -19,7 +21,26 @@ import (
 )
 
 func main() {
-	dsn := "host=localhost user=devuser password=devpassword dbname=musicstand port=5432 sslmode=disable"
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using environment variables")
+	}
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is required")
+	}
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbName := os.Getenv("DB_NAME")
+	dbSSLMode := os.Getenv("DB_SSLMODE")
+
+	if dbHost == "" || dbPort == "" || dbUser == "" || dbName == "" {
+		log.Fatal("Database environment variables (DB_HOST, DB_PORT, DB_USER, DB_NAME) are required")
+	}
+
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=UTC", dbHost, dbUser, dbPassword, dbName, dbPort, dbSSLMode)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
@@ -50,7 +71,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(auth.AuthInterceptor),
+		grpc.UnaryInterceptor(auth.NewAuthInterceptor(jwtSecret)),
 	)
 
 	userpb.RegisterUserServiceServer(grpcServer, services.NewUserService(db))
