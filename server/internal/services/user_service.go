@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/auth"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -90,12 +91,13 @@ func (s *UserService) LoginUser(ctx context.Context, req *userpb.LoginUserReques
 }
 
 func (s *UserService) GetProfile(ctx context.Context, req *userpb.GetProfileRequest) (*userpb.GetProfileResponse, error) {
-	if req.GetId() == 0 {
-		return nil, fmt.Errorf("missing required fields")
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user id from context: %v", err)
 	}
 
 	var user models.User
-	if err := s.db.First(&user, req.GetId()).Error; err != nil {
+	if err := s.db.First(&user, userID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("user not found")
 		}
