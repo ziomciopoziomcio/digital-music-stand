@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/auth"
 )
 
 type LiveSyncService struct {
@@ -37,7 +38,13 @@ func (s *LiveSyncService) SyncConcertStream(stream syncpb.LiveSyncService_SyncCo
 	}
 
 	concertID = req.GetConcertId()
-	userID = req.GetUserId()
+
+	authUserID, err := auth.GetUserIDFromContext(stream.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get user id from context: %v", err)
+	}
+	userID = uint32(authUserID)
+
 	connID := fmt.Sprintf("concert-%d-user-%d", concertID, userID)
 
 	s.mu.Lock()

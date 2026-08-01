@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
+	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/auth"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
 	"gorm.io/gorm"
 )
@@ -21,7 +22,12 @@ func NewScoreService(db *gorm.DB) *ScoreService {
 }
 
 func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScoreRequest) (*scorepb.CreateScoreResponse, error) {
-	if req.GetName() == "" || req.GetFilePath() == "" || req.GetOwnerId() == 0 { // todo: OwnerID should be extracted from JWT token
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user id from context: %v", err)
+	}
+
+	if req.GetName() == "" || req.GetFilePath() == "" {
 		return nil, fmt.Errorf("missing required fields")
 	}
 
@@ -34,7 +40,7 @@ func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScore
 		Name:     req.GetName(),
 		Composer: composer,
 		FilePath: req.GetFilePath(),
-		OwnerID:  uint(req.GetOwnerId()),
+		OwnerID:  userID,
 	}
 
 	if err := s.db.Create(&newScore).Error; err != nil {
@@ -48,12 +54,13 @@ func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScore
 }
 
 func (s *ScoreService) ListMyScores(ctx context.Context, req *scorepb.ListMyScoresRequest) (*scorepb.ListMyScoresResponse, error) {
-	if req.GetUserId() == 0 { // todo: UserID should be extracted from JWT token
-		return nil, fmt.Errorf("missing required fields")
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user id from context: %v", err)
 	}
 
 	var scores []models.Score
-	if err := s.db.Where("owner_id = ?", req.GetUserId()).Find(&scores).Error; err != nil {
+	if err := s.db.Where("owner_id = ?", userID).Find(&scores).Error; err != nil {
 		return nil, fmt.Errorf("failed to list scores: %v", err)
 	}
 

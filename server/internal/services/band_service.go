@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/auth"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
 	"gorm.io/gorm"
 )
@@ -21,15 +22,20 @@ func NewBandService(db *gorm.DB) *BandService {
 }
 
 func (s *BandService) CreateBand(ctx context.Context, req *bandpb.CreateBandRequest) (*bandpb.CreateBandResponse, error) {
-	if req.GetName() == "" || req.GetManagerId() == 0 { // todo: ManagerID should be extracted from JWT token
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user id from context: %v", err)
+	}
+
+	if req.GetName() == "" {
 		return nil, fmt.Errorf("missing required fields")
 	}
 
 	var newBand models.Band
-	err := s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		newBand = models.Band{
 			Name:      req.GetName(),
-			ManagerID: uint(req.GetManagerId()),
+			ManagerID: userID,
 		}
 
 		if err := tx.Create(&newBand).Error; err != nil {
@@ -38,7 +44,7 @@ func (s *BandService) CreateBand(ctx context.Context, req *bandpb.CreateBandRequ
 
 		firstMember := models.BandMember{
 			BandID: newBand.ID,
-			UserID: uint(req.GetManagerId()),
+			UserID: userID,
 		}
 		if err := tx.Create(&firstMember).Error; err != nil {
 			return fmt.Errorf("failed to add manager as first member: %v", err)
