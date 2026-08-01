@@ -10,6 +10,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/auth"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/services"
 	"google.golang.org/grpc"
@@ -48,7 +49,9 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(auth.AuthInterceptor),
+	)
 
 	userpb.RegisterUserServiceServer(grpcServer, services.NewUserService(db))
 	scorepb.RegisterScoreServiceServer(grpcServer, services.NewScoreService(db))
