@@ -18,23 +18,21 @@ type UserService struct {
 	jwtSecret []byte
 }
 
-func NewUserService(db *gorm.DB) *UserService {
+func NewUserService(db *gorm.DB, secret string) *UserService {
 	return &UserService{
 		db:        db,
-		jwtSecret: jwtSecretKey,
+		jwtSecret: []byte(secret),
 	}
 }
 
-var jwtSecretKey = []byte("your_secret_key") //todo: move to config
-
-func generateJWT(userID uint) (string, error) {
+func (s *UserService) generateJWT(userID uint) (string, error) {
 	claims := jwt.MapClaims{
 		"sub": userID,
 		"exp": time.Now().Add(time.Hour * 24).Unix(), // todo: move to config
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecretKey)
+	return token.SignedString(s.jwtSecret)
 }
 
 func (s *UserService) RegisterUser(ctx context.Context, req *userpb.RegisterUserRequest) (*userpb.RegisterUserResponse, error) {
@@ -81,7 +79,7 @@ func (s *UserService) LoginUser(ctx context.Context, req *userpb.LoginUserReques
 		return nil, fmt.Errorf("invalid password")
 	}
 
-	tokenString, err := generateJWT(user.ID)
+	tokenString, err := s.generateJWT(user.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate JWT: %v", err)
 	}
