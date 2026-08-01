@@ -36,8 +36,8 @@ func (s *LiveSyncService) SyncConcertStream(stream syncpb.LiveSyncService_SyncCo
 		return err
 	}
 
-	concertID = req.ConcertId
-	userID = req.UserId
+	concertID = req.GetConcertId()
+	userID = req.GetUserId()
 	connID := fmt.Sprintf("concert-%d-user-%d", concertID, userID)
 
 	s.mu.Lock()
@@ -84,9 +84,9 @@ func (s *LiveSyncService) broadcast(concertID uint32, req *syncpb.SyncRequest) {
 	}
 
 	resp := &syncpb.SyncResponse{
-		ConcertId:     req.ConcertId,
-		SenderId:      req.UserId,
-		Action:        req.Action,
+		ConcertId:     req.GetConcertId(),
+		SenderId:      req.GetUserId(),
+		Action:        req.GetAction(),
 		PageNumber:    req.PageNumber,
 		MeasureNumber: req.MeasureNumber,
 		TimestampMs:   time.Now().UnixMilli(),

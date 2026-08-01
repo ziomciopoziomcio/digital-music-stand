@@ -36,20 +36,20 @@ func generateJWT(userID uint) (string, error) {
 }
 
 func (s *UserService) RegisterUser(ctx context.Context, req *userpb.RegisterUserRequest) (*userpb.RegisterUserResponse, error) {
-	if req.Email == "" || req.Password == "" || req.Name == "" || req.Surname == "" {
+	if req.GetEmail() == "" || req.GetPassword() == "" || req.GetName() == "" || req.GetSurname() == "" {
 		return nil, fmt.Errorf("missing required fields")
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.GetPassword()), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %v", err)
 	}
 
 	newUser := models.User{
 		PasswordHash: string(hashedPassword),
-		Email:        req.Email,
-		Name:         req.Name,
-		Surname:      req.Surname,
+		Email:        req.GetEmail(),
+		Name:         req.GetName(),
+		Surname:      req.GetSurname(),
 	}
 
 	if err := s.db.Create(&newUser).Error; err != nil {
@@ -63,19 +63,19 @@ func (s *UserService) RegisterUser(ctx context.Context, req *userpb.RegisterUser
 }
 
 func (s *UserService) LoginUser(ctx context.Context, req *userpb.LoginUserRequest) (*userpb.LoginUserResponse, error) {
-	if req.Email == "" || req.Password == "" {
+	if req.GetEmail() == "" || req.GetPassword() == "" {
 		return nil, fmt.Errorf("missing required fields")
 	}
 
 	var user models.User
-	if err := s.db.Where("email = ?", req.Email).First(&user).Error; err != nil {
+	if err := s.db.Where("email = ?", req.GetEmail()).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("user not found")
-		}
+		} //todo: error.is
 		return nil, fmt.Errorf("failed to query user: %v", err)
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.GetPassword())); err != nil {
 		return nil, fmt.Errorf("invalid password")
 	}
 
@@ -90,12 +90,12 @@ func (s *UserService) LoginUser(ctx context.Context, req *userpb.LoginUserReques
 }
 
 func (s *UserService) GetProfile(ctx context.Context, req *userpb.GetProfileRequest) (*userpb.GetProfileResponse, error) {
-	if req.Id == 0 {
+	if req.GetId() == 0 {
 		return nil, fmt.Errorf("missing required fields")
 	}
 
 	var user models.User
-	if err := s.db.First(&user, req.Id).Error; err != nil {
+	if err := s.db.First(&user, req.GetId()).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("user not found")
 		}

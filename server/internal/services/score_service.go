@@ -21,20 +21,20 @@ func NewScoreService(db *gorm.DB) *ScoreService {
 }
 
 func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScoreRequest) (*scorepb.CreateScoreResponse, error) {
-	if req.Name == "" || req.FilePath == "" || req.OwnerId == 0 { // todo: OwnerID should be extracted from JWT token
+	if req.GetName() == "" || req.GetFilePath() == "" || req.GetOwnerId() == 0 { // todo: OwnerID should be extracted from JWT token
 		return nil, fmt.Errorf("missing required fields")
 	}
 
 	var composer *string
-	if req.Composer != "" {
+	if req.GetComposer() != "" {
 		composer = &req.Composer
 	}
 
 	newScore := models.Score{
-		Name:     req.Name,
+		Name:     req.GetName(),
 		Composer: composer,
-		FilePath: req.FilePath,
-		OwnerID:  uint(req.OwnerId),
+		FilePath: req.GetFilePath(),
+		OwnerID:  uint(req.GetOwnerId()),
 	}
 
 	if err := s.db.Create(&newScore).Error; err != nil {
@@ -48,12 +48,12 @@ func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScore
 }
 
 func (s *ScoreService) ListMyScores(ctx context.Context, req *scorepb.ListMyScoresRequest) (*scorepb.ListMyScoresResponse, error) {
-	if req.UserId == 0 { // todo: UserID should be extracted from JWT token
+	if req.GetUserId() == 0 { // todo: UserID should be extracted from JWT token
 		return nil, fmt.Errorf("missing required fields")
 	}
 
 	var scores []models.Score
-	if err := s.db.Where("owner_id = ?", req.UserId).Find(&scores).Error; err != nil {
+	if err := s.db.Where("owner_id = ?", req.GetUserId()).Find(&scores).Error; err != nil {
 		return nil, fmt.Errorf("failed to list scores: %v", err)
 	}
 
@@ -77,7 +77,7 @@ func (s *ScoreService) ListMyScores(ctx context.Context, req *scorepb.ListMyScor
 }
 
 func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRequest) (*scorepb.ShareScoreResponse, error) {
-	if req.ScoreId == 0 {
+	if req.GetScoreId() == 0 {
 		return nil, fmt.Errorf("missing required fields")
 	}
 	if req.UserId == nil && req.BandId == nil {
@@ -88,7 +88,7 @@ func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRe
 	}
 
 	var score models.Score
-	if err := s.db.First(&score, req.ScoreId).Error; err != nil {
+	if err := s.db.First(&score, req.GetScoreId()).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("score not found")
 		}
@@ -97,7 +97,7 @@ func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRe
 
 	if req.UserId != nil {
 		newShare := models.SharedUserScore{
-			ScoreID: uint(req.ScoreId),
+			ScoreID: uint(req.GetScoreId()),
 			UserID:  uint(*req.UserId),
 		}
 		if err := s.db.Create(&newShare).Error; err != nil {
@@ -105,7 +105,7 @@ func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRe
 		}
 	} else if req.BandId != nil {
 		newShare := models.SharedBandScore{
-			ScoreID: uint(req.ScoreId),
+			ScoreID: uint(req.GetScoreId()),
 			BandID:  uint(*req.BandId),
 		}
 		if err := s.db.Create(&newShare).Error; err != nil {

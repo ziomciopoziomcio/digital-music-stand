@@ -21,7 +21,7 @@ func NewConcertService(db *gorm.DB) *ConcertService {
 }
 
 func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.CreateConcertRequest) (*concertpb.CreateConcertResponse, error) {
-	if req.Name == "" {
+	if req.GetName() == "" {
 		return nil, fmt.Errorf("missing required fields")
 	}
 
@@ -43,7 +43,7 @@ func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.Creat
 	}
 
 	newConcert := models.Concert{
-		Name:   req.Name,
+		Name:   req.GetName(),
 		BandID: bandID,
 		UserID: userID,
 	}
@@ -59,7 +59,7 @@ func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.Creat
 }
 
 func (s *ConcertService) AddConcertItem(ctx context.Context, req *concertpb.AddConcertItemRequest) (*concertpb.AddConcertItemResponse, error) {
-	if req.ConcertId == 0 { // todo: check for permission
+	if req.GetConcertId() == 0 { // todo: check for permission
 		return nil, fmt.Errorf("missing required fields")
 	}
 	if req.ScoreId == nil && req.BreakMin == nil {
@@ -81,10 +81,10 @@ func (s *ConcertService) AddConcertItem(ctx context.Context, req *concertpb.AddC
 	}
 
 	newItem := models.ConcertItem{
-		ConcertID: uint(req.ConcertId),
+		ConcertID: uint(req.GetConcertId()),
 		ScoreID:   scoreID,
 		BreakMin:  breakMin,
-		SortOrder: int(req.Order),
+		SortOrder: int(req.GetOrder()),
 	}
 
 	if err := s.db.Create(&newItem).Error; err != nil {
@@ -98,13 +98,13 @@ func (s *ConcertService) AddConcertItem(ctx context.Context, req *concertpb.AddC
 }
 
 func (s *ConcertService) GetConcertSetlist(ctx context.Context, req *concertpb.GetConcertSetlistRequest) (*concertpb.GetConcertSetlistResponse, error) {
-	if req.ConcertId == 0 { // todo: check for permission
+	if req.GetConcertId() == 0 { // todo: check for permission
 		return nil, fmt.Errorf("missing required fields")
 	}
 
 	var items []models.ConcertItem
 
-	if err := s.db.Preload("Score").Where("concert_id = ?", req.ConcertId).Order("sort_order asc").Find(&items).Error; err != nil {
+	if err := s.db.Preload("Score").Where("concert_id = ?", req.GetConcertId()).Order("sort_order asc").Find(&items).Error; err != nil {
 		return nil, fmt.Errorf("failed to get concert setlist: %v", err)
 	}
 
