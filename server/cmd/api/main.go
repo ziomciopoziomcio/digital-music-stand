@@ -74,7 +74,7 @@ func main() {
 		grpc.UnaryInterceptor(auth.NewAuthInterceptor(jwtSecret)),
 	)
 
-	userpb.RegisterUserServiceServer(grpcServer, services.NewUserService(db))
+	userpb.RegisterUserServiceServer(grpcServer, services.NewUserService(db, jwtSecret))
 	scorepb.RegisterScoreServiceServer(grpcServer, services.NewScoreService(db))
 	bandpb.RegisterBandServiceServer(grpcServer, services.NewBandService(db))
 	concertpb.RegisterConcertServiceServer(grpcServer, services.NewConcertService(db))
