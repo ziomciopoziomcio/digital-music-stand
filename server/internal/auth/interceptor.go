@@ -50,7 +50,7 @@ func NewAuthInterceptor(secret string) grpc.UnaryServerInterceptor {
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
 			if sub, ok := claims["sub"].(float64); ok {
-				ctx = context.WithValue(ctx, "user_id", uint(sub))
+				ctx = context.WithValue(ctx, userIDKey, uint(sub))
 			}
 		}
 		return handler(ctx, req)
