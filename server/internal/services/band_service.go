@@ -21,15 +21,15 @@ func NewBandService(db *gorm.DB) *BandService {
 }
 
 func (s *BandService) CreateBand(ctx context.Context, req *bandpb.CreateBandRequest) (*bandpb.CreateBandResponse, error) {
-	if req.Name == "" || req.ManagerId == 0 { // todo: ManagerID should be extracted from JWT token
+	if req.GetName() == "" || req.GetManagerId() == 0 { // todo: ManagerID should be extracted from JWT token
 		return nil, fmt.Errorf("missing required fields")
 	}
 
 	var newBand models.Band
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		newBand = models.Band{
-			Name:      req.Name,
-			ManagerID: uint(req.ManagerId),
+			Name:      req.GetName(),
+			ManagerID: uint(req.GetManagerId()),
 		}
 
 		if err := tx.Create(&newBand).Error; err != nil {
@@ -38,7 +38,7 @@ func (s *BandService) CreateBand(ctx context.Context, req *bandpb.CreateBandRequ
 
 		firstMember := models.BandMember{
 			BandID: newBand.ID,
-			UserID: uint(req.ManagerId),
+			UserID: uint(req.GetManagerId()),
 		}
 		if err := tx.Create(&firstMember).Error; err != nil {
 			return fmt.Errorf("failed to add manager as first member: %v", err)
@@ -57,15 +57,15 @@ func (s *BandService) CreateBand(ctx context.Context, req *bandpb.CreateBandRequ
 }
 
 func (s *BandService) AddBandMember(ctx context.Context, req *bandpb.AddBandMemberRequest) (*bandpb.AddBandMemberResponse, error) {
-	if req.BandId == 0 || req.UserId == 0 {
+	if req.GetBandId() == 0 || req.GetUserId() == 0 {
 		return nil, fmt.Errorf("missing required fields")
 	}
 
 	//todo: check if the user is manager of the band
 
 	newMember := models.BandMember{
-		BandID: uint(req.BandId),
-		UserID: uint(req.UserId),
+		BandID: uint(req.GetBandId()),
+		UserID: uint(req.GetUserId()),
 	}
 
 	if err := s.db.Create(&newMember).Error; err != nil {
@@ -78,7 +78,7 @@ func (s *BandService) AddBandMember(ctx context.Context, req *bandpb.AddBandMemb
 }
 
 func (s *BandService) ListBandMembers(ctx context.Context, req *bandpb.ListBandMembersRequest) (*bandpb.ListBandMembersResponse, error) {
-	if req.BandId == 0 { // todo: Check if the user is a member of the band or the manager
+	if req.GetBandId() == 0 { // todo: Check if the user is a member of the band or the manager
 		return nil, fmt.Errorf("missing required fields")
 	}
 
@@ -92,7 +92,7 @@ func (s *BandService) ListBandMembers(ctx context.Context, req *bandpb.ListBandM
 	err := s.db.Table("band_members").
 		Select("users.id, users.name, users.surname").
 		Joins("JOIN users ON band_members.user_id = users.id").
-		Where("band_members.band_id = ?", req.BandId).
+		Where("band_members.band_id = ?", req.GetBandId()).
 		Scan(&results).Error
 
 	if err != nil {
