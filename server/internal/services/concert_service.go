@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/auth"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
 	"gorm.io/gorm"
 )
@@ -21,25 +22,21 @@ func NewConcertService(db *gorm.DB) *ConcertService {
 }
 
 func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.CreateConcertRequest) (*concertpb.CreateConcertResponse, error) {
-	if req.GetName() == "" {
-		return nil, fmt.Errorf("missing required fields")
+	authUserID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	if req.BandId == nil && req.UserId == nil {
-		return nil, fmt.Errorf("either BandId or UserId must be provided")
-	}
-	if req.BandId != nil && req.UserId != nil {
-		return nil, fmt.Errorf("only one of BandId or UserId can be provided")
+	if req.GetName() == "" {
+		return nil, fmt.Errorf("missing required fields")
 	}
 
 	var bandID, userID *uint
 	if req.BandId != nil {
 		id := uint(*req.BandId)
 		bandID = &id
-	}
-	if req.UserId != nil {
-		id := uint(*req.UserId)
-		userID = &id
+	} else {
+		userID = &authUserID
 	}
 
 	newConcert := models.Concert{
