@@ -66,7 +66,7 @@ func (s *LiveSyncService) SyncConcertStream(stream syncpb.LiveSyncService_SyncCo
 
 	log.Printf("connected to concert %d, user %s", concertID, userID)
 
-	s.broadcast(concertID, req)
+	s.broadcast(concertID, userID, req)
 
 	for {
 		req, err := stream.Recv()
@@ -77,11 +77,11 @@ func (s *LiveSyncService) SyncConcertStream(stream syncpb.LiveSyncService_SyncCo
 			log.Printf("error receiving from stream: %v", err)
 			return err
 		}
-		s.broadcast(concertID, req)
+		s.broadcast(concertID, userID, req)
 	}
 }
 
-func (s *LiveSyncService) broadcast(concertID uint32, req *syncpb.SyncRequest) {
+func (s *LiveSyncService) broadcast(concertID uint32, senderID uint32, req *syncpb.SyncRequest) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -92,7 +92,7 @@ func (s *LiveSyncService) broadcast(concertID uint32, req *syncpb.SyncRequest) {
 
 	resp := &syncpb.SyncResponse{
 		ConcertId:     req.GetConcertId(),
-		SenderId:      req.GetUserId(),
+		SenderId:      senderID,
 		Action:        req.GetAction(),
 		PageNumber:    req.PageNumber,
 		MeasureNumber: req.MeasureNumber,
