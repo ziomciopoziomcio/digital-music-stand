@@ -19,3 +19,8 @@ type NetworkManager interface {
 	Disconnect() error
 	GetNetworkStatus() NetworkStatus
 }
+
+type PowerManager interface {
+	GetBatteryPercentage() (int, error)
+	IsCharging() (bool, error)
+}
