@@ -31,7 +31,8 @@ message LoginUserResponse {
 }
 
 message GetProfileRequest {
-  uint32 id = 1;
+  reserved 1;
+  reserved "id";
 }
 
 message GetProfileResponse {

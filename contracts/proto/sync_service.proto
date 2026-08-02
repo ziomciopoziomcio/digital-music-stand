@@ -20,11 +20,13 @@ enum ActionType {
 
 message SyncRequest {
   uint32 concert_id = 1;
-  uint32 user_id = 2;
   ActionType action = 3;
 
   optional uint32 page_number = 4;
   optional uint32 measure_number = 5;
+
+  reserved 2;
+  reserved "user_id";
 }
 
 message SyncResponse {

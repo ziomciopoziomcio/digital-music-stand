@@ -12,7 +12,9 @@ service ConcertService {
 message CreateConcertRequest {
   string name = 1;
   optional uint32 band_id = 2;
-  optional uint32 user_id = 3;
+
+  reserved 3;
+  reserved "user_id";
 }
 
 message CreateConcertResponse {
