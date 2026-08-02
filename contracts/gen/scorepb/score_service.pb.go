@@ -25,7 +25,8 @@ type CreateScoreRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Composer      string                 `protobuf:"bytes,2,opt,name=composer,proto3" json:"composer,omitempty"`
-	FilePath      string                 `protobuf:"bytes,3,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	FileData      []byte                 `protobuf:"bytes,5,opt,name=file_data,json=fileData,proto3" json:"file_data,omitempty"`
+	FileExtension string                 `protobuf:"bytes,6,opt,name=file_extension,json=fileExtension,proto3" json:"file_extension,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -74,9 +75,16 @@ func (x *CreateScoreRequest) GetComposer() string {
 	return ""
 }
 
-func (x *CreateScoreRequest) GetFilePath() string {
+func (x *CreateScoreRequest) GetFileData() []byte {
 	if x != nil {
-		return x.FilePath
+		return x.FileData
+	}
+	return nil
+}
+
+func (x *CreateScoreRequest) GetFileExtension() string {
+	if x != nil {
+		return x.FileExtension
 	}
 	return ""
 }
@@ -389,11 +397,12 @@ var File_proto_score_service_proto protoreflect.FileDescriptor
 
 const file_proto_score_service_proto_rawDesc = "" +
 	"\n" +
-	"\x19proto/score_service.proto\x12\x19digital_music_stand.score\"q\n" +
+	"\x19proto/score_service.proto\x12\x19digital_music_stand.score\"\xa9\x01\n" +
 	"\x12CreateScoreRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n" +
 	"\bcomposer\x18\x02 \x01(\tR\bcomposer\x12\x1b\n" +
-	"\tfile_path\x18\x03 \x01(\tR\bfilePathJ\x04\b\x04\x10\x05R\bowner_id\"?\n" +
+	"\tfile_data\x18\x05 \x01(\fR\bfileData\x12%\n" +
+	"\x0efile_extension\x18\x06 \x01(\tR\rfileExtensionJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\tfile_pathR\bowner_id\"?\n" +
 	"\x13CreateScoreResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"$\n" +

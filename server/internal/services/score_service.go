@@ -3,7 +3,11 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 
+	"github.com/google/uuid"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/auth"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
@@ -27,8 +31,26 @@ func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScore
 		return nil, fmt.Errorf("failed to get user id from context: %v", err)
 	}
 
-	if req.GetName() == "" || req.GetFilePath() == "" {
+	if req.GetName() == "" || len(req.GetFileData()) == 0 {
 		return nil, fmt.Errorf("missing required fields")
+	}
+
+	fileID := uuid.New().String()
+	ext := req.GetFileExtension()
+	if ext == "" {
+		ext = ".pdf" // default to PDF if no extension is provided
+	}
+	fileName := fileID + ext
+
+	storageDir := "./storage/scores"
+	if err := os.MkdirAll(storageDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create storage directory: %v", err)
+	}
+
+	fullPath := filepath.Join(storageDir, fileName)
+
+	if err := os.WriteFile(fullPath, req.GetFileData(), 0644); err != nil {
+		return nil, fmt.Errorf("failed to save file: %v", err)
 	}
 
 	var composer *string
@@ -39,11 +61,15 @@ func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScore
 	newScore := models.Score{
 		Name:     req.GetName(),
 		Composer: composer,
-		FilePath: req.GetFilePath(),
+		FilePath: fileName,
 		OwnerID:  userID,
 	}
 
 	if err := s.db.Create(&newScore).Error; err != nil {
+		err := os.Remove(fullPath)
+		if err != nil {
+			log.Printf("failed to remove file after DB error: %v", err)
+		}
 		return nil, fmt.Errorf("failed to create score: %v", err)
 	}
 

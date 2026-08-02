@@ -12,8 +12,11 @@ service ScoreService {
 message CreateScoreRequest {
   string name = 1;
   string composer = 2;
-  string file_path = 3;
+  bytes file_data = 5;
+  string file_extension = 6;
 
+  reserved 3;
+  reserved "file_path";
   reserved 4;
   reserved "owner_id";
 }
