@@ -24,3 +24,10 @@ type PowerManager interface {
 	GetBatteryPercentage() (int, error)
 	IsCharging() (bool, error)
 }
+
+type MediaManager interface {
+	GetVolume() (int, error)
+	SetVolume(level int) error
+	GetBrightness() (int, error)
+	SetBrightness(level int) error
+}
