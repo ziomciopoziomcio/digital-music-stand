@@ -96,7 +96,7 @@ func (s *BandService) AddBandMember(ctx context.Context, req *bandpb.AddBandMemb
 }
 
 func (s *BandService) ListBandMembers(ctx context.Context, req *bandpb.ListBandMembersRequest) (*bandpb.ListBandMembersResponse, error) {
-	if req.GetBandId() == 0 { // todo: Check if the user is a member of the band or the manager
+	if req.GetBandId() == 0 {
 		return nil, fmt.Errorf("missing required fields")
 	}
 
