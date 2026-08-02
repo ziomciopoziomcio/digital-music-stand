@@ -31,3 +31,9 @@ type MediaManager interface {
 	GetBrightness() (int, error)
 	SetBrightness(level int) error
 }
+
+type DeviceManager interface {
+	Reboot() error
+	Shutdown() error
+	SetKeepAwake(awake bool) error
+}
