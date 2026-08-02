@@ -61,10 +61,10 @@ func (s *LiveSyncService) SyncConcertStream(stream syncpb.LiveSyncService_SyncCo
 			delete(s.connections, concertID)
 		}
 		s.mu.Unlock()
-		log.Printf("disconnected from concert %d, user %s", concertID, userID)
+		log.Printf("disconnected from concert %d, user %d", concertID, userID)
 	}()
 
-	log.Printf("connected to concert %d, user %s", concertID, userID)
+	log.Printf("connected to concert %d, user %d", concertID, userID)
 
 	s.broadcast(concertID, userID, req)
 
