@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -72,9 +73,9 @@ func (s *UserService) LoginUser(ctx context.Context, req *userpb.LoginUserReques
 
 	var user models.User
 	if err := s.db.Where("email = ?", req.GetEmail()).First(&user).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("user not found")
-		} //todo: error.is
+		}
 		return nil, fmt.Errorf("failed to query user: %v", err)
 	}
 
