@@ -124,7 +124,7 @@ func (s *BandService) ListBandMembers(ctx context.Context, req *bandpb.ListBandM
 	}
 	var results []MemberResult
 
-	err := s.db.Table("band_members").
+	err = s.db.Table("band_members").
 		Select("users.id, users.name, users.surname").
 		Joins("JOIN users ON band_members.user_id = users.id").
 		Where("band_members.band_id = ?", req.GetBandId()).
