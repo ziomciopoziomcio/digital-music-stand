@@ -37,3 +37,7 @@ type DeviceManager interface {
 	Shutdown() error
 	SetKeepAwake(awake bool) error
 }
+
+type StorageManager interface {
+	GetMountedUSBDrives() ([]string, error)
+}
