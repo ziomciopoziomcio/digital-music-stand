@@ -67,7 +67,19 @@ func (s *BandService) AddBandMember(ctx context.Context, req *bandpb.AddBandMemb
 		return nil, fmt.Errorf("missing required fields")
 	}
 
-	//todo: check if the user is manager of the band
+	authUserID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user id from context: %v", err)
+	}
+
+	var band models.Band
+	if err := s.db.Select("manager_id").First(&band, req.GetBandId()).Error; err != nil {
+		return nil, fmt.Errorf("failed to find band: %v", err)
+	}
+
+	if band.ManagerID != authUserID {
+		return nil, fmt.Errorf("only the band manager can add members")
+	}
 
 	newMember := models.BandMember{
 		BandID: uint(req.GetBandId()),
@@ -86,6 +98,23 @@ func (s *BandService) AddBandMember(ctx context.Context, req *bandpb.AddBandMemb
 func (s *BandService) ListBandMembers(ctx context.Context, req *bandpb.ListBandMembersRequest) (*bandpb.ListBandMembersResponse, error) {
 	if req.GetBandId() == 0 { // todo: Check if the user is a member of the band or the manager
 		return nil, fmt.Errorf("missing required fields")
+	}
+
+	authUserID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user id from context: %v", err)
+	}
+
+	var count int64
+
+	if err := s.db.Model(&models.BandMember{}).
+		Where("band_id = ? AND user_id = ?", req.GetBandId(), authUserID).
+		Count(&count).Error; err != nil {
+		return nil, fmt.Errorf("failed to check if user is a member of the band: %v", err)
+	}
+
+	if count == 0 {
+		return nil, fmt.Errorf("user is not a member of the band")
 	}
 
 	type MemberResult struct {
