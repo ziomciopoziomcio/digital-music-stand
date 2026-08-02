@@ -56,9 +56,14 @@ func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.Creat
 }
 
 func (s *ConcertService) AddConcertItem(ctx context.Context, req *concertpb.AddConcertItemRequest) (*concertpb.AddConcertItemResponse, error) {
-	if req.GetConcertId() == 0 { // todo: check for permission
+	if req.GetConcertId() == 0 {
 		return nil, fmt.Errorf("missing required fields")
 	}
+
+	if err := s.checkConcertPermission(ctx, uint(req.GetConcertId())); err != nil {
+		return nil, err
+	}
+
 	if req.ScoreId == nil && req.BreakMin == nil {
 		return nil, fmt.Errorf("either ScoreId or BreakMin must be provided")
 	}
@@ -95,8 +100,11 @@ func (s *ConcertService) AddConcertItem(ctx context.Context, req *concertpb.AddC
 }
 
 func (s *ConcertService) GetConcertSetlist(ctx context.Context, req *concertpb.GetConcertSetlistRequest) (*concertpb.GetConcertSetlistResponse, error) {
-	if req.GetConcertId() == 0 { // todo: check for permission
+	if req.GetConcertId() == 0 {
 		return nil, fmt.Errorf("missing required fields")
+	}
+	if err := s.checkConcertPermission(ctx, uint(req.GetConcertId())); err != nil {
+		return nil, err
 	}
 
 	var items []models.ConcertItem
