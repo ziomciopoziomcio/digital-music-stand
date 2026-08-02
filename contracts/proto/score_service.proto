@@ -13,7 +13,9 @@ message CreateScoreRequest {
   string name = 1;
   string composer = 2;
   string file_path = 3;
-  uint32 owner_id = 4;
+
+  reserved 4;
+  reserved "owner_id";
 }
 
 message CreateScoreResponse {
@@ -22,7 +24,8 @@ message CreateScoreResponse {
 }
 
 message ListMyScoresRequest {
-  uint32 user_id = 1;
+  reserved 1;
+  reserved "user_id";
 }
 
 message ListMyScoresResponse {

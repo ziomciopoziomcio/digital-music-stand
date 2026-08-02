@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             v3.21.12
-// source: concert_service.proto
+// source: proto/concert_service.proto
 
 package concertpb
 
@@ -193,5 +193,5 @@ var ConcertService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "concert_service.proto",
+	Metadata: "proto/concert_service.proto",
 }

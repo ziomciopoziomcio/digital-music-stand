@@ -11,7 +11,9 @@ service BandService {
 
 message CreateBandRequest {
   string name = 1;
-  uint32 manager_id = 2;
+
+  reserved 2;
+  reserved "manager_id";
 }
 
 message CreateBandResponse {
