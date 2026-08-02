@@ -131,3 +131,38 @@ func (s *ConcertService) GetConcertSetlist(ctx context.Context, req *concertpb.G
 		Items: grpcItems,
 	}, nil
 }
+
+func (s *ConcertService) checkConcertPermission(ctx context.Context, concertID uint) error {
+	authUserID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	var concert models.Concert
+	if err := s.db.Select("user_id, band_id").First(&concert, concertID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("concert not found")
+		}
+		return fmt.Errorf("failed to find concert: %v", err)
+	}
+
+	if concert.UserID != nil {
+		if *concert.UserID != authUserID {
+			return fmt.Errorf("user does not have permission to modify this concert")
+		}
+		return nil
+	}
+	if concert.BandID != nil {
+		var count int64
+		if err := s.db.Model(&models.BandMember{}).
+			Where("band_id = ? AND user_id = ?", *concert.BandID, authUserID).
+			Count(&count).Error; err != nil {
+			return fmt.Errorf("failed to check band membership: %v", err)
+		}
+		if count == 0 {
+			return fmt.Errorf("user does not have permission to modify this concert")
+		}
+		return nil
+	}
+	return fmt.Errorf("invalid concert data: neither user_id nor band_id is set")
+}
