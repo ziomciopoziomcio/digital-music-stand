@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v3.21.12
-// source: sync_service.proto
+// source: proto/sync_service.proto
 
 package syncpb
 
@@ -63,11 +63,11 @@ func (x ActionType) String() string {
 }
 
 func (ActionType) Descriptor() protoreflect.EnumDescriptor {
-	return file_sync_service_proto_enumTypes[0].Descriptor()
+	return file_proto_sync_service_proto_enumTypes[0].Descriptor()
 }
 
 func (ActionType) Type() protoreflect.EnumType {
-	return &file_sync_service_proto_enumTypes[0]
+	return &file_proto_sync_service_proto_enumTypes[0]
 }
 
 func (x ActionType) Number() protoreflect.EnumNumber {
@@ -76,13 +76,12 @@ func (x ActionType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ActionType.Descriptor instead.
 func (ActionType) EnumDescriptor() ([]byte, []int) {
-	return file_sync_service_proto_rawDescGZIP(), []int{0}
+	return file_proto_sync_service_proto_rawDescGZIP(), []int{0}
 }
 
 type SyncRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ConcertId     uint32                 `protobuf:"varint,1,opt,name=concert_id,json=concertId,proto3" json:"concert_id,omitempty"`
-	UserId        uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Action        ActionType             `protobuf:"varint,3,opt,name=action,proto3,enum=digital_music_stand.sync.ActionType" json:"action,omitempty"`
 	PageNumber    *uint32                `protobuf:"varint,4,opt,name=page_number,json=pageNumber,proto3,oneof" json:"page_number,omitempty"`
 	MeasureNumber *uint32                `protobuf:"varint,5,opt,name=measure_number,json=measureNumber,proto3,oneof" json:"measure_number,omitempty"`
@@ -92,7 +91,7 @@ type SyncRequest struct {
 
 func (x *SyncRequest) Reset() {
 	*x = SyncRequest{}
-	mi := &file_sync_service_proto_msgTypes[0]
+	mi := &file_proto_sync_service_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -104,7 +103,7 @@ func (x *SyncRequest) String() string {
 func (*SyncRequest) ProtoMessage() {}
 
 func (x *SyncRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sync_service_proto_msgTypes[0]
+	mi := &file_proto_sync_service_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -117,19 +116,12 @@ func (x *SyncRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncRequest.ProtoReflect.Descriptor instead.
 func (*SyncRequest) Descriptor() ([]byte, []int) {
-	return file_sync_service_proto_rawDescGZIP(), []int{0}
+	return file_proto_sync_service_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *SyncRequest) GetConcertId() uint32 {
 	if x != nil {
 		return x.ConcertId
-	}
-	return 0
-}
-
-func (x *SyncRequest) GetUserId() uint32 {
-	if x != nil {
-		return x.UserId
 	}
 	return 0
 }
@@ -169,7 +161,7 @@ type SyncResponse struct {
 
 func (x *SyncResponse) Reset() {
 	*x = SyncResponse{}
-	mi := &file_sync_service_proto_msgTypes[1]
+	mi := &file_proto_sync_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -181,7 +173,7 @@ func (x *SyncResponse) String() string {
 func (*SyncResponse) ProtoMessage() {}
 
 func (x *SyncResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sync_service_proto_msgTypes[1]
+	mi := &file_proto_sync_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -194,7 +186,7 @@ func (x *SyncResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncResponse.ProtoReflect.Descriptor instead.
 func (*SyncResponse) Descriptor() ([]byte, []int) {
-	return file_sync_service_proto_rawDescGZIP(), []int{1}
+	return file_proto_sync_service_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SyncResponse) GetConcertId() uint32 {
@@ -239,21 +231,20 @@ func (x *SyncResponse) GetTimestampMs() int64 {
 	return 0
 }
 
-var File_sync_service_proto protoreflect.FileDescriptor
+var File_proto_sync_service_proto protoreflect.FileDescriptor
 
-const file_sync_service_proto_rawDesc = "" +
+const file_proto_sync_service_proto_rawDesc = "" +
 	"\n" +
-	"\x12sync_service.proto\x12\x18digital_music_stand.sync\"\xf8\x01\n" +
+	"\x18proto/sync_service.proto\x12\x18digital_music_stand.sync\"\xee\x01\n" +
 	"\vSyncRequest\x12\x1d\n" +
 	"\n" +
-	"concert_id\x18\x01 \x01(\rR\tconcertId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\rR\x06userId\x12<\n" +
+	"concert_id\x18\x01 \x01(\rR\tconcertId\x12<\n" +
 	"\x06action\x18\x03 \x01(\x0e2$.digital_music_stand.sync.ActionTypeR\x06action\x12$\n" +
 	"\vpage_number\x18\x04 \x01(\rH\x00R\n" +
 	"pageNumber\x88\x01\x01\x12*\n" +
 	"\x0emeasure_number\x18\x05 \x01(\rH\x01R\rmeasureNumber\x88\x01\x01B\x0e\n" +
 	"\f_page_numberB\x11\n" +
-	"\x0f_measure_number\"\xa0\x02\n" +
+	"\x0f_measure_numberJ\x04\b\x02\x10\x03R\auser_id\"\xa0\x02\n" +
 	"\fSyncResponse\x12\x1d\n" +
 	"\n" +
 	"concert_id\x18\x01 \x01(\rR\tconcertId\x12\x1b\n" +
@@ -277,25 +268,25 @@ const file_sync_service_proto_rawDesc = "" +
 	"\x11SyncConcertStream\x12%.digital_music_stand.sync.SyncRequest\x1a&.digital_music_stand.sync.SyncResponse(\x010\x01BFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpbb\x06proto3"
 
 var (
-	file_sync_service_proto_rawDescOnce sync.Once
-	file_sync_service_proto_rawDescData []byte
+	file_proto_sync_service_proto_rawDescOnce sync.Once
+	file_proto_sync_service_proto_rawDescData []byte
 )
 
-func file_sync_service_proto_rawDescGZIP() []byte {
-	file_sync_service_proto_rawDescOnce.Do(func() {
-		file_sync_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_sync_service_proto_rawDesc), len(file_sync_service_proto_rawDesc)))
+func file_proto_sync_service_proto_rawDescGZIP() []byte {
+	file_proto_sync_service_proto_rawDescOnce.Do(func() {
+		file_proto_sync_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_sync_service_proto_rawDesc), len(file_proto_sync_service_proto_rawDesc)))
 	})
-	return file_sync_service_proto_rawDescData
+	return file_proto_sync_service_proto_rawDescData
 }
 
-var file_sync_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_sync_service_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_sync_service_proto_goTypes = []any{
+var file_proto_sync_service_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_proto_sync_service_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_proto_sync_service_proto_goTypes = []any{
 	(ActionType)(0),      // 0: digital_music_stand.sync.ActionType
 	(*SyncRequest)(nil),  // 1: digital_music_stand.sync.SyncRequest
 	(*SyncResponse)(nil), // 2: digital_music_stand.sync.SyncResponse
 }
-var file_sync_service_proto_depIdxs = []int32{
+var file_proto_sync_service_proto_depIdxs = []int32{
 	0, // 0: digital_music_stand.sync.SyncRequest.action:type_name -> digital_music_stand.sync.ActionType
 	0, // 1: digital_music_stand.sync.SyncResponse.action:type_name -> digital_music_stand.sync.ActionType
 	1, // 2: digital_music_stand.sync.LiveSyncService.SyncConcertStream:input_type -> digital_music_stand.sync.SyncRequest
@@ -307,29 +298,29 @@ var file_sync_service_proto_depIdxs = []int32{
 	0, // [0:2] is the sub-list for field type_name
 }
 
-func init() { file_sync_service_proto_init() }
-func file_sync_service_proto_init() {
-	if File_sync_service_proto != nil {
+func init() { file_proto_sync_service_proto_init() }
+func file_proto_sync_service_proto_init() {
+	if File_proto_sync_service_proto != nil {
 		return
 	}
-	file_sync_service_proto_msgTypes[0].OneofWrappers = []any{}
-	file_sync_service_proto_msgTypes[1].OneofWrappers = []any{}
+	file_proto_sync_service_proto_msgTypes[0].OneofWrappers = []any{}
+	file_proto_sync_service_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sync_service_proto_rawDesc), len(file_sync_service_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_sync_service_proto_rawDesc), len(file_proto_sync_service_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_sync_service_proto_goTypes,
-		DependencyIndexes: file_sync_service_proto_depIdxs,
-		EnumInfos:         file_sync_service_proto_enumTypes,
-		MessageInfos:      file_sync_service_proto_msgTypes,
+		GoTypes:           file_proto_sync_service_proto_goTypes,
+		DependencyIndexes: file_proto_sync_service_proto_depIdxs,
+		EnumInfos:         file_proto_sync_service_proto_enumTypes,
+		MessageInfos:      file_proto_sync_service_proto_msgTypes,
 	}.Build()
-	File_sync_service_proto = out.File
-	file_sync_service_proto_goTypes = nil
-	file_sync_service_proto_depIdxs = nil
+	File_proto_sync_service_proto = out.File
+	file_proto_sync_service_proto_goTypes = nil
+	file_proto_sync_service_proto_depIdxs = nil
 }
