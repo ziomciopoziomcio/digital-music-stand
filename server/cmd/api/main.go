@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
@@ -29,6 +30,16 @@ func main() {
 	if jwtSecret == "" {
 		log.Fatal("JWT_SECRET environment variable is required")
 	}
+	jwtExpStr := os.Getenv("JWT_EXPIRATION_HOURS")
+	if jwtExpStr == "" {
+		log.Println("JWT_EXPIRATION_HOURS environment variable is empty, defaulting to 24 hours")
+		jwtExpStr = "24"
+	}
+	jwtExpHours, err := strconv.Atoi(jwtExpStr)
+	if err != nil {
+		log.Fatalf("Invalid JWT_EXPIRATION_HOURS value: %v", err)
+	}
+
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
 	dbUser := os.Getenv("DB_USER")
@@ -74,7 +85,7 @@ func main() {
 		grpc.UnaryInterceptor(auth.NewAuthInterceptor(jwtSecret)),
 	)
 
-	userpb.RegisterUserServiceServer(grpcServer, services.NewUserService(db, jwtSecret))
+	userpb.RegisterUserServiceServer(grpcServer, services.NewUserService(db, jwtSecret, jwtExpHours))
 	scorepb.RegisterScoreServiceServer(grpcServer, services.NewScoreService(db))
 	bandpb.RegisterBandServiceServer(grpcServer, services.NewBandService(db))
 	concertpb.RegisterConcertServiceServer(grpcServer, services.NewConcertService(db))

@@ -15,21 +15,23 @@ import (
 
 type UserService struct {
 	userpb.UnimplementedUserServiceServer
-	db        *gorm.DB
-	jwtSecret []byte
+	db            *gorm.DB
+	jwtSecret     []byte
+	tokenDuration time.Duration
 }
 
-func NewUserService(db *gorm.DB, secret string) *UserService {
+func NewUserService(db *gorm.DB, secret string, durationHours int) *UserService {
 	return &UserService{
-		db:        db,
-		jwtSecret: []byte(secret),
+		db:            db,
+		jwtSecret:     []byte(secret),
+		tokenDuration: time.Duration(durationHours) * time.Hour,
 	}
 }
 
 func (s *UserService) generateJWT(userID uint) (string, error) {
 	claims := jwt.MapClaims{
 		"sub": userID,
-		"exp": time.Now().Add(time.Hour * 24).Unix(), // todo: move to config
+		"exp": time.Now().Add(s.tokenDuration).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
