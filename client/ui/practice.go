@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"image/color"
+
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
@@ -144,7 +147,11 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 				btn.Importance = widget.HighImportance
 			}
 
-			grid.Add(btn)
+			spacer := canvas.NewRectangle(color.Transparent)
+			spacer.SetMinSize(fyne.NewSize(0, 80))
+
+			tile := container.NewMax(spacer, btn)
+			grid.Add(tile)
 		}
 
 		addBtn := widget.NewButtonWithIcon("Add Score", theme.ContentAddIcon(), openAddDialog)
