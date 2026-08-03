@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"image/color"
 
 	"fyne.io/fyne/v2"
@@ -10,6 +11,8 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
 )
 
 func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
@@ -29,15 +32,63 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 	var showLibrary func()
 
 	showScore := func(scoreName string) {
-		nextBtn := widget.NewButtonWithIcon("Next Page", theme.MenuDropUpIcon(), func() {})
+		pdfMgr, err := pdf.NewManager("sample.pdf")
+
+		currentPage := 0
+		totalPages := 0
+		if err == nil {
+			totalPages = pdfMgr.GetPageCount()
+		}
+
+		imgCanvas := canvas.NewImageFromImage(nil)
+		imgCanvas.FillMode = canvas.ImageFillContain
+
+		pageLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+		updatePage := func() {
+			if pdfMgr == nil {
+				return
+			}
+			img, imgErr := pdfMgr.GetPageImage(currentPage)
+			if imgErr == nil {
+				imgCanvas.Image = img
+				imgCanvas.Refresh()
+				pageLabel.SetText(scoreName + " - Page " + fmt.Sprint(currentPage+1) + " / " + fmt.Sprint(totalPages))
+			}
+		}
+
+		var scoreDisplay *fyne.Container
+		if err == nil {
+			updatePage()
+			scoreDisplay = container.NewMax(imgCanvas)
+		} else {
+			scoreDisplay = container.NewCenter(
+				widget.NewLabelWithStyle("Could not load sample.pdf\nPlease put sample.pdf in the client folder.", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			)
+		}
+
+		nextBtn := widget.NewButtonWithIcon("Next Page", theme.MenuDropUpIcon(), func() {
+			if currentPage < totalPages-1 {
+				currentPage++
+				updatePage()
+			}
+		})
 		nextBtn.Importance = widget.HighImportance
 
-		prevBtn := widget.NewButtonWithIcon("Prev Page", theme.MenuDropDownIcon(), func() {})
+		prevBtn := widget.NewButtonWithIcon("Prev Page", theme.MenuDropDownIcon(), func() {
+			if currentPage > 0 {
+				currentPage--
+				updatePage()
+			}
+		})
 		prevBtn.Importance = widget.HighImportance
 
 		utilitiesBtn := widget.NewButtonWithIcon("Utilities / Tools", theme.SettingsIcon(), func() {})
 
 		backBtn := widget.NewButtonWithIcon("Back to Library", theme.NavigateBackIcon(), func() {
+			if pdfMgr != nil {
+				pdfMgr.Close()
+			}
 			showLibrary()
 		})
 		backBtn.Importance = widget.WarningImportance
@@ -45,16 +96,13 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 		controlsPanel := container.NewVBox(
 			backBtn,
 			widget.NewSeparator(),
+			pageLabel,
 			widget.NewLabel(""),
 			prevBtn,
 			widget.NewLabel(""),
 			nextBtn,
 			layout.NewSpacer(),
 			utilitiesBtn,
-		)
-
-		scoreDisplay := container.NewCenter(
-			widget.NewLabelWithStyle("Viewing: "+scoreName+"\n\n[ PDF / Image rendering goes here ]", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		)
 
 		view := container.NewBorder(nil, nil, nil, container.NewPadded(controlsPanel), scoreDisplay)
