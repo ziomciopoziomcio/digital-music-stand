@@ -69,13 +69,19 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 
 		var d dialog.Dialog
 
-		addBtn := widget.NewButtonWithIcon("Add", theme.ContentAddIcon(), func() {
+		submitAction := func() {
 			if entry.Text != "" {
 				scores = append(scores, entry.Text)
 				d.Hide()
 				showLibrary()
 			}
-		})
+		}
+
+		entry.OnSubmitted = func(_ string) {
+			submitAction()
+		}
+
+		addBtn := widget.NewButtonWithIcon("Add", theme.ContentAddIcon(), submitAction)
 		addBtn.Importance = widget.HighImportance
 
 		cancelBtn := widget.NewButton("Cancel", func() {
@@ -87,6 +93,8 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 
 		d = dialog.NewCustomWithoutButtons("Add Score", content, w)
 		d.Show()
+
+		w.Canvas().Focus(entry)
 	}
 
 	openEditDialog := func(index int, currentName string) {
@@ -95,6 +103,18 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 
 		var d dialog.Dialog
 
+		submitAction := func() {
+			if entry.Text != "" {
+				scores[index] = entry.Text
+			}
+			d.Hide()
+			showLibrary()
+		}
+
+		entry.OnSubmitted = func(_ string) {
+			submitAction()
+		}
+
 		deleteBtn := widget.NewButtonWithIcon("Delete", theme.DeleteIcon(), func() {
 			scores = append(scores[:index], scores[index+1:]...)
 			d.Hide()
@@ -102,13 +122,7 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 		})
 		deleteBtn.Importance = widget.DangerImportance
 
-		saveBtn := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), func() {
-			if entry.Text != "" {
-				scores[index] = entry.Text
-			}
-			d.Hide()
-			showLibrary()
-		})
+		saveBtn := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), submitAction)
 		saveBtn.Importance = widget.HighImportance
 
 		cancelBtn := widget.NewButton("Cancel", func() {
@@ -120,6 +134,8 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 
 		d = dialog.NewCustomWithoutButtons("Manage Score", content, w)
 		d.Show()
+
+		w.Canvas().Focus(entry)
 	}
 
 	showLibrary = func() {
