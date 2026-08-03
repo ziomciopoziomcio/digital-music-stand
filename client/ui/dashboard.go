@@ -10,12 +10,23 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func BuildDashboard(w fyne.Window, openSettings func()) *fyne.Container {
+func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func()) *fyne.Container {
 	clock := widget.NewLabel(time.Now().Format("15:04"))
 	clock.TextStyle = fyne.TextStyle{Bold: true}
 
-	cloudStatusBtn := widget.NewButtonWithIcon("Offline", theme.WarningIcon(), func() {})
-	cloudStatusBtn.Importance = widget.WarningImportance
+	token := app.Preferences().String("jwt_token")
+	statusText := "Offline"
+	statusIcon := theme.WarningIcon()
+
+	if token != "" {
+		statusText = "Connected"
+		statusIcon = theme.ConfirmIcon()
+	}
+
+	cloudStatusBtn := widget.NewButtonWithIcon(statusText, statusIcon, openLogin)
+	if token == "" {
+		cloudStatusBtn.Importance = widget.WarningImportance
+	}
 
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), openSettings)
 
