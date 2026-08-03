@@ -10,7 +10,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func()) *fyne.Container {
+func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func(), openPractice func()) *fyne.Container {
 	clock := widget.NewLabel(time.Now().Format("15:04"))
 	clock.TextStyle = fyne.TextStyle{Bold: true}
 
@@ -37,7 +37,7 @@ func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin 
 		settingsBtn,
 	)
 
-	practiceBtn := widget.NewButtonWithIcon("Practice Mode", theme.DocumentCreateIcon(), func() {})
+	practiceBtn := widget.NewButtonWithIcon("Practice Mode", theme.DocumentCreateIcon(), openPractice)
 	practiceBtn.Importance = widget.HighImportance
 
 	concertBtn := widget.NewButtonWithIcon("Concert Mode", theme.MediaPlayIcon(), func() {})

@@ -26,9 +26,10 @@ func main() {
 	var showDashboard func()
 	var showSettings func()
 	var showLogin func()
+	var showPractice func()
 
 	showDashboard = func() {
-		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin)
+		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice)
 		mainWrapper.Objects = []fyne.CanvasObject{dash}
 		mainWrapper.Refresh()
 	}
@@ -49,6 +50,12 @@ func main() {
 			return err
 		}, showDashboard)
 		mainWrapper.Objects = []fyne.CanvasObject{loginView}
+		mainWrapper.Refresh()
+	}
+
+	showPractice = func() {
+		practiceView := ui.BuildPracticeMode(myWindow, showDashboard)
+		mainWrapper.Objects = []fyne.CanvasObject{practiceView}
 		mainWrapper.Refresh()
 	}
 
