@@ -9,30 +9,22 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
 )
 
-func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
+func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 
-	scores := []string{
-		"Beethoven - Symphony No. 5",
-		"Mozart - Fur Elise",
-		"Chopin - Nocturne op. 9",
-		"Bach - Sonata in G Minor",
-		"Vivaldi - Four Seasons",
-		"Tchaikovsky - Swan Lake",
-	}
-
 	editMode := false
-
 	var showLibrary func()
 
-	showScore := func(scoreName string) {
-		pdfMgr, err := pdf.NewManager("sample.pdf")
+	showScore := func(score localdb.Score) {
+		pdfMgr, err := pdf.NewManager(score.FilePath)
 
 		currentPage := 0
 		totalPages := 0
@@ -53,7 +45,7 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 			if imgErr == nil {
 				imgCanvas.Image = img
 				imgCanvas.Refresh()
-				pageLabel.SetText(scoreName + " - Page " + fmt.Sprint(currentPage+1) + " / " + fmt.Sprint(totalPages))
+				pageLabel.SetText(score.Title + " - Page " + fmt.Sprint(currentPage+1) + " / " + fmt.Sprint(totalPages))
 			}
 		}
 
@@ -63,7 +55,7 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 			scoreDisplay = container.NewMax(imgCanvas)
 		} else {
 			scoreDisplay = container.NewCenter(
-				widget.NewLabelWithStyle("Could not load sample.pdf\nPlease put sample.pdf in the client folder.", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+				widget.NewLabelWithStyle("Could not load PDF file:\n"+score.FilePath, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 			)
 		}
 
@@ -112,59 +104,63 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 	}
 
 	openAddDialog := func() {
-		entry := widget.NewEntry()
-		entry.SetPlaceHolder("Score title...")
-
-		var d dialog.Dialog
-
-		submitAction := func() {
-			if entry.Text != "" {
-				scores = append(scores, entry.Text)
-				d.Hide()
-				showLibrary()
+		// Najpierw otwieramy systemowy File Picker
+		fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
+			if err != nil || reader == nil {
+				return
 			}
-		}
+			filePath := reader.URI().Path()
+			defaultName := reader.URI().Name()
+			reader.Close()
 
-		entry.OnSubmitted = func(_ string) {
-			submitAction()
-		}
+			// Następnie prosimy o nazwę utworu
+			entry := widget.NewEntry()
+			entry.SetText(defaultName)
 
-		addBtn := widget.NewButtonWithIcon("Add", theme.ContentAddIcon(), submitAction)
-		addBtn.Importance = widget.HighImportance
+			var d dialog.Dialog
+			submitAction := func() {
+				if entry.Text != "" {
+					db.AddScore(entry.Text, filePath)
+					d.Hide()
+					showLibrary()
+				}
+			}
+			entry.OnSubmitted = func(_ string) { submitAction() }
 
-		cancelBtn := widget.NewButton("Cancel", func() {
-			d.Hide()
-		})
+			addBtn := widget.NewButtonWithIcon("Save to Library", theme.DocumentSaveIcon(), submitAction)
+			addBtn.Importance = widget.HighImportance
 
-		controls := container.NewHBox(layout.NewSpacer(), addBtn, cancelBtn)
-		content := container.NewVBox(widget.NewLabel("New Score Name:"), entry, widget.NewLabel(""), controls)
+			cancelBtn := widget.NewButton("Cancel", func() { d.Hide() })
 
-		d = dialog.NewCustomWithoutButtons("Add Score", content, w)
-		d.Show()
+			controls := container.NewHBox(layout.NewSpacer(), addBtn, cancelBtn)
+			content := container.NewVBox(widget.NewLabel("Enter score title:"), entry, widget.NewLabel(""), controls)
 
-		w.Canvas().Focus(entry)
+			d = dialog.NewCustomWithoutButtons("Save Score", content, w)
+			d.Show()
+			w.Canvas().Focus(entry)
+
+		}, w)
+
+		fd.SetFilter(storage.NewExtensionFileFilter([]string{".pdf"}))
+		fd.Show()
 	}
 
-	openEditDialog := func(index int, currentName string) {
+	openEditDialog := func(score localdb.Score) {
 		entry := widget.NewEntry()
-		entry.SetText(currentName)
+		entry.SetText(score.Title)
 
 		var d dialog.Dialog
-
 		submitAction := func() {
 			if entry.Text != "" {
-				scores[index] = entry.Text
+				db.UpdateScore(score.ID, entry.Text)
 			}
 			d.Hide()
 			showLibrary()
 		}
-
-		entry.OnSubmitted = func(_ string) {
-			submitAction()
-		}
+		entry.OnSubmitted = func(_ string) { submitAction() }
 
 		deleteBtn := widget.NewButtonWithIcon("Delete", theme.DeleteIcon(), func() {
-			scores = append(scores[:index], scores[index+1:]...)
+			db.DeleteScore(score.ID)
 			d.Hide()
 			showLibrary()
 		})
@@ -173,35 +169,32 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 		saveBtn := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), submitAction)
 		saveBtn.Importance = widget.HighImportance
 
-		cancelBtn := widget.NewButton("Cancel", func() {
-			d.Hide()
-		})
+		cancelBtn := widget.NewButton("Cancel", func() { d.Hide() })
 
 		controls := container.NewHBox(layout.NewSpacer(), deleteBtn, saveBtn, cancelBtn)
 		content := container.NewVBox(widget.NewLabel("Rename score:"), entry, widget.NewLabel(""), controls)
 
 		d = dialog.NewCustomWithoutButtons("Manage Score", content, w)
 		d.Show()
-
 		w.Canvas().Focus(entry)
 	}
 
 	showLibrary = func() {
-		grid := container.NewGridWithColumns(2)
-		for i, s := range scores {
-			index := i
-			scoreName := s
+		scores, _ := db.GetScores()
 
+		grid := container.NewGridWithColumns(2)
+		for _, s := range scores {
+			score := s
 			icon := theme.DocumentIcon()
 			if editMode {
 				icon = theme.SettingsIcon()
 			}
 
-			btn := widget.NewButtonWithIcon(scoreName, icon, func() {
+			btn := widget.NewButtonWithIcon(score.Title, icon, func() {
 				if editMode {
-					openEditDialog(index, scoreName)
+					openEditDialog(score)
 				} else {
-					showScore(scoreName)
+					showScore(score)
 				}
 			})
 
@@ -233,12 +226,10 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 		}
 
 		topControls := container.NewHBox(addBtn, editToggleBtn)
-
 		backToDashBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 		backToDashBtn.Importance = widget.WarningImportance
 
 		header := container.NewBorder(nil, nil, backToDashBtn, topControls, widget.NewLabelWithStyle("Practice Mode", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
-
 		view := container.NewBorder(header, nil, nil, nil, container.NewPadded(container.NewVScroll(grid)))
 
 		contentWrapper.Objects = []fyne.CanvasObject{view}
@@ -246,6 +237,5 @@ func BuildPracticeMode(w fyne.Window, goBack func()) *fyne.Container {
 	}
 
 	showLibrary()
-
 	return contentWrapper
 }
