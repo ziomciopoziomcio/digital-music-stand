@@ -4,6 +4,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system"
@@ -14,6 +15,11 @@ import (
 func main() {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("Digital Music Stand")
+
+	dbMgr, err := localdb.NewDBManager("musicstand.db")
+	if err != nil {
+		panic(err)
+	}
 
 	//todo: use real drivers
 	netMgr := &sysmock.MockNetworkManager{Status: system.StatusDisconnected}
@@ -26,9 +32,10 @@ func main() {
 	var showDashboard func()
 	var showSettings func()
 	var showLogin func()
+	var showPractice func()
 
 	showDashboard = func() {
-		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin)
+		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice)
 		mainWrapper.Objects = []fyne.CanvasObject{dash}
 		mainWrapper.Refresh()
 	}
@@ -49,6 +56,12 @@ func main() {
 			return err
 		}, showDashboard)
 		mainWrapper.Objects = []fyne.CanvasObject{loginView}
+		mainWrapper.Refresh()
+	}
+
+	showPractice = func() {
+		practiceView := ui.BuildPracticeMode(myWindow, dbMgr, showDashboard)
+		mainWrapper.Objects = []fyne.CanvasObject{practiceView}
 		mainWrapper.Refresh()
 	}
 
