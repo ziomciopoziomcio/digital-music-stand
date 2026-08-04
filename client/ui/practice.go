@@ -32,52 +32,99 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 			totalPages = pdfMgr.GetPageCount()
 		}
 
-		imgCanvas := canvas.NewImageFromImage(nil)
-		imgCanvas.FillMode = canvas.ImageFillContain
-
 		pageLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+		scoreDisplay := container.NewMax()
+
+		getPagesToShow := func() int {
+			winSize := w.Canvas().Size()
+			if winSize.Height == 0 {
+				return 1
+			}
+
+			availWidth := winSize.Width - 180
+			aspect := availWidth / winSize.Height
+
+			pages := int(aspect / 0.7)
+
+			if pages < 1 {
+				return 1
+			}
+			if pages > 3 {
+				return 3
+			}
+			return pages
+		}
 
 		updatePage := func() {
 			if pdfMgr == nil {
 				return
 			}
-			img, imgErr := pdfMgr.GetPageImage(currentPage)
-			if imgErr == nil {
-				imgCanvas.Image = img
-				imgCanvas.Refresh()
-				pageLabel.SetText(score.Title + " - Page " + fmt.Sprint(currentPage+1) + " / " + fmt.Sprint(totalPages))
+
+			pagesToShow := getPagesToShow()
+
+			var pageImages []fyne.CanvasObject
+			for i := 0; i < pagesToShow; i++ {
+				pageIdx := currentPage + i
+				if pageIdx < totalPages {
+					img, imgErr := pdfMgr.GetPageImage(pageIdx)
+					if imgErr == nil {
+						imgCanvas := canvas.NewImageFromImage(img)
+						imgCanvas.FillMode = canvas.ImageFillContain
+						pageImages = append(pageImages, imgCanvas)
+					} else {
+						pageImages = append(pageImages, layout.NewSpacer())
+					}
+				} else {
+					pageImages = append(pageImages, layout.NewSpacer())
+				}
+			}
+
+			grid := container.NewGridWithRows(1, pageImages...)
+			scoreDisplay.Objects = []fyne.CanvasObject{grid}
+			scoreDisplay.Refresh()
+
+			endPage := currentPage + pagesToShow
+			if endPage > totalPages {
+				endPage = totalPages
+			}
+
+			if pagesToShow == 1 || currentPage == endPage-1 {
+				pageLabel.SetText(fmt.Sprintf("%s\n\nPage %d / %d", score.Title, currentPage+1, totalPages))
+			} else {
+				pageLabel.SetText(fmt.Sprintf("%s\n\nPages %d-%d / %d", score.Title, currentPage+1, endPage, totalPages))
 			}
 		}
 
-		var scoreDisplay *fyne.Container
 		if err == nil {
 			updatePage()
-			scoreDisplay = container.NewMax(imgCanvas)
 		} else {
-			scoreDisplay = container.NewCenter(
-				widget.NewLabelWithStyle("Could not load PDF file:\n"+score.FilePath, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			)
+			scoreDisplay.Objects = []fyne.CanvasObject{
+				container.NewCenter(widget.NewLabelWithStyle("Could not load PDF file:\n"+score.FilePath, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})),
+			}
 		}
 
-		nextBtn := widget.NewButtonWithIcon("Next Page", theme.MenuDropUpIcon(), func() {
-			if currentPage < totalPages-1 {
-				currentPage++
+		nextBtn := widget.NewButtonWithIcon("Next", theme.MenuDropUpIcon(), func() {
+			pts := getPagesToShow()
+			if currentPage+pts < totalPages {
+				currentPage += pts
 				updatePage()
 			}
 		})
 		nextBtn.Importance = widget.HighImportance
 
-		prevBtn := widget.NewButtonWithIcon("Prev Page", theme.MenuDropDownIcon(), func() {
-			if currentPage > 0 {
-				currentPage--
-				updatePage()
+		prevBtn := widget.NewButtonWithIcon("Prev", theme.MenuDropDownIcon(), func() {
+			pts := getPagesToShow()
+			currentPage -= pts
+			if currentPage < 0 {
+				currentPage = 0
 			}
+			updatePage()
 		})
 		prevBtn.Importance = widget.HighImportance
 
-		utilitiesBtn := widget.NewButtonWithIcon("Utilities / Tools", theme.SettingsIcon(), func() {})
+		utilitiesBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {})
 
-		backBtn := widget.NewButtonWithIcon("Back to Library", theme.NavigateBackIcon(), func() {
+		backBtn := widget.NewButtonWithIcon("Library", theme.NavigateBackIcon(), func() {
 			if pdfMgr != nil {
 				pdfMgr.Close()
 			}
@@ -104,7 +151,6 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 	}
 
 	openAddDialog := func() {
-		// Najpierw otwieramy systemowy File Picker
 		fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 			if err != nil || reader == nil {
 				return
@@ -113,7 +159,6 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 			defaultName := reader.URI().Name()
 			reader.Close()
 
-			// Następnie prosimy o nazwę utworu
 			entry := widget.NewEntry()
 			entry.SetText(defaultName)
 
@@ -127,7 +172,7 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 			}
 			entry.OnSubmitted = func(_ string) { submitAction() }
 
-			addBtn := widget.NewButtonWithIcon("Save to Library", theme.DocumentSaveIcon(), submitAction)
+			addBtn := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), submitAction)
 			addBtn.Importance = widget.HighImportance
 
 			cancelBtn := widget.NewButton("Cancel", func() { d.Hide() })
