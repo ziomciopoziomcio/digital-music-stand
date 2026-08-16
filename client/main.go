@@ -4,8 +4,8 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 
+	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system/sysmock"
@@ -21,7 +21,6 @@ func main() {
 		panic(err)
 	}
 
-	//todo: use real drivers
 	netMgr := &sysmock.MockNetworkManager{Status: system.StatusDisconnected}
 	pwrMgr := &sysmock.MockPowerManager{BatteryLevel: 85, Charging: true}
 	medMgr := &sysmock.MockMediaManager{Volume: 50, Brightness: 80}
@@ -33,9 +32,11 @@ func main() {
 	var showSettings func()
 	var showLogin func()
 	var showPractice func()
+	var showConcert func()
+	var showConcertSetup func()
 
 	showDashboard = func() {
-		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice)
+		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice, showConcert)
 		mainWrapper.Objects = []fyne.CanvasObject{dash}
 		mainWrapper.Refresh()
 	}
@@ -62,6 +63,18 @@ func main() {
 	showPractice = func() {
 		practiceView := ui.BuildPracticeMode(myWindow, dbMgr, showDashboard)
 		mainWrapper.Objects = []fyne.CanvasObject{practiceView}
+		mainWrapper.Refresh()
+	}
+
+	showConcert = func() {
+		concertView := ui.BuildConcertMode(myWindow, dbMgr, showDashboard, showConcertSetup)
+		mainWrapper.Objects = []fyne.CanvasObject{concertView}
+		mainWrapper.Refresh()
+	}
+
+	showConcertSetup = func() {
+		setupView := ui.BuildConcertSetup(myWindow, dbMgr, showConcert)
+		mainWrapper.Objects = []fyne.CanvasObject{setupView}
 		mainWrapper.Refresh()
 	}
 
