@@ -5,6 +5,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -38,39 +39,31 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 		newConcertBtn := widget.NewButtonWithIcon("New Concert", theme.ContentAddIcon(), openSetup)
 		newConcertBtn.Importance = widget.HighImportance
 
-		header := container.NewBorder(nil, nil, backBtn, newConcertBtn,
+		topControls := container.NewHBox(newConcertBtn)
+		header := container.NewBorder(nil, nil, backBtn, topControls,
 			widget.NewLabelWithStyle("Concert Mode", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
 
-		list := widget.NewList(
-			func() int { return len(MockConcerts) },
-			func() fyne.CanvasObject {
-				nameLabel := widget.NewLabel("")
-				detailsLabel := widget.NewLabel("")
-				playBtn := widget.NewButtonWithIcon("Play", theme.MediaPlayIcon(), nil)
+		grid := container.NewGridWrap(fyne.NewSize(220, 160))
 
-				infoBox := container.NewVBox(nameLabel, detailsLabel)
-				return container.NewBorder(nil, nil, nil, playBtn, infoBox)
-			},
-			func(i widget.ListItemID, o fyne.CanvasObject) {
-				c := MockConcerts[i]
-				cont := o.(*fyne.Container)
+		for _, c := range MockConcerts {
+			concert := c
 
-				infoBox := cont.Objects[0].(*fyne.Container)
-				nameLabel := infoBox.Objects[0].(*widget.Label)
-				detailsLabel := infoBox.Objects[1].(*widget.Label)
-				playBtn := cont.Objects[1].(*widget.Button)
+			nameLabel := widget.NewLabelWithStyle(concert.Name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+			detailsLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s\n%s\nSongs: %d", concert.Location, concert.StartTime, len(concert.Setlist)), fyne.TextAlignCenter, fyne.TextStyle{})
 
-				nameLabel.SetText(c.Name)
-				nameLabel.TextStyle = fyne.TextStyle{Bold: true}
-				detailsLabel.SetText(fmt.Sprintf("Location: %s | Time: %s | Songs: %d", c.Location, c.StartTime, len(c.Setlist)))
+			cardContent := container.NewVBox(nameLabel, detailsLabel, layout.NewSpacer())
+			card := widget.NewCard("", "", cardContent)
 
-				playBtn.OnTapped = func() {
-					playConcert(c)
-				}
-			},
-		)
+			openBtn := widget.NewButtonWithIcon("ENTER", theme.MediaPlayIcon(), func() {
+				playConcert(concert)
+			})
+			openBtn.Importance = widget.HighImportance
 
-		view := container.NewBorder(header, nil, nil, nil, container.NewPadded(list))
+			item := container.NewBorder(nil, openBtn, nil, nil, card)
+			grid.Add(item)
+		}
+
+		view := container.NewBorder(header, nil, nil, nil, container.NewPadded(container.NewVScroll(grid)))
 		contentWrapper.Objects = []fyne.CanvasObject{view}
 		contentWrapper.Refresh()
 	}
@@ -84,38 +77,37 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 		currentPage := 0
 		totalPages := 0
 
-		pdfViewer := widget.NewLabelWithStyle("Loading score...", fyne.TextAlignCenter, fyne.TextStyle{})
+		pdfViewer := widget.NewLabelWithStyle("Loading...", fyne.TextAlignCenter, fyne.TextStyle{})
 		songTitleLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-		pageLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{})
 
+		var renderPage func()
 		var loadCurrentSong func()
+
+		renderPage = func() {
+			song := concert.Setlist[currentSongIdx]
+			pdfViewer.SetText(fmt.Sprintf("Score: %s | Page %d/%d", song.Title, currentPage+1, totalPages))
+		}
 
 		loadCurrentSong = func() {
 			if currentSongIdx < 0 || currentSongIdx >= len(concert.Setlist) {
 				return
 			}
 			song := concert.Setlist[currentSongIdx]
-			songTitleLabel.SetText(fmt.Sprintf("Song %d/%d: %s", currentSongIdx+1, len(concert.Setlist), song.Title))
+			songTitleLabel.SetText(fmt.Sprintf("%d/%d: %s", currentSongIdx+1, len(concert.Setlist), song.Title))
 
 			pdfMgr, err := pdf.NewManager(song.FilePath)
 			if err != nil {
-				pdfViewer.SetText(fmt.Sprintf("Score PDF not found:\n%s", song.FilePath))
+				pdfViewer.SetText(fmt.Sprintf("PDF not found:\n%s", song.FilePath))
 				totalPages = 0
-				pageLabel.SetText("Page 0/0")
 				return
 			}
 
 			totalPages = pdfMgr.GetPageCount()
 			currentPage = 0
-
-			renderPage := func() {
-				pdfViewer.SetText(fmt.Sprintf("Score: %s | Page %d/%d", song.Title, currentPage+1, totalPages))
-				pageLabel.SetText(fmt.Sprintf("Page %d of %d", currentPage+1, totalPages))
-			}
 			renderPage()
 		}
 
-		exitConcertBtn := widget.NewButtonWithIcon("Exit Concert", theme.CancelIcon(), func() {
+		exitConcertBtn := widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
 			showConcertList()
 		})
 		exitConcertBtn.Importance = widget.DangerImportance
@@ -134,24 +126,27 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			}
 		})
 
-		prevPageBtn := widget.NewButtonWithIcon("<- Page", theme.NavigateBackIcon(), func() {
+		prevPageBtn := widget.NewButtonWithIcon("PREV PAGE", theme.NavigateBackIcon(), func() {
 			if currentPage > 0 {
 				currentPage--
-				pageLabel.SetText(fmt.Sprintf("Page %d of %d", currentPage+1, totalPages))
+				renderPage()
 			}
 		})
+		prevPageBtn.Importance = widget.HighImportance
 
-		nextPageBtn := widget.NewButtonWithIcon("Page ->", theme.NavigateNextIcon(), func() {
+		nextPageBtn := widget.NewButtonWithIcon("NEXT PAGE", theme.NavigateNextIcon(), func() {
 			if currentPage < totalPages-1 {
 				currentPage++
-				pageLabel.SetText(fmt.Sprintf("Page %d of %d", currentPage+1, totalPages))
+				renderPage()
 			}
 		})
+		nextPageBtn.Importance = widget.HighImportance
 
 		topBar := container.NewBorder(nil, nil, exitConcertBtn, container.NewHBox(prevSongBtn, nextSongBtn), songTitleLabel)
-		bottomBar := container.NewBorder(nil, nil, prevPageBtn, nextPageBtn, pageLabel)
 
-		mainView := container.NewBorder(topBar, bottomBar, nil, nil, container.NewCenter(pdfViewer))
+		bottomBar := container.NewGridWithColumns(2, prevPageBtn, nextPageBtn)
+
+		mainView := container.NewBorder(container.NewPadded(topBar), container.NewPadded(bottomBar), nil, nil, container.NewCenter(pdfViewer))
 
 		contentWrapper.Objects = []fyne.CanvasObject{mainView}
 		contentWrapper.Refresh()
