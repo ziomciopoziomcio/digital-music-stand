@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Stand Remote</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #1e1e1e; color: #fff; }
+        .card { background: #2c2c2c; padding: 20px; border-radius: 10px; display: inline-block; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .pin { font-size: 48px; font-weight: bold; letter-spacing: 5px; color: #4caf50; margin: 20px 0; }
+        input[type="file"] { margin: 20px 0; }
+        button { background-color: #4caf50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #45a049; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="card" id="pairing-section">
+    <h2>Pairing Device</h2>
+    <p>Enter this PIN on your Digital Music Stand:</p>
+    <div class="pin" id="pin-display">----</div>
+    <p>Waiting for confirmation...</p>
+</div>
+
+<div class="card hidden" id="upload-section">
+    <h2>Connected!</h2>
+    <p>You can now upload PDF scores to the stand.</p>
+    <form id="upload-form">
+        <input type="file" id="file-input" accept="application/pdf" required>
+        <br>
+        <button type="submit">Upload PDF</button>
+    </form>
+    <p id="upload-status"></p>
+</div>
+
+<script>
+    const pairingSection = document.getElementById('pairing-section');
+    const uploadSection = document.getElementById('upload-section');
+    const pinDisplay = document.getElementById('pin-display');
+    const uploadForm = document.getElementById('upload-form');
+    const uploadStatus = document.getElementById('upload-status');
+
+    let interval;
+
+    fetch('/api/request_pin')
+        .then(res => res.json())
+        .then(data => {
+            pinDisplay.innerText = data.pin;
+            checkStatus();
+        });
+
+    function checkStatus() {
+        interval = setInterval(() => {
+            fetch('/api/status')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'connected') {
+                        clearInterval(interval);
+                        pairingSection.classList.add('hidden');
+                        uploadSection.classList.remove('hidden');
+                    }
+                });
+        }, 1000);
+    }
+
+    uploadForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const file = document.getElementById('file-input').files[0];
+        const formData = new FormData();
+        formData.append('pdf_file', file);
+
+        uploadStatus.innerText = "Uploading...";
+
+        fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.json())
+            .then(data => {
+                uploadStatus.innerText = "Upload complete!";
+                uploadForm.reset();
+            })
+            .catch(err => {
+                uploadStatus.innerText = "Error uploading file.";
+            });
+    });
+</script>
+</body>
+</html>
