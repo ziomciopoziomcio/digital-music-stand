@@ -17,13 +17,15 @@ import (
 func ShowMetronomeDialog(w fyne.Window) {
 	bpm := 120
 	beatsPerMeasure := 4
-	currentBeat := 0
 	playing := false
 
-	var ticker *time.Ticker
 	var d dialog.Dialog
 
 	metroAudio, _ := audio.NewMetronomeAudio()
+	if metroAudio != nil {
+		metroAudio.SetBPM(float64(bpm))
+		metroAudio.SetTimeSignature(beatsPerMeasure)
+	}
 
 	bpmLabel := widget.NewLabelWithStyle(fmt.Sprintf("%d BPM", bpm), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 	beatLabel := widget.NewLabelWithStyle("4/4 Time", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
@@ -46,8 +48,8 @@ func ShowMetronomeDialog(w fyne.Window) {
 		bpmSlider.SetValue(float64(bpm))
 		bpmLabel.SetText(fmt.Sprintf("%d BPM", bpm))
 
-		if playing {
-			ticker.Reset(time.Duration(60000/bpm) * time.Millisecond)
+		if metroAudio != nil {
+			metroAudio.SetBPM(float64(bpm))
 		}
 	}
 
@@ -73,71 +75,53 @@ func ShowMetronomeDialog(w fyne.Window) {
 			measureBtn.SetText(fmt.Sprintf("Time Sig: %d/4", beatsPerMeasure))
 			beatLabel.SetText(fmt.Sprintf("%d/4 Time", beatsPerMeasure))
 		}
+
+		if metroAudio != nil {
+			metroAudio.SetTimeSignature(beatsPerMeasure)
+		}
 	}
 
 	toggleBtn := widget.NewButtonWithIcon("Start Metronome", theme.MediaPlayIcon(), nil)
 	toggleBtn.Importance = widget.HighImportance
 
-	flashIndicator := func() {
-		currentBeat++
-		isAccent := false
-
-		if beatsPerMeasure > 1 {
-			if currentBeat > beatsPerMeasure {
-				currentBeat = 1
+	if metroAudio != nil {
+		metroAudio.OnBeat = func(isAccent bool) {
+			if isAccent {
+				indicator.FillColor = theme.SuccessColor()
+			} else {
+				indicator.FillColor = theme.PrimaryColor()
 			}
-			if currentBeat == 1 {
-				isAccent = true
-			}
-		}
-
-		if metroAudio != nil {
-			metroAudio.PlayTick(isAccent)
-		}
-
-		if isAccent {
-			indicator.FillColor = theme.SuccessColor()
-		} else {
-			indicator.FillColor = theme.PrimaryColor()
-		}
-
-		indicator.Refresh()
-
-		time.AfterFunc(100*time.Millisecond, func() {
-			indicator.FillColor = theme.DisabledColor()
 			indicator.Refresh()
-		})
+
+			time.AfterFunc(100*time.Millisecond, func() {
+				indicator.FillColor = theme.DisabledColor()
+				indicator.Refresh()
+			})
+		}
 	}
 
 	toggleBtn.OnTapped = func() {
 		playing = !playing
 		if playing {
-			currentBeat = 0
 			toggleBtn.SetText("Stop Metronome")
 			toggleBtn.SetIcon(theme.MediaStopIcon())
 
-			flashIndicator()
-			ticker = time.NewTicker(time.Duration(60000/bpm) * time.Millisecond)
-
-			go func() {
-				for range ticker.C {
-					flashIndicator()
-				}
-			}()
+			if metroAudio != nil {
+				metroAudio.Start()
+			}
 		} else {
 			toggleBtn.SetText("Start Metronome")
 			toggleBtn.SetIcon(theme.MediaPlayIcon())
-			if ticker != nil {
-				ticker.Stop()
+
+			if metroAudio != nil {
+				metroAudio.Stop()
 			}
 		}
 	}
 
 	closeBtn := widget.NewButton("Close", func() {
-		if ticker != nil {
-			ticker.Stop()
-		}
 		if metroAudio != nil {
+			metroAudio.Stop()
 			metroAudio.Close()
 		}
 		d.Hide()

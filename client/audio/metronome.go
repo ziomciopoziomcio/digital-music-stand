@@ -3,6 +3,7 @@ package audio
 import (
 	"math"
 	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/gen2brain/malgo"
@@ -14,9 +15,18 @@ type MetronomeAudio struct {
 	sampleRate uint32
 	mu         sync.Mutex
 
+	playing         bool
+	bpm             float64
+	beatsPerMeasure int
+
+	startTime time.Time
+	nextBeat  int
+
 	phase      float64
 	framesLeft int
 	isAccent   bool
+
+	OnBeat func(accent bool)
 }
 
 func NewMetronomeAudio() (*MetronomeAudio, error) {
@@ -26,8 +36,10 @@ func NewMetronomeAudio() (*MetronomeAudio, error) {
 	}
 
 	m := &MetronomeAudio{
-		ctx:        ctx,
-		sampleRate: 44100,
+		ctx:             ctx,
+		sampleRate:      44100,
+		bpm:             120,
+		beatsPerMeasure: 4,
 	}
 
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Playback)
@@ -41,13 +53,36 @@ func NewMetronomeAudio() (*MetronomeAudio, error) {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 
+		var triggerBeat bool
+
+		if m.playing {
+			elapsed := time.Since(m.startTime).Seconds()
+
+			expectedBeats := int(elapsed * (m.bpm / 60.0))
+
+			if expectedBeats >= m.nextBeat {
+				m.nextBeat = expectedBeats + 1
+				triggerBeat = true
+
+				beatInMeasure := expectedBeats % m.beatsPerMeasure
+				m.isAccent = (m.beatsPerMeasure > 1 && beatInMeasure == 0)
+
+				m.framesLeft = int(m.sampleRate) / 20
+				m.phase = 0
+			}
+		}
+
+		if triggerBeat && m.OnBeat != nil {
+			accent := m.isAccent
+			go m.OnBeat(accent)
+		}
+
 		for i := uint32(0); i < framecount; i++ {
 			if m.framesLeft > 0 {
 				freq := 1000.0
 				if m.isAccent {
 					freq = 2000.0
 				}
-
 				env := float32(m.framesLeft) / float32(int(m.sampleRate)/20)
 				samples[i] = float32(math.Sin(m.phase)) * env * 0.8
 
@@ -79,12 +114,36 @@ func NewMetronomeAudio() (*MetronomeAudio, error) {
 	return m, nil
 }
 
-func (m *MetronomeAudio) PlayTick(accent bool) {
+func (m *MetronomeAudio) SetBPM(bpm float64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.framesLeft = int(m.sampleRate) / 20
-	m.phase = 0
-	m.isAccent = accent
+	if m.playing {
+		m.startTime = time.Now()
+		m.nextBeat = 0
+	}
+	m.bpm = bpm
+}
+
+func (m *MetronomeAudio) SetTimeSignature(beats int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.beatsPerMeasure = beats
+}
+
+func (m *MetronomeAudio) Start() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.playing = true
+	m.startTime = time.Now()
+	m.nextBeat = 0
+	m.framesLeft = 0
+}
+
+func (m *MetronomeAudio) Stop() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.playing = false
+	m.framesLeft = 0
 }
 
 func (m *MetronomeAudio) Close() {
