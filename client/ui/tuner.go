@@ -3,8 +3,6 @@ package ui
 import (
 	"fmt"
 	"math"
-	"math/rand"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -13,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/audio"
 )
 
 type meterLayout struct{}
@@ -76,7 +75,7 @@ func ShowTunerDialog(w fyne.Window) {
 
 	var d dialog.Dialog
 	listening := false
-	var ticker *time.Ticker
+	var micTuner *audio.MicrophoneTuner
 
 	notes := []string{"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}
 
@@ -171,27 +170,25 @@ func ShowTunerDialog(w fyne.Window) {
 		if listening {
 			toggleBtn.SetText("Stop Listening")
 			toggleBtn.SetIcon(theme.MediaStopIcon())
-			ticker = time.NewTicker(100 * time.Millisecond)
 
-			go func() {
-				for range ticker.C {
-					fluctuation := (rand.Float64() - 0.5) * 10.0
-					updateTuner(refFreq + fluctuation) // Symulacja podąża za refFreq
-				}
-			}()
+			if micTuner == nil {
+				micTuner = audio.NewMicrophoneTuner(func(freq float64) {
+					updateTuner(freq)
+				})
+			}
 		} else {
 			toggleBtn.SetText("Start Listening")
 			toggleBtn.SetIcon(theme.MediaRecordIcon())
-			if ticker != nil {
-				ticker.Stop()
+			if micTuner != nil {
+				micTuner.Stop()
 			}
 			updateTuner(0)
 		}
 	}
 
 	closeBtn := widget.NewButton("Close", func() {
-		if ticker != nil {
-			ticker.Stop()
+		if micTuner != nil {
+			micTuner.Stop()
 		}
 		d.Hide()
 	})
