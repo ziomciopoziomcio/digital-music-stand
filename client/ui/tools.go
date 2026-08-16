@@ -17,11 +17,11 @@ func ShowToolsMenu(w fyne.Window) {
 	})
 	tunerBtn.Importance = widget.HighImportance
 
-	//metronomeBtn := widget.NewButtonWithIcon("Metronome", theme.HistoryIcon(), func() {
-	//	d.Hide()
-	//	ShowMetronomeDialog(w)
-	//})
-	//metronomeBtn.Importance = widget.HighImportance
+	metronomeBtn := widget.NewButtonWithIcon("Metronome", theme.HistoryIcon(), func() {
+		d.Hide()
+		ShowMetronomeDialog(w)
+	})
+	metronomeBtn.Importance = widget.HighImportance
 
 	closeBtn := widget.NewButtonWithIcon("Close", theme.CancelIcon(), func() {
 		d.Hide()
@@ -33,7 +33,7 @@ func ShowToolsMenu(w fyne.Window) {
 		widget.NewLabel(""),
 		tunerBtn,
 		widget.NewLabel(""),
-		//metronomeBtn,
+		metronomeBtn,
 		widget.NewLabel(""),
 		widget.NewSeparator(),
 		closeBtn,
