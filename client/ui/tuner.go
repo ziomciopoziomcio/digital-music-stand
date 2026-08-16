@@ -80,6 +80,24 @@ func ShowTunerDialog(w fyne.Window) {
 
 	notes := []string{"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}
 
+	refFreq := 440.0
+	refFreqLabel := widget.NewLabelWithStyle(fmt.Sprintf("A4 = %.1f Hz", refFreq), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+	updateRefFreq := func(delta float64) {
+		refFreq += delta
+		if refFreq < 410 {
+			refFreq = 410
+		}
+		if refFreq > 470 {
+			refFreq = 470
+		}
+		refFreqLabel.SetText(fmt.Sprintf("A4 = %.1f Hz", refFreq))
+	}
+
+	minusBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() { updateRefFreq(-1) })
+	plusBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() { updateRefFreq(1) })
+	refFreqControls := container.NewBorder(nil, nil, minusBtn, plusBtn, refFreqLabel)
+
 	updateTuner := func(freq float64) {
 		if freq < 20 {
 			noteText.Text = "--"
@@ -96,11 +114,11 @@ func ShowTunerDialog(w fyne.Window) {
 			return
 		}
 
-		halfSteps := 12.0 * math.Log2(freq/440.0)
+		halfSteps := 12.0 * math.Log2(freq/refFreq)
 		nearestStep := math.Round(halfSteps)
 		cents := (halfSteps - nearestStep) * 100.0
 
-		targetFreq := 440.0 * math.Pow(2.0, nearestStep/12.0)
+		targetFreq := refFreq * math.Pow(2.0, nearestStep/12.0)
 
 		noteIndex := (int(nearestStep) + 9) % 12
 		if noteIndex < 0 {
@@ -156,10 +174,9 @@ func ShowTunerDialog(w fyne.Window) {
 			ticker = time.NewTicker(100 * time.Millisecond)
 
 			go func() {
-				baseFreq := 440.0
 				for range ticker.C {
 					fluctuation := (rand.Float64() - 0.5) * 10.0
-					updateTuner(baseFreq + fluctuation)
+					updateTuner(refFreq + fluctuation) // Symulacja podąża za refFreq
 				}
 			}()
 		} else {
@@ -190,12 +207,14 @@ func ShowTunerDialog(w fyne.Window) {
 		widget.NewLabel(""),
 		statusLabel,
 		widget.NewLabel(""),
+		refFreqControls,
+		widget.NewLabel(""),
 		toggleBtn,
 		widget.NewSeparator(),
 		closeBtn,
 	)
 
 	d = dialog.NewCustomWithoutButtons("Instrument Tuner", container.NewPadded(content), w)
-	d.Resize(fyne.NewSize(500, 650))
+	d.Resize(fyne.NewSize(500, 750))
 	d.Show()
 }
