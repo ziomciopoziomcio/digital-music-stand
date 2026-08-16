@@ -15,6 +15,7 @@ import (
 	"sync"
 )
 
+//go:embed static
 var staticFiles embed.FS
 
 type State string
@@ -27,7 +28,7 @@ const (
 
 type Manager struct {
 	mu         sync.Mutex
-	currentPIN string
+	CurrentPIN string
 	Status     State
 	UploadDir  string
 }
@@ -52,10 +53,12 @@ func GetLocalIP() string {
 
 func (m *Manager) Start(port int) error {
 	mux := http.NewServeMux()
+
 	subFS, err := fs.Sub(staticFiles, "static")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create sub filesystem: %w", err)
 	}
+
 	mux.Handle("/", http.FileServer(http.FS(subFS)))
 
 	mux.HandleFunc("/api/request_pin", m.handleRequestPin)
@@ -63,14 +66,20 @@ func (m *Manager) Start(port int) error {
 	mux.HandleFunc("/api/upload", m.handleUpload)
 
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
-	go http.ListenAndServe(addr, mux)
+
+	go func() {
+		if err := http.ListenAndServe(addr, mux); err != nil {
+			fmt.Printf("WEB SERVER ERROR: %v\n", err)
+		}
+	}()
 	return nil
 }
 
 func (m *Manager) ConfirmPIN(pin string) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.Status == StatePending && m.currentPIN == pin {
+
+	if m.Status == StatePending && m.CurrentPIN == pin {
 		m.Status = StateConnected
 		return true
 	}
@@ -82,11 +91,11 @@ func (m *Manager) handleRequestPin(w http.ResponseWriter, r *http.Request) {
 	defer m.mu.Unlock()
 
 	n, _ := rand.Int(rand.Reader, big.NewInt(10000))
-	m.currentPIN = fmt.Sprintf("%04d", n.Int64())
+	m.CurrentPIN = fmt.Sprintf("%04d", n)
 	m.Status = StatePending
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"pin": m.currentPIN})
+	json.NewEncoder(w).Encode(map[string]string{"pin": m.CurrentPIN})
 }
 
 func (m *Manager) handleStatus(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +128,7 @@ func (m *Manager) handleUpload(w http.ResponseWriter, r *http.Request) {
 	dstPath := filepath.Join(m.UploadDir, handler.Filename)
 	dst, err := os.Create(dstPath)
 	if err != nil {
-		http.Error(w, "Error saving the file", http.StatusInternalServerError)
+		http.Error(w, "Error saving file", http.StatusInternalServerError)
 		return
 	}
 	defer dst.Close()
@@ -128,4 +137,10 @@ func (m *Manager) handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "File uploaded successfully"})
+}
+
+func (m *Manager) GetStatus() State {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.Status
 }
