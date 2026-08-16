@@ -134,7 +134,10 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 		})
 		prevBtn.Importance = widget.HighImportance
 
-		utilitiesBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {})
+		utilitiesBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
+			ShowToolsMenu(w)
+		})
+		utilitiesBtn.Importance = widget.HighImportance
 
 		backBtn := widget.NewButtonWithIcon("Library", theme.NavigateBackIcon(), func() {
 			if pdfMgr != nil {
