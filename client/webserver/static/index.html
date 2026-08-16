@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Music Stand - Pairing</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background: #f4f4f9;
+            color: #333;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+        .pin {
+            font-size: 56px;
+            font-weight: bold;
+            color: #2b6cb0;
+            letter-spacing: 10px;
+            margin: 20px 0;
+            background: #ebf8ff;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        input[type="file"] {
+            margin: 20px 0;
+            width: 100%;
+        }
+        button {
+            background: #3182ce;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #2b6cb0;
+        }
+        #status {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #d69e2e;
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h2>Device Pairing</h2>
+    <p>Enter this PIN into your desktop application:</p>
+    <div id="pin-display" class="pin">----</div>
+
+    <div id="status">Connecting to server...</div>
+
+    <div id="upload-section" style="display:none;">
+        <hr style="margin: 25px 0; border:0; border-top:1px solid #edf2f7;">
+        <h3>Upload Sheet Music (PDF)</h3>
+        <input type="file" id="pdf-file" accept=".pdf">
+        <button onclick="uploadFile()">Upload File</button>
+    </div>
+</div>
+
+<script>
+    async function requestPin() {
+        try {
+            const response = await fetch('/api/request_pin');
+            const data = await response.json();
+            document.getElementById('pin-display').innerText = data.pin;
+            document.getElementById('status').innerText = 'Waiting for desktop confirmation...';
+            checkStatus();
+        } catch (err) {
+            document.getElementById('status').innerText = 'Error connecting to server.';
+            document.getElementById('status').style.color = 'red';
+        }
+    }
+
+    async function checkStatus() {
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                if (data.status === 'connected') {
+                    document.getElementById('status').innerText = 'Connected successfully!';
+                    document.getElementById('status').style.color = 'green';
+                    document.getElementById('upload-section').style.display = 'block';
+                    clearInterval(interval);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }, 2000);
+    }
+
+    requestPin();
+
+    async function uploadFile() {
+        const fileInput = document.getElementById('pdf-file');
+        if (fileInput.files.length === 0) {
+            alert('Please select a PDF file first.');
+            return;
+        }
+        const formData = new FormData();
+        formData.append('pdf_file', fileInput.files[0]);
+
+        try {
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            if (res.ok) {
+                alert('File uploaded successfully!');
+                fileInput.value = '';
+            } else {
+                alert('Upload failed. Unauthorized or session expired.');
+            }
+        } catch (err) {
+            alert('Upload error: ' + err.message);
+        }
+    }
+</script>
+</body>
+</html>

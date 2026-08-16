@@ -10,6 +10,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system/sysmock"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/ui"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/webserver" // Import naszego nowego modułu!
 )
 
 func main() {
@@ -20,6 +21,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	wsMgr := webserver.NewManager("./scores")
+	wsMgr.Start(8088)
 
 	netMgr := &sysmock.MockNetworkManager{Status: system.StatusDisconnected}
 	pwrMgr := &sysmock.MockPowerManager{BatteryLevel: 85, Charging: true}
@@ -34,9 +38,10 @@ func main() {
 	var showPractice func()
 	var showConcert func()
 	var showConcertSetup func()
+	var showPairing func()
 
 	showDashboard = func() {
-		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice, showConcert)
+		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice, showConcert, showPairing)
 		mainWrapper.Objects = []fyne.CanvasObject{dash}
 		mainWrapper.Refresh()
 	}
@@ -76,6 +81,10 @@ func main() {
 		setupView := ui.BuildConcertSetup(myWindow, dbMgr, showConcert)
 		mainWrapper.Objects = []fyne.CanvasObject{setupView}
 		mainWrapper.Refresh()
+	}
+
+	showPairing = func() {
+		ui.ShowPairingDialog(myWindow, wsMgr)
 	}
 
 	showDashboard()
