@@ -15,6 +15,15 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+type meterLayout struct{}
+
+func (m *meterLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	return fyne.NewSize(300, 140)
+}
+
+func (m *meterLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+}
+
 func ShowTunerDialog(w fyne.Window) {
 	noteText := canvas.NewText("--", theme.ForegroundColor())
 	noteText.TextSize = 160
@@ -24,12 +33,46 @@ func ShowTunerDialog(w fyne.Window) {
 	currentFreqLabel := widget.NewLabelWithStyle("Current: -- Hz", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 	targetFreqLabel := widget.NewLabelWithStyle("Target: -- Hz", fyne.TextAlignCenter, fyne.TextStyle{})
 
-	tuningGauge := widget.NewProgressBar()
-	tuningGauge.Min = -50
-	tuningGauge.Max = 50
-	tuningGauge.SetValue(0)
-
 	statusLabel := widget.NewLabelWithStyle("Ready", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
+
+	pivotX, pivotY := float32(150), float32(130)
+	needleLength := float32(120)
+
+	needle := canvas.NewLine(theme.DisabledColor())
+	needle.StrokeWidth = 5
+
+	meterObjects := []fyne.CanvasObject{}
+
+	for i := -50; i <= 50; i += 5 {
+		angle := (float64(i) / 50.0) * (math.Pi / 3.0)
+		sin := float32(math.Sin(angle))
+		cos := float32(math.Cos(angle))
+
+		tickLength := float32(10)
+		if i == 0 {
+			tickLength = 25
+		} else if i%10 == 0 {
+			tickLength = 15
+		}
+
+		tick := canvas.NewLine(theme.DisabledColor())
+		if i == 0 {
+			tick.StrokeColor = theme.SuccessColor()
+			tick.StrokeWidth = 3
+		} else {
+			tick.StrokeWidth = 2
+		}
+
+		tick.Position1 = fyne.NewPos(pivotX+sin*(needleLength-tickLength), pivotY-cos*(needleLength-tickLength))
+		tick.Position2 = fyne.NewPos(pivotX+sin*needleLength, pivotY-cos*needleLength)
+		meterObjects = append(meterObjects, tick)
+	}
+
+	needle.Position1 = fyne.NewPos(pivotX, pivotY)
+	needle.Position2 = fyne.NewPos(pivotX, pivotY-needleLength)
+	meterObjects = append(meterObjects, needle)
+
+	analogMeter := container.NewCenter(container.New(&meterLayout{}, meterObjects...))
 
 	var d dialog.Dialog
 	listening := false
@@ -43,7 +86,11 @@ func ShowTunerDialog(w fyne.Window) {
 			noteText.Color = theme.ForegroundColor()
 			currentFreqLabel.SetText("Current: -- Hz")
 			targetFreqLabel.SetText("Target: -- Hz")
-			tuningGauge.SetValue(0)
+
+			needle.Position2 = fyne.NewPos(pivotX, pivotY-needleLength)
+			needle.StrokeColor = theme.DisabledColor()
+			needle.Refresh()
+
 			statusLabel.SetText("No signal")
 			noteText.Refresh()
 			return
@@ -65,20 +112,37 @@ func ShowTunerDialog(w fyne.Window) {
 		currentFreqLabel.SetText(fmt.Sprintf("Current: %.1f Hz", freq))
 		targetFreqLabel.SetText(fmt.Sprintf("Target: %.1f Hz", targetFreq))
 
-		tuningGauge.SetValue(cents)
+		displayCents := cents
+		if displayCents < -50 {
+			displayCents = -50
+		}
+		if displayCents > 50 {
+			displayCents = 50
+		}
+
+		angle := (displayCents / 50.0) * (math.Pi / 3.0)
+		sin := float32(math.Sin(angle))
+		cos := float32(math.Cos(angle))
+
+		needle.Position1 = fyne.NewPos(pivotX, pivotY)
+		needle.Position2 = fyne.NewPos(pivotX+sin*needleLength, pivotY-cos*needleLength)
 
 		if math.Abs(cents) < 5 {
 			statusLabel.SetText("In Tune")
 			noteText.Color = theme.SuccessColor()
+			needle.StrokeColor = theme.SuccessColor()
 		} else if cents < 0 {
 			statusLabel.SetText("Too Flat")
 			noteText.Color = theme.WarningColor()
+			needle.StrokeColor = theme.WarningColor()
 		} else {
 			statusLabel.SetText("Too Sharp")
 			noteText.Color = theme.WarningColor()
+			needle.StrokeColor = theme.WarningColor()
 		}
 
 		noteText.Refresh()
+		needle.Refresh()
 	}
 
 	toggleBtn := widget.NewButtonWithIcon("Start Listening", theme.MediaRecordIcon(), nil)
@@ -122,7 +186,8 @@ func ShowTunerDialog(w fyne.Window) {
 		widget.NewLabel(""),
 		hzContainer,
 		widget.NewLabel(""),
-		tuningGauge,
+		analogMeter,
+		widget.NewLabel(""),
 		statusLabel,
 		widget.NewLabel(""),
 		toggleBtn,
@@ -131,6 +196,6 @@ func ShowTunerDialog(w fyne.Window) {
 	)
 
 	d = dialog.NewCustomWithoutButtons("Instrument Tuner", container.NewPadded(content), w)
-	d.Resize(fyne.NewSize(450, 450))
+	d.Resize(fyne.NewSize(500, 650))
 	d.Show()
 }
