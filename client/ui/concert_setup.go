@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -14,23 +13,14 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 )
 
-type Concert struct {
-	ID        string          `json:"id"`
-	Name      string          `json:"name"`
-	Location  string          `json:"location"`
-	StartTime string          `json:"start_time"`
-	Setlist   []localdb.Score `json:"setlist"`
-}
-
 func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, goBack func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var setlist []localdb.Score
 
-	availableScores := []localdb.Score{
-		{ID: 1, Title: "Imperial March", FilePath: "/mock/path1"},
-		{ID: 2, Title: "Symphony No. 5", FilePath: "/mock/path2"},
-		{ID: 3, Title: "Bohemian Rhapsody", FilePath: "/mock/path3"},
+	availableScores, err := db.GetScores()
+	if err != nil {
+		availableScores = []localdb.Score{}
 	}
 
 	nameEntry := widget.NewEntry()
@@ -152,24 +142,19 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 		),
 	)
 
-	saveBtn := widget.NewButtonWithIcon("Save Concert (Offline)", theme.DocumentSaveIcon(), func() {
+	saveBtn := widget.NewButtonWithIcon("Save Concert", theme.DocumentSaveIcon(), func() {
 		if nameEntry.Text == "" || len(setlist) == 0 {
 			dialog.ShowError(fmt.Errorf("please provide event name and add at least one score"), w)
 			return
 		}
 
-		newConcert := Concert{
-			ID:        fmt.Sprintf("conc-%d", time.Now().Unix()),
-			Name:      nameEntry.Text,
-			Location:  locEntry.Text,
-			StartTime: dateEntry.Text,
-			Setlist:   setlist,
+		err := db.AddConcert(nameEntry.Text, locEntry.Text, dateEntry.Text, setlist)
+		if err != nil {
+			dialog.ShowError(fmt.Errorf("failed to save concert: %w", err), w)
+			return
 		}
 
-		jsonData, _ := json.MarshalIndent(newConcert, "", "  ")
-		fmt.Printf("Saved concert:\n%s\n", string(jsonData))
-
-		dialog.ShowInformation("Success", "Concert saved locally", w)
+		dialog.ShowInformation("Success", "Concert saved to database", w)
 		goBack()
 	})
 	saveBtn.Importance = widget.HighImportance

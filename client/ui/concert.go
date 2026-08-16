@@ -5,6 +5,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -13,24 +14,11 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
 )
 
-var MockConcerts = []Concert{
-	{
-		ID:        "conc-1",
-		Name:      "Dress Rehearsal",
-		Location:  "Chamber Hall",
-		StartTime: "2026-08-20 19:00",
-		Setlist: []localdb.Score{
-			{ID: 1, Title: "Imperial March", FilePath: "/mock/path1"},
-			{ID: 2, Title: "Symphony No. 5", FilePath: "/mock/path2"},
-		},
-	},
-}
-
 func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openSetup func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var showConcertList func()
-	var playConcert func(concert Concert)
+	var playConcert func(concert localdb.Concert)
 
 	showConcertList = func() {
 		backBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
@@ -43,9 +31,15 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 		header := container.NewBorder(nil, nil, backBtn, topControls,
 			widget.NewLabelWithStyle("Concert Mode", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
 
-		grid := container.NewGridWrap(fyne.NewSize(220, 160))
+		concerts, err := db.GetConcerts()
+		if err != nil {
+			dialog.ShowError(err, w)
+			concerts = []localdb.Concert{}
+		}
 
-		for _, c := range MockConcerts {
+		grid := container.NewGridWrap(fyne.NewSize(240, 180))
+
+		for _, c := range concerts {
 			concert := c
 
 			nameLabel := widget.NewLabelWithStyle(concert.Name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
@@ -68,8 +62,9 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 		contentWrapper.Refresh()
 	}
 
-	playConcert = func(concert Concert) {
+	playConcert = func(concert localdb.Concert) {
 		if len(concert.Setlist) == 0 {
+			dialog.ShowInformation("Empty Setlist", "This concert has no scores assigned.", w)
 			return
 		}
 
@@ -143,7 +138,6 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 		nextPageBtn.Importance = widget.HighImportance
 
 		topBar := container.NewBorder(nil, nil, exitConcertBtn, container.NewHBox(prevSongBtn, nextSongBtn), songTitleLabel)
-
 		bottomBar := container.NewGridWithColumns(2, prevPageBtn, nextPageBtn)
 
 		mainView := container.NewBorder(container.NewPadded(topBar), container.NewPadded(bottomBar), nil, nil, container.NewCenter(pdfViewer))
