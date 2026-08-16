@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
@@ -71,38 +72,108 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 		currentSongIdx := 0
 		currentPage := 0
 		totalPages := 0
+		pagesToShow := 1
 
-		pdfViewer := widget.NewLabelWithStyle("Loading...", fyne.TextAlignCenter, fyne.TextStyle{})
+		var currentPdfMgr *pdf.Manager
+		var viewerSize fyne.Size
+
+		pdfContainer := container.NewMax()
 		songTitleLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+		pageLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 		var renderPage func()
 		var loadCurrentSong func()
 
 		renderPage = func() {
-			song := concert.Setlist[currentSongIdx]
-			pdfViewer.SetText(fmt.Sprintf("Score: %s | Page %d/%d", song.Title, currentPage+1, totalPages))
+			if currentPdfMgr == nil || totalPages == 0 {
+				pdfContainer.Objects = []fyne.CanvasObject{
+					widget.NewLabelWithStyle("No score loaded", fyne.TextAlignCenter, fyne.TextStyle{}),
+				}
+				pdfContainer.Refresh()
+				pageLabel.SetText("Page 0/0")
+				return
+			}
+
+			// Wyznaczanie liczby stron na podstawie orientacji ekranu
+			pagesToShow = 1
+			if viewerSize.Width > viewerSize.Height && viewerSize.Width > 0 && currentPage+1 < totalPages {
+				pagesToShow = 2
+			}
+
+			// Renderowanie dwóch stron obok siebie w trybie poziomym
+			if pagesToShow == 2 {
+				img1, err1 := currentPdfMgr.GetPageImage(currentPage)
+				img2, err2 := currentPdfMgr.GetPageImage(currentPage + 1)
+
+				if err1 == nil && err2 == nil {
+					canvasImg1 := canvas.NewImageFromImage(img1)
+					canvasImg1.FillMode = canvas.ImageFillContain
+
+					canvasImg2 := canvas.NewImageFromImage(img2)
+					canvasImg2.FillMode = canvas.ImageFillContain
+
+					grid := container.NewGridWithColumns(2, canvasImg1, canvasImg2)
+					pdfContainer.Objects = []fyne.CanvasObject{grid}
+					pdfContainer.Refresh()
+
+					pageLabel.SetText(fmt.Sprintf("Pages %d-%d / %d", currentPage+1, currentPage+2, totalPages))
+					return
+				}
+			}
+
+			// Renderowanie pojedynczej strony
+			img, err := currentPdfMgr.GetPageImage(currentPage)
+			if err != nil {
+				pdfContainer.Objects = []fyne.CanvasObject{
+					widget.NewLabelWithStyle(fmt.Sprintf("Error rendering page %d", currentPage+1), fyne.TextAlignCenter, fyne.TextStyle{}),
+				}
+				pdfContainer.Refresh()
+				return
+			}
+
+			canvasImg := canvas.NewImageFromImage(img)
+			canvasImg.FillMode = canvas.ImageFillContain
+
+			pdfContainer.Objects = []fyne.CanvasObject{canvasImg}
+			pdfContainer.Refresh()
+
+			pageLabel.SetText(fmt.Sprintf("Page %d / %d", currentPage+1, totalPages))
 		}
 
 		loadCurrentSong = func() {
+			if currentPdfMgr != nil {
+				currentPdfMgr.Close()
+				currentPdfMgr = nil
+			}
+
 			if currentSongIdx < 0 || currentSongIdx >= len(concert.Setlist) {
 				return
 			}
+
 			song := concert.Setlist[currentSongIdx]
 			songTitleLabel.SetText(fmt.Sprintf("%d/%d: %s", currentSongIdx+1, len(concert.Setlist), song.Title))
 
 			pdfMgr, err := pdf.NewManager(song.FilePath)
 			if err != nil {
-				pdfViewer.SetText(fmt.Sprintf("PDF not found:\n%s", song.FilePath))
+				pdfContainer.Objects = []fyne.CanvasObject{
+					widget.NewLabelWithStyle(fmt.Sprintf("PDF file not found:\n%s", song.FilePath), fyne.TextAlignCenter, fyne.TextStyle{}),
+				}
+				pdfContainer.Refresh()
 				totalPages = 0
+				pageLabel.SetText("Page 0/0")
 				return
 			}
 
+			currentPdfMgr = pdfMgr
 			totalPages = pdfMgr.GetPageCount()
 			currentPage = 0
 			renderPage()
 		}
 
 		exitConcertBtn := widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
+			if currentPdfMgr != nil {
+				currentPdfMgr.Close()
+			}
 			showConcertList()
 		})
 		exitConcertBtn.Importance = widget.DangerImportance
@@ -121,26 +192,50 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			}
 		})
 
-		prevPageBtn := widget.NewButtonWithIcon("PREV PAGE", theme.NavigateBackIcon(), func() {
+		toolsBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
+			ShowToolsMenu(w)
+		})
+
+		prevPageBtn := widget.NewButtonWithIcon("PREV\nPAGE", theme.NavigateBackIcon(), func() {
 			if currentPage > 0 {
-				currentPage--
+				currentPage -= pagesToShow
+				if currentPage < 0 {
+					currentPage = 0
+				}
 				renderPage()
 			}
 		})
 		prevPageBtn.Importance = widget.HighImportance
 
-		nextPageBtn := widget.NewButtonWithIcon("NEXT PAGE", theme.NavigateNextIcon(), func() {
-			if currentPage < totalPages-1 {
-				currentPage++
+		nextPageBtn := widget.NewButtonWithIcon("NEXT\nPAGE", theme.NavigateNextIcon(), func() {
+			if currentPage+pagesToShow < totalPages {
+				currentPage += pagesToShow
 				renderPage()
 			}
 		})
 		nextPageBtn.Importance = widget.HighImportance
 
-		topBar := container.NewBorder(nil, nil, exitConcertBtn, container.NewHBox(prevSongBtn, nextSongBtn), songTitleLabel)
-		bottomBar := container.NewGridWithColumns(2, prevPageBtn, nextPageBtn)
+		rightSidebar := container.NewBorder(
+			container.NewVBox(pageLabel, widget.NewSeparator(), toolsBtn, widget.NewSeparator()),
+			nil, nil, nil,
+			container.NewGridWithRows(2, prevPageBtn, nextPageBtn),
+		)
 
-		mainView := container.NewBorder(container.NewPadded(topBar), container.NewPadded(bottomBar), nil, nil, container.NewCenter(pdfViewer))
+		topBar := container.NewBorder(nil, nil, exitConcertBtn, container.NewHBox(prevSongBtn, nextSongBtn), songTitleLabel)
+
+		viewer := newResponsiveViewer(func(size fyne.Size) {
+			viewerSize = size
+			renderPage()
+		})
+		viewer.content.Objects = []fyne.CanvasObject{pdfContainer}
+
+		mainView := container.NewBorder(
+			container.NewPadded(topBar),
+			nil,
+			nil,
+			container.NewPadded(rightSidebar),
+			viewer,
+		)
 
 		contentWrapper.Objects = []fyne.CanvasObject{mainView}
 		contentWrapper.Refresh()
