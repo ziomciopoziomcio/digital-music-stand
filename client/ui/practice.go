@@ -33,19 +33,15 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 		}
 
 		pageLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-		scoreDisplay := container.NewMax()
 
-		getPagesToShow := func() int {
-			winSize := w.Canvas().Size()
-			if winSize.Height == 0 {
+		currentPagesToShow := 1
+
+		getPagesToShow := func(size fyne.Size) int {
+			if size.Height == 0 {
 				return 1
 			}
-
-			availWidth := winSize.Width - 180
-			aspect := availWidth / winSize.Height
-
+			aspect := size.Width / size.Height
 			pages := int(aspect / 0.7)
-
 			if pages < 1 {
 				return 1
 			}
@@ -55,12 +51,25 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 			return pages
 		}
 
-		updatePage := func() {
+		var scoreDisplay *responsiveViewer
+		var updatePage func(size fyne.Size)
+
+		scoreDisplay = newResponsiveViewer(func(s fyne.Size) {
+			if updatePage != nil {
+				newPts := getPagesToShow(s)
+				if newPts != currentPagesToShow {
+					updatePage(s)
+				}
+			}
+		})
+
+		updatePage = func(size fyne.Size) {
 			if pdfMgr == nil {
 				return
 			}
 
-			pagesToShow := getPagesToShow()
+			pagesToShow := getPagesToShow(size)
+			currentPagesToShow = pagesToShow
 
 			var pageImages []fyne.CanvasObject
 			for i := 0; i < pagesToShow; i++ {
@@ -80,8 +89,8 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 			}
 
 			grid := container.NewGridWithRows(1, pageImages...)
-			scoreDisplay.Objects = []fyne.CanvasObject{grid}
-			scoreDisplay.Refresh()
+			scoreDisplay.content.Objects = []fyne.CanvasObject{grid}
+			scoreDisplay.content.Refresh()
 
 			endPage := currentPage + pagesToShow
 			if endPage > totalPages {
@@ -96,29 +105,32 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 		}
 
 		if err == nil {
-			updatePage()
+			initSize := w.Canvas().Size()
+			initSize.Width -= 180
+			updatePage(initSize)
 		} else {
-			scoreDisplay.Objects = []fyne.CanvasObject{
+			scoreDisplay.content.Objects = []fyne.CanvasObject{
 				container.NewCenter(widget.NewLabelWithStyle("Could not load PDF file:\n"+score.FilePath, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})),
 			}
+			scoreDisplay.content.Refresh()
 		}
 
 		nextBtn := widget.NewButtonWithIcon("Next", theme.MenuDropUpIcon(), func() {
-			pts := getPagesToShow()
+			pts := getPagesToShow(scoreDisplay.Size())
 			if currentPage+pts < totalPages {
 				currentPage += pts
-				updatePage()
+				updatePage(scoreDisplay.Size())
 			}
 		})
 		nextBtn.Importance = widget.HighImportance
 
 		prevBtn := widget.NewButtonWithIcon("Prev", theme.MenuDropDownIcon(), func() {
-			pts := getPagesToShow()
+			pts := getPagesToShow(scoreDisplay.Size())
 			currentPage -= pts
 			if currentPage < 0 {
 				currentPage = 0
 			}
-			updatePage()
+			updatePage(scoreDisplay.Size())
 		})
 		prevBtn.Importance = widget.HighImportance
 
@@ -283,4 +295,34 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 
 	showLibrary()
 	return contentWrapper
+}
+
+type responsiveViewer struct {
+	widget.BaseWidget
+	content  *fyne.Container
+	onResize func(size fyne.Size)
+	lastSize fyne.Size
+}
+
+func newResponsiveViewer(onResize func(size fyne.Size)) *responsiveViewer {
+	v := &responsiveViewer{
+		onResize: onResize,
+		content:  container.NewMax(),
+	}
+	v.ExtendBaseWidget(v)
+	return v
+}
+
+func (v *responsiveViewer) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(v.content)
+}
+
+func (v *responsiveViewer) Resize(s fyne.Size) {
+	v.BaseWidget.Resize(s)
+	if s.Width != v.lastSize.Width || s.Height != v.lastSize.Height {
+		v.lastSize = s
+		if v.onResize != nil {
+			v.onResize(s)
+		}
+	}
 }
