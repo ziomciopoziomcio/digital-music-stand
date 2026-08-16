@@ -82,7 +82,7 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 		pageLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 		var renderPage func()
-		var loadCurrentSong func()
+		var loadCurrentSong func(startAtEnd bool)
 
 		renderPage = func() {
 			if currentPdfMgr == nil || totalPages == 0 {
@@ -94,13 +94,11 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 				return
 			}
 
-			// Wyznaczanie liczby stron na podstawie orientacji ekranu
 			pagesToShow = 1
 			if viewerSize.Width > viewerSize.Height && viewerSize.Width > 0 && currentPage+1 < totalPages {
 				pagesToShow = 2
 			}
 
-			// Renderowanie dwóch stron obok siebie w trybie poziomym
 			if pagesToShow == 2 {
 				img1, err1 := currentPdfMgr.GetPageImage(currentPage)
 				img2, err2 := currentPdfMgr.GetPageImage(currentPage + 1)
@@ -121,7 +119,6 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 				}
 			}
 
-			// Renderowanie pojedynczej strony
 			img, err := currentPdfMgr.GetPageImage(currentPage)
 			if err != nil {
 				pdfContainer.Objects = []fyne.CanvasObject{
@@ -140,7 +137,7 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			pageLabel.SetText(fmt.Sprintf("Page %d / %d", currentPage+1, totalPages))
 		}
 
-		loadCurrentSong = func() {
+		loadCurrentSong = func(startAtEnd bool) {
 			if currentPdfMgr != nil {
 				currentPdfMgr.Close()
 				currentPdfMgr = nil
@@ -166,7 +163,16 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 
 			currentPdfMgr = pdfMgr
 			totalPages = pdfMgr.GetPageCount()
-			currentPage = 0
+
+			if startAtEnd && totalPages > 0 {
+				currentPage = totalPages - 1
+				if viewerSize.Width > viewerSize.Height && totalPages >= 2 {
+					currentPage = totalPages - 2
+				}
+			} else {
+				currentPage = 0
+			}
+
 			renderPage()
 		}
 
@@ -181,14 +187,14 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 		prevSongBtn := widget.NewButtonWithIcon("Prev Song", theme.MediaSkipPreviousIcon(), func() {
 			if currentSongIdx > 0 {
 				currentSongIdx--
-				loadCurrentSong()
+				loadCurrentSong(false)
 			}
 		})
 
 		nextSongBtn := widget.NewButtonWithIcon("Next Song", theme.MediaSkipNextIcon(), func() {
 			if currentSongIdx < len(concert.Setlist)-1 {
 				currentSongIdx++
-				loadCurrentSong()
+				loadCurrentSong(false)
 			}
 		})
 
@@ -203,6 +209,9 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 					currentPage = 0
 				}
 				renderPage()
+			} else if currentSongIdx > 0 {
+				currentSongIdx--
+				loadCurrentSong(true)
 			}
 		})
 		prevPageBtn.Importance = widget.HighImportance
@@ -211,6 +220,9 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			if currentPage+pagesToShow < totalPages {
 				currentPage += pagesToShow
 				renderPage()
+			} else if currentSongIdx < len(concert.Setlist)-1 {
+				currentSongIdx++
+				loadCurrentSong(false)
 			}
 		})
 		nextPageBtn.Importance = widget.HighImportance
@@ -240,7 +252,7 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 		contentWrapper.Objects = []fyne.CanvasObject{mainView}
 		contentWrapper.Refresh()
 
-		loadCurrentSong()
+		loadCurrentSong(false)
 	}
 
 	showConcertList()
