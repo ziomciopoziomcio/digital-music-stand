@@ -36,6 +36,9 @@ func (s *ConcertService) calculateConcertChecksum(concertID uint) (string, error
 
 	h := sha256.New()
 	h.Write([]byte(concert.Name))
+	h.Write([]byte(concert.Location))
+	h.Write([]byte(concert.StartTime))
+
 	for _, item := range items {
 		scoreStr := "nil"
 		if item.ScoreID != nil {
@@ -77,11 +80,22 @@ func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.Creat
 		userID = &authUserID
 	}
 
+	loc := ""
+	if req.Location != nil {
+		loc = *req.Location
+	}
+	startTime := ""
+	if req.StartTime != nil {
+		startTime = *req.StartTime
+	}
+
 	newConcert := models.Concert{
-		Name:     req.GetName(),
-		BandID:   bandID,
-		UserID:   userID,
-		Checksum: "initial",
+		Name:      req.GetName(),
+		Location:  loc,
+		StartTime: startTime,
+		BandID:    bandID,
+		UserID:    userID,
+		Checksum:  "initial",
 	}
 
 	if err := s.db.Create(&newConcert).Error; err != nil {
@@ -200,10 +214,14 @@ func (s *ConcertService) ListConcerts(ctx context.Context, req *concertpb.ListCo
 
 	var summaries []*concertpb.ConcertSummary
 	for _, c := range concerts {
+		loc := c.Location
+		start := c.StartTime
 		summaries = append(summaries, &concertpb.ConcertSummary{
-			Id:       uint32(c.ID),
-			Name:     c.Name,
-			Checksum: c.Checksum,
+			Id:        uint32(c.ID),
+			Name:      c.Name,
+			Checksum:  c.Checksum,
+			Location:  &loc,
+			StartTime: &start,
 		})
 	}
 

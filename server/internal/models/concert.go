@@ -11,6 +11,8 @@ type Concert struct {
 	BandID    *uint          `gorm:"uniqueIndex:idx_band_name"`
 	UserID    *uint          `gorm:"uniqueIndex:idx_band_name"`
 	Name      string         `gorm:"not null;uniqueIndex:idx_band_name;uniqueIndex:idx_user_name"`
+	Location  string         `gorm:"default:''"`
+	StartTime string         `gorm:"default:''"`
 	Checksum  string         `gorm:"not null;default:''"`
 	CreatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
