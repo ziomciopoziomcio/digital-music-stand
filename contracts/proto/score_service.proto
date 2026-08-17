@@ -7,6 +7,7 @@ service ScoreService {
   rpc CreateScore(CreateScoreRequest) returns (CreateScoreResponse);
   rpc ListMyScores(ListMyScoresRequest) returns (ListMyScoresResponse);
   rpc ShareScore(ShareScoreRequest) returns (ShareScoreResponse);
+  rpc DownloadScore(DownloadScoreRequest) returns (stream DownloadScoreResponse);
 }
 
 message CreateScoreRequest {
@@ -40,6 +41,8 @@ message Score {
   string name = 2;
   string composer = 3;
   string file_path = 4;
+  string checksum = 5;
+  string file_extension = 6;
 }
 
 message ShareScoreRequest {
@@ -51,4 +54,12 @@ message ShareScoreRequest {
 
 message ShareScoreResponse {
   string message = 1;
+}
+
+message DownloadScoreRequest {
+  uint32 score_id = 1;
+}
+
+message DownloadScoreResponse {
+  bytes chunk_data = 1;
 }

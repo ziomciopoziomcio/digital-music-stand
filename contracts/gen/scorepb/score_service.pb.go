@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v3.21.12
-// source: proto/score_service.proto
+// source: contracts/proto/score_service.proto
 
 package scorepb
 
@@ -33,7 +33,7 @@ type CreateScoreRequest struct {
 
 func (x *CreateScoreRequest) Reset() {
 	*x = CreateScoreRequest{}
-	mi := &file_proto_score_service_proto_msgTypes[0]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -45,7 +45,7 @@ func (x *CreateScoreRequest) String() string {
 func (*CreateScoreRequest) ProtoMessage() {}
 
 func (x *CreateScoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_score_service_proto_msgTypes[0]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -58,7 +58,7 @@ func (x *CreateScoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateScoreRequest.ProtoReflect.Descriptor instead.
 func (*CreateScoreRequest) Descriptor() ([]byte, []int) {
-	return file_proto_score_service_proto_rawDescGZIP(), []int{0}
+	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CreateScoreRequest) GetName() string {
@@ -99,7 +99,7 @@ type CreateScoreResponse struct {
 
 func (x *CreateScoreResponse) Reset() {
 	*x = CreateScoreResponse{}
-	mi := &file_proto_score_service_proto_msgTypes[1]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -111,7 +111,7 @@ func (x *CreateScoreResponse) String() string {
 func (*CreateScoreResponse) ProtoMessage() {}
 
 func (x *CreateScoreResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_score_service_proto_msgTypes[1]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -124,7 +124,7 @@ func (x *CreateScoreResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateScoreResponse.ProtoReflect.Descriptor instead.
 func (*CreateScoreResponse) Descriptor() ([]byte, []int) {
-	return file_proto_score_service_proto_rawDescGZIP(), []int{1}
+	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CreateScoreResponse) GetId() uint32 {
@@ -149,7 +149,7 @@ type ListMyScoresRequest struct {
 
 func (x *ListMyScoresRequest) Reset() {
 	*x = ListMyScoresRequest{}
-	mi := &file_proto_score_service_proto_msgTypes[2]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -161,7 +161,7 @@ func (x *ListMyScoresRequest) String() string {
 func (*ListMyScoresRequest) ProtoMessage() {}
 
 func (x *ListMyScoresRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_score_service_proto_msgTypes[2]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -174,7 +174,7 @@ func (x *ListMyScoresRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMyScoresRequest.ProtoReflect.Descriptor instead.
 func (*ListMyScoresRequest) Descriptor() ([]byte, []int) {
-	return file_proto_score_service_proto_rawDescGZIP(), []int{2}
+	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{2}
 }
 
 type ListMyScoresResponse struct {
@@ -186,7 +186,7 @@ type ListMyScoresResponse struct {
 
 func (x *ListMyScoresResponse) Reset() {
 	*x = ListMyScoresResponse{}
-	mi := &file_proto_score_service_proto_msgTypes[3]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -198,7 +198,7 @@ func (x *ListMyScoresResponse) String() string {
 func (*ListMyScoresResponse) ProtoMessage() {}
 
 func (x *ListMyScoresResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_score_service_proto_msgTypes[3]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -211,7 +211,7 @@ func (x *ListMyScoresResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMyScoresResponse.ProtoReflect.Descriptor instead.
 func (*ListMyScoresResponse) Descriptor() ([]byte, []int) {
-	return file_proto_score_service_proto_rawDescGZIP(), []int{3}
+	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ListMyScoresResponse) GetScores() []*Score {
@@ -227,13 +227,15 @@ type Score struct {
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Composer      string                 `protobuf:"bytes,3,opt,name=composer,proto3" json:"composer,omitempty"`
 	FilePath      string                 `protobuf:"bytes,4,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	Checksum      string                 `protobuf:"bytes,5,opt,name=checksum,proto3" json:"checksum,omitempty"`
+	FileExtension string                 `protobuf:"bytes,6,opt,name=file_extension,json=fileExtension,proto3" json:"file_extension,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Score) Reset() {
 	*x = Score{}
-	mi := &file_proto_score_service_proto_msgTypes[4]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -245,7 +247,7 @@ func (x *Score) String() string {
 func (*Score) ProtoMessage() {}
 
 func (x *Score) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_score_service_proto_msgTypes[4]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -258,7 +260,7 @@ func (x *Score) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Score.ProtoReflect.Descriptor instead.
 func (*Score) Descriptor() ([]byte, []int) {
-	return file_proto_score_service_proto_rawDescGZIP(), []int{4}
+	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Score) GetId() uint32 {
@@ -289,6 +291,20 @@ func (x *Score) GetFilePath() string {
 	return ""
 }
 
+func (x *Score) GetChecksum() string {
+	if x != nil {
+		return x.Checksum
+	}
+	return ""
+}
+
+func (x *Score) GetFileExtension() string {
+	if x != nil {
+		return x.FileExtension
+	}
+	return ""
+}
+
 type ShareScoreRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ScoreId       uint32                 `protobuf:"varint,1,opt,name=score_id,json=scoreId,proto3" json:"score_id,omitempty"`
@@ -300,7 +316,7 @@ type ShareScoreRequest struct {
 
 func (x *ShareScoreRequest) Reset() {
 	*x = ShareScoreRequest{}
-	mi := &file_proto_score_service_proto_msgTypes[5]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -312,7 +328,7 @@ func (x *ShareScoreRequest) String() string {
 func (*ShareScoreRequest) ProtoMessage() {}
 
 func (x *ShareScoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_score_service_proto_msgTypes[5]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -325,7 +341,7 @@ func (x *ShareScoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShareScoreRequest.ProtoReflect.Descriptor instead.
 func (*ShareScoreRequest) Descriptor() ([]byte, []int) {
-	return file_proto_score_service_proto_rawDescGZIP(), []int{5}
+	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ShareScoreRequest) GetScoreId() uint32 {
@@ -358,7 +374,7 @@ type ShareScoreResponse struct {
 
 func (x *ShareScoreResponse) Reset() {
 	*x = ShareScoreResponse{}
-	mi := &file_proto_score_service_proto_msgTypes[6]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -370,7 +386,7 @@ func (x *ShareScoreResponse) String() string {
 func (*ShareScoreResponse) ProtoMessage() {}
 
 func (x *ShareScoreResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_score_service_proto_msgTypes[6]
+	mi := &file_contracts_proto_score_service_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -383,7 +399,7 @@ func (x *ShareScoreResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShareScoreResponse.ProtoReflect.Descriptor instead.
 func (*ShareScoreResponse) Descriptor() ([]byte, []int) {
-	return file_proto_score_service_proto_rawDescGZIP(), []int{6}
+	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ShareScoreResponse) GetMessage() string {
@@ -393,11 +409,99 @@ func (x *ShareScoreResponse) GetMessage() string {
 	return ""
 }
 
-var File_proto_score_service_proto protoreflect.FileDescriptor
+type DownloadScoreRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ScoreId       uint32                 `protobuf:"varint,1,opt,name=score_id,json=scoreId,proto3" json:"score_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_proto_score_service_proto_rawDesc = "" +
+func (x *DownloadScoreRequest) Reset() {
+	*x = DownloadScoreRequest{}
+	mi := &file_contracts_proto_score_service_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DownloadScoreRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DownloadScoreRequest) ProtoMessage() {}
+
+func (x *DownloadScoreRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_score_service_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DownloadScoreRequest.ProtoReflect.Descriptor instead.
+func (*DownloadScoreRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *DownloadScoreRequest) GetScoreId() uint32 {
+	if x != nil {
+		return x.ScoreId
+	}
+	return 0
+}
+
+type DownloadScoreResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ChunkData     []byte                 `protobuf:"bytes,1,opt,name=chunk_data,json=chunkData,proto3" json:"chunk_data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DownloadScoreResponse) Reset() {
+	*x = DownloadScoreResponse{}
+	mi := &file_contracts_proto_score_service_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DownloadScoreResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DownloadScoreResponse) ProtoMessage() {}
+
+func (x *DownloadScoreResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_score_service_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DownloadScoreResponse.ProtoReflect.Descriptor instead.
+func (*DownloadScoreResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *DownloadScoreResponse) GetChunkData() []byte {
+	if x != nil {
+		return x.ChunkData
+	}
+	return nil
+}
+
+var File_contracts_proto_score_service_proto protoreflect.FileDescriptor
+
+const file_contracts_proto_score_service_proto_rawDesc = "" +
 	"\n" +
-	"\x19proto/score_service.proto\x12\x19digital_music_stand.score\"\xa9\x01\n" +
+	"#contracts/proto/score_service.proto\x12\x19digital_music_stand.score\"\xa9\x01\n" +
 	"\x12CreateScoreRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n" +
 	"\bcomposer\x18\x02 \x01(\tR\bcomposer\x12\x1b\n" +
@@ -408,12 +512,14 @@ const file_proto_score_service_proto_rawDesc = "" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"$\n" +
 	"\x13ListMyScoresRequestJ\x04\b\x01\x10\x02R\auser_id\"P\n" +
 	"\x14ListMyScoresResponse\x128\n" +
-	"\x06scores\x18\x01 \x03(\v2 .digital_music_stand.score.ScoreR\x06scores\"d\n" +
+	"\x06scores\x18\x01 \x03(\v2 .digital_music_stand.score.ScoreR\x06scores\"\xa7\x01\n" +
 	"\x05Score\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
 	"\bcomposer\x18\x03 \x01(\tR\bcomposer\x12\x1b\n" +
-	"\tfile_path\x18\x04 \x01(\tR\bfilePath\"\x82\x01\n" +
+	"\tfile_path\x18\x04 \x01(\tR\bfilePath\x12\x1a\n" +
+	"\bchecksum\x18\x05 \x01(\tR\bchecksum\x12%\n" +
+	"\x0efile_extension\x18\x06 \x01(\tR\rfileExtension\"\x82\x01\n" +
 	"\x11ShareScoreRequest\x12\x19\n" +
 	"\bscore_id\x18\x01 \x01(\rR\ascoreId\x12\x1c\n" +
 	"\auser_id\x18\x02 \x01(\rH\x00R\x06userId\x88\x01\x01\x12\x1c\n" +
@@ -423,71 +529,81 @@ const file_proto_score_service_proto_rawDesc = "" +
 	"\n" +
 	"\b_band_id\".\n" +
 	"\x12ShareScoreResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2\xd8\x02\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"1\n" +
+	"\x14DownloadScoreRequest\x12\x19\n" +
+	"\bscore_id\x18\x01 \x01(\rR\ascoreId\"6\n" +
+	"\x15DownloadScoreResponse\x12\x1d\n" +
+	"\n" +
+	"chunk_data\x18\x01 \x01(\fR\tchunkData2\xce\x03\n" +
 	"\fScoreService\x12l\n" +
 	"\vCreateScore\x12-.digital_music_stand.score.CreateScoreRequest\x1a..digital_music_stand.score.CreateScoreResponse\x12o\n" +
 	"\fListMyScores\x12..digital_music_stand.score.ListMyScoresRequest\x1a/.digital_music_stand.score.ListMyScoresResponse\x12i\n" +
 	"\n" +
-	"ShareScore\x12,.digital_music_stand.score.ShareScoreRequest\x1a-.digital_music_stand.score.ShareScoreResponseBGZEgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepbb\x06proto3"
+	"ShareScore\x12,.digital_music_stand.score.ShareScoreRequest\x1a-.digital_music_stand.score.ShareScoreResponse\x12t\n" +
+	"\rDownloadScore\x12/.digital_music_stand.score.DownloadScoreRequest\x1a0.digital_music_stand.score.DownloadScoreResponse0\x01BGZEgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepbb\x06proto3"
 
 var (
-	file_proto_score_service_proto_rawDescOnce sync.Once
-	file_proto_score_service_proto_rawDescData []byte
+	file_contracts_proto_score_service_proto_rawDescOnce sync.Once
+	file_contracts_proto_score_service_proto_rawDescData []byte
 )
 
-func file_proto_score_service_proto_rawDescGZIP() []byte {
-	file_proto_score_service_proto_rawDescOnce.Do(func() {
-		file_proto_score_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_score_service_proto_rawDesc), len(file_proto_score_service_proto_rawDesc)))
+func file_contracts_proto_score_service_proto_rawDescGZIP() []byte {
+	file_contracts_proto_score_service_proto_rawDescOnce.Do(func() {
+		file_contracts_proto_score_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_contracts_proto_score_service_proto_rawDesc), len(file_contracts_proto_score_service_proto_rawDesc)))
 	})
-	return file_proto_score_service_proto_rawDescData
+	return file_contracts_proto_score_service_proto_rawDescData
 }
 
-var file_proto_score_service_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
-var file_proto_score_service_proto_goTypes = []any{
-	(*CreateScoreRequest)(nil),   // 0: digital_music_stand.score.CreateScoreRequest
-	(*CreateScoreResponse)(nil),  // 1: digital_music_stand.score.CreateScoreResponse
-	(*ListMyScoresRequest)(nil),  // 2: digital_music_stand.score.ListMyScoresRequest
-	(*ListMyScoresResponse)(nil), // 3: digital_music_stand.score.ListMyScoresResponse
-	(*Score)(nil),                // 4: digital_music_stand.score.Score
-	(*ShareScoreRequest)(nil),    // 5: digital_music_stand.score.ShareScoreRequest
-	(*ShareScoreResponse)(nil),   // 6: digital_music_stand.score.ShareScoreResponse
+var file_contracts_proto_score_service_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_contracts_proto_score_service_proto_goTypes = []any{
+	(*CreateScoreRequest)(nil),    // 0: digital_music_stand.score.CreateScoreRequest
+	(*CreateScoreResponse)(nil),   // 1: digital_music_stand.score.CreateScoreResponse
+	(*ListMyScoresRequest)(nil),   // 2: digital_music_stand.score.ListMyScoresRequest
+	(*ListMyScoresResponse)(nil),  // 3: digital_music_stand.score.ListMyScoresResponse
+	(*Score)(nil),                 // 4: digital_music_stand.score.Score
+	(*ShareScoreRequest)(nil),     // 5: digital_music_stand.score.ShareScoreRequest
+	(*ShareScoreResponse)(nil),    // 6: digital_music_stand.score.ShareScoreResponse
+	(*DownloadScoreRequest)(nil),  // 7: digital_music_stand.score.DownloadScoreRequest
+	(*DownloadScoreResponse)(nil), // 8: digital_music_stand.score.DownloadScoreResponse
 }
-var file_proto_score_service_proto_depIdxs = []int32{
+var file_contracts_proto_score_service_proto_depIdxs = []int32{
 	4, // 0: digital_music_stand.score.ListMyScoresResponse.scores:type_name -> digital_music_stand.score.Score
 	0, // 1: digital_music_stand.score.ScoreService.CreateScore:input_type -> digital_music_stand.score.CreateScoreRequest
 	2, // 2: digital_music_stand.score.ScoreService.ListMyScores:input_type -> digital_music_stand.score.ListMyScoresRequest
 	5, // 3: digital_music_stand.score.ScoreService.ShareScore:input_type -> digital_music_stand.score.ShareScoreRequest
-	1, // 4: digital_music_stand.score.ScoreService.CreateScore:output_type -> digital_music_stand.score.CreateScoreResponse
-	3, // 5: digital_music_stand.score.ScoreService.ListMyScores:output_type -> digital_music_stand.score.ListMyScoresResponse
-	6, // 6: digital_music_stand.score.ScoreService.ShareScore:output_type -> digital_music_stand.score.ShareScoreResponse
-	4, // [4:7] is the sub-list for method output_type
-	1, // [1:4] is the sub-list for method input_type
+	7, // 4: digital_music_stand.score.ScoreService.DownloadScore:input_type -> digital_music_stand.score.DownloadScoreRequest
+	1, // 5: digital_music_stand.score.ScoreService.CreateScore:output_type -> digital_music_stand.score.CreateScoreResponse
+	3, // 6: digital_music_stand.score.ScoreService.ListMyScores:output_type -> digital_music_stand.score.ListMyScoresResponse
+	6, // 7: digital_music_stand.score.ScoreService.ShareScore:output_type -> digital_music_stand.score.ShareScoreResponse
+	8, // 8: digital_music_stand.score.ScoreService.DownloadScore:output_type -> digital_music_stand.score.DownloadScoreResponse
+	5, // [5:9] is the sub-list for method output_type
+	1, // [1:5] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_proto_score_service_proto_init() }
-func file_proto_score_service_proto_init() {
-	if File_proto_score_service_proto != nil {
+func init() { file_contracts_proto_score_service_proto_init() }
+func file_contracts_proto_score_service_proto_init() {
+	if File_contracts_proto_score_service_proto != nil {
 		return
 	}
-	file_proto_score_service_proto_msgTypes[5].OneofWrappers = []any{}
+	file_contracts_proto_score_service_proto_msgTypes[5].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_score_service_proto_rawDesc), len(file_proto_score_service_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_contracts_proto_score_service_proto_rawDesc), len(file_contracts_proto_score_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_score_service_proto_goTypes,
-		DependencyIndexes: file_proto_score_service_proto_depIdxs,
-		MessageInfos:      file_proto_score_service_proto_msgTypes,
+		GoTypes:           file_contracts_proto_score_service_proto_goTypes,
+		DependencyIndexes: file_contracts_proto_score_service_proto_depIdxs,
+		MessageInfos:      file_contracts_proto_score_service_proto_msgTypes,
 	}.Build()
-	File_proto_score_service_proto = out.File
-	file_proto_score_service_proto_goTypes = nil
-	file_proto_score_service_proto_depIdxs = nil
+	File_contracts_proto_score_service_proto = out.File
+	file_contracts_proto_score_service_proto_goTypes = nil
+	file_contracts_proto_score_service_proto_depIdxs = nil
 }

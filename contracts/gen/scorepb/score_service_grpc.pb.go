@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             v3.21.12
-// source: proto/score_service.proto
+// source: contracts/proto/score_service.proto
 
 package scorepb
 
@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ScoreService_CreateScore_FullMethodName  = "/digital_music_stand.score.ScoreService/CreateScore"
-	ScoreService_ListMyScores_FullMethodName = "/digital_music_stand.score.ScoreService/ListMyScores"
-	ScoreService_ShareScore_FullMethodName   = "/digital_music_stand.score.ScoreService/ShareScore"
+	ScoreService_CreateScore_FullMethodName   = "/digital_music_stand.score.ScoreService/CreateScore"
+	ScoreService_ListMyScores_FullMethodName  = "/digital_music_stand.score.ScoreService/ListMyScores"
+	ScoreService_ShareScore_FullMethodName    = "/digital_music_stand.score.ScoreService/ShareScore"
+	ScoreService_DownloadScore_FullMethodName = "/digital_music_stand.score.ScoreService/DownloadScore"
 )
 
 // ScoreServiceClient is the client API for ScoreService service.
@@ -31,6 +32,7 @@ type ScoreServiceClient interface {
 	CreateScore(ctx context.Context, in *CreateScoreRequest, opts ...grpc.CallOption) (*CreateScoreResponse, error)
 	ListMyScores(ctx context.Context, in *ListMyScoresRequest, opts ...grpc.CallOption) (*ListMyScoresResponse, error)
 	ShareScore(ctx context.Context, in *ShareScoreRequest, opts ...grpc.CallOption) (*ShareScoreResponse, error)
+	DownloadScore(ctx context.Context, in *DownloadScoreRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadScoreResponse], error)
 }
 
 type scoreServiceClient struct {
@@ -71,6 +73,25 @@ func (c *scoreServiceClient) ShareScore(ctx context.Context, in *ShareScoreReque
 	return out, nil
 }
 
+func (c *scoreServiceClient) DownloadScore(ctx context.Context, in *DownloadScoreRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadScoreResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ScoreService_ServiceDesc.Streams[0], ScoreService_DownloadScore_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[DownloadScoreRequest, DownloadScoreResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ScoreService_DownloadScoreClient = grpc.ServerStreamingClient[DownloadScoreResponse]
+
 // ScoreServiceServer is the server API for ScoreService service.
 // All implementations must embed UnimplementedScoreServiceServer
 // for forward compatibility.
@@ -78,6 +99,7 @@ type ScoreServiceServer interface {
 	CreateScore(context.Context, *CreateScoreRequest) (*CreateScoreResponse, error)
 	ListMyScores(context.Context, *ListMyScoresRequest) (*ListMyScoresResponse, error)
 	ShareScore(context.Context, *ShareScoreRequest) (*ShareScoreResponse, error)
+	DownloadScore(*DownloadScoreRequest, grpc.ServerStreamingServer[DownloadScoreResponse]) error
 	mustEmbedUnimplementedScoreServiceServer()
 }
 
@@ -96,6 +118,9 @@ func (UnimplementedScoreServiceServer) ListMyScores(context.Context, *ListMyScor
 }
 func (UnimplementedScoreServiceServer) ShareScore(context.Context, *ShareScoreRequest) (*ShareScoreResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ShareScore not implemented")
+}
+func (UnimplementedScoreServiceServer) DownloadScore(*DownloadScoreRequest, grpc.ServerStreamingServer[DownloadScoreResponse]) error {
+	return status.Error(codes.Unimplemented, "method DownloadScore not implemented")
 }
 func (UnimplementedScoreServiceServer) mustEmbedUnimplementedScoreServiceServer() {}
 func (UnimplementedScoreServiceServer) testEmbeddedByValue()                      {}
@@ -172,6 +197,17 @@ func _ScoreService_ShareScore_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ScoreService_DownloadScore_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DownloadScoreRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ScoreServiceServer).DownloadScore(m, &grpc.GenericServerStream[DownloadScoreRequest, DownloadScoreResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ScoreService_DownloadScoreServer = grpc.ServerStreamingServer[DownloadScoreResponse]
+
 // ScoreService_ServiceDesc is the grpc.ServiceDesc for ScoreService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -192,6 +228,12 @@ var ScoreService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ScoreService_ShareScore_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/score_service.proto",
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "DownloadScore",
+			Handler:       _ScoreService_DownloadScore_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "contracts/proto/score_service.proto",
 }
