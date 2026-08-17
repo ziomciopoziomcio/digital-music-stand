@@ -13,12 +13,20 @@ type Score struct {
 	FilePath string
 }
 
-type Concert struct {
+type ConcertItem struct {
 	ID        int
-	Name      string
-	Location  string
-	StartTime string
-	Setlist   []Score
+	SortOrder int
+	ScoreID   *int
+	BreakMin  *int
+	ScoreName *string
+	FilePath  *string
+}
+
+type Concert struct {
+	ID       int
+	Name     string
+	Checksum string
+	Items    []ConcertItem
 }
 
 type DBManager struct {
@@ -39,16 +47,17 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 	);
 
 	CREATE TABLE IF NOT EXISTS concerts (
-	    id INTEGER PRIMARY KEY AUTOINCREMENT,
+	    id INTEGER PRIMARY KEY,
 	    name TEXT NOT NULL,
-	    location TEXT,
-	    start_time TEXT
+	    checksum TEXT NOT NULL
 	);
 
-	CREATE TABLE IF NOT EXISTS concert_scores (
+	CREATE TABLE IF NOT EXISTS concert_items (
+	    id INTEGER PRIMARY KEY,
 	    concert_id INTEGER NOT NULL,
-	    score_id INTEGER NOT NULL,
-	    position INTEGER NOT NULL,
+	    sort_order INTEGER NOT NULL,
+	    score_id INTEGER,
+	    break_min INTEGER,
 	    FOREIGN KEY(concert_id) REFERENCES concerts(id) ON DELETE CASCADE,
 	    FOREIGN KEY(score_id) REFERENCES scores(id) ON DELETE CASCADE
 	);`
@@ -92,25 +101,36 @@ func (m *DBManager) DeleteScore(id int) error {
 	return err
 }
 
-func (m *DBManager) AddConcert(name, location, startTime string, setlist []Score) error {
+func (m *DBManager) SyncConcertFromServer(concertID int, name string, checksum string, remoteItems []ConcertItem) error {
 	tx, err := m.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec("INSERT INTO concerts (name, location, start_time) VALUES (?, ?, ?)", name, location, startTime)
+	_, err = tx.Exec(`
+		INSERT INTO concerts (id, name, checksum) 
+		VALUES (?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET 
+			name = excluded.name,
+			checksum = excluded.checksum`,
+		concertID, name, checksum,
+	)
 	if err != nil {
 		return err
 	}
 
-	concertID, err := res.LastInsertId()
+	_, err = tx.Exec("DELETE FROM concert_items WHERE concert_id = ?", concertID)
 	if err != nil {
 		return err
 	}
 
-	for pos, score := range setlist {
-		_, err := tx.Exec("INSERT INTO concert_scores (concert_id, score_id, position) VALUES (?, ?, ?)", concertID, score.ID, pos)
+	for _, item := range remoteItems {
+		_, err = tx.Exec(`
+			INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min) 
+			VALUES (?, ?, ?, ?, ?)`,
+			item.ID, concertID, item.SortOrder, item.ScoreID, item.BreakMin,
+		)
 		if err != nil {
 			return err
 		}
@@ -120,7 +140,7 @@ func (m *DBManager) AddConcert(name, location, startTime string, setlist []Score
 }
 
 func (m *DBManager) GetConcerts() ([]Concert, error) {
-	rows, err := m.db.Query("SELECT id, name, location, start_time FROM concerts ORDER BY id DESC")
+	rows, err := m.db.Query("SELECT id, name, checksum FROM concerts ORDER BY id DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -129,29 +149,28 @@ func (m *DBManager) GetConcerts() ([]Concert, error) {
 	var concerts []Concert
 	for rows.Next() {
 		var c Concert
-		if err := rows.Scan(&c.ID, &c.Name, &c.Location, &c.StartTime); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Checksum); err != nil {
 			return nil, err
 		}
 
-		scoreRows, err := m.db.Query(`
-			SELECT s.id, s.title, s.file_path 
-			FROM scores s 
-			JOIN concert_scores cs ON s.id = cs.score_id 
-			WHERE cs.concert_id = ? 
-			ORDER BY cs.position ASC`, c.ID)
+		itemRows, err := m.db.Query(`
+			SELECT id, sort_order, score_id, break_min 
+			FROM concert_items 
+			WHERE concert_id = ? 
+			ORDER BY sort_order ASC`, c.ID)
 		if err != nil {
 			return nil, err
 		}
 
-		for scoreRows.Next() {
-			var s Score
-			if err := scoreRows.Scan(&s.ID, &s.Title, &s.FilePath); err != nil {
-				scoreRows.Close()
+		for itemRows.Next() {
+			var item ConcertItem
+			if err := itemRows.Scan(&item.ID, &item.SortOrder, &item.ScoreID, &item.BreakMin); err != nil {
+				itemRows.Close()
 				return nil, err
 			}
-			c.Setlist = append(c.Setlist, s)
+			c.Items = append(c.Items, item)
 		}
-		scoreRows.Close()
+		itemRows.Close()
 
 		concerts = append(concerts, c)
 	}
