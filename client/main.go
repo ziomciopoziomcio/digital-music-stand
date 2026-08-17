@@ -8,14 +8,16 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system/sysmock"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/ui"
-	"github.com/ziomciopoziomcio/digital-music-stand/client/webserver" // Import naszego nowego modułu!
+	"github.com/ziomciopoziomcio/digital-music-stand/client/webserver"
 )
 
 func main() {
@@ -65,7 +67,7 @@ func main() {
 				myApp.Preferences().SetString("server_addr", server)
 
 				go func() {
-					fmt.Println("Starting concerts sync...")
+					fmt.Println("Starting sync processes...")
 					conn, err := network.NewGRPCClient(server, token)
 					if err != nil {
 						fmt.Println("Error while connecting to gRPC:", err)
@@ -73,13 +75,20 @@ func main() {
 					}
 					defer conn.Close()
 
+					scoreClient := scorepb.NewScoreServiceClient(conn)
+					err = network.SynchronizeScores(context.Background(), scoreClient, dbMgr)
+					if err != nil {
+						fmt.Println("Score sync error:", err)
+					} else {
+						fmt.Println("Scores synchronised successfully")
+					}
+
 					concertClient := concertpb.NewConcertServiceClient(conn)
 					err = network.SynchronizeConcerts(context.Background(), concertClient, dbMgr)
 					if err != nil {
 						fmt.Println("Concert sync error:", err)
 					} else {
 						fmt.Println("Concert synchronised successfully")
-						//todo: refresh concert-related screens
 					}
 				}()
 
@@ -93,7 +102,22 @@ func main() {
 	}
 
 	showPractice = func() {
-		practiceView := ui.BuildPracticeMode(myWindow, dbMgr, showDashboard)
+		practiceView := ui.BuildPracticeMode(myWindow, dbMgr, func() {
+			token := myApp.Preferences().String("jwt_token")
+			server := myApp.Preferences().String("server_addr")
+			if token != "" && server != "" {
+				go func() {
+					conn, err := network.NewGRPCClient(server, token)
+					if err == nil {
+						defer conn.Close()
+						scoreClient := scorepb.NewScoreServiceClient(conn)
+						if syncErr := network.SynchronizeScores(context.Background(), scoreClient, dbMgr); syncErr != nil {
+							log.Printf("Background score sync error: %v", syncErr)
+						}
+					}
+				}()
+			}
+		}, showDashboard)
 		mainWrapper.Objects = []fyne.CanvasObject{practiceView}
 		mainWrapper.Refresh()
 	}

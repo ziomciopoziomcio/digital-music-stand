@@ -23,6 +23,7 @@ const (
 
 type CreateScoreRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            *string                `protobuf:"bytes,7,opt,name=id,proto3,oneof" json:"id,omitempty"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Composer      string                 `protobuf:"bytes,2,opt,name=composer,proto3" json:"composer,omitempty"`
 	FileData      []byte                 `protobuf:"bytes,5,opt,name=file_data,json=fileData,proto3" json:"file_data,omitempty"`
@@ -61,6 +62,13 @@ func (*CreateScoreRequest) Descriptor() ([]byte, []int) {
 	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{0}
 }
 
+func (x *CreateScoreRequest) GetId() string {
+	if x != nil && x.Id != nil {
+		return *x.Id
+	}
+	return ""
+}
+
 func (x *CreateScoreRequest) GetName() string {
 	if x != nil {
 		return x.Name
@@ -91,8 +99,9 @@ func (x *CreateScoreRequest) GetFileExtension() string {
 
 type CreateScoreResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Checksum      string                 `protobuf:"bytes,3,opt,name=checksum,proto3" json:"checksum,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -127,16 +136,23 @@ func (*CreateScoreResponse) Descriptor() ([]byte, []int) {
 	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *CreateScoreResponse) GetId() uint32 {
+func (x *CreateScoreResponse) GetId() string {
 	if x != nil {
 		return x.Id
 	}
-	return 0
+	return ""
 }
 
 func (x *CreateScoreResponse) GetMessage() string {
 	if x != nil {
 		return x.Message
+	}
+	return ""
+}
+
+func (x *CreateScoreResponse) GetChecksum() string {
+	if x != nil {
+		return x.Checksum
 	}
 	return ""
 }
@@ -223,7 +239,7 @@ func (x *ListMyScoresResponse) GetScores() []*Score {
 
 type Score struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Composer      string                 `protobuf:"bytes,3,opt,name=composer,proto3" json:"composer,omitempty"`
 	FilePath      string                 `protobuf:"bytes,4,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
@@ -263,11 +279,11 @@ func (*Score) Descriptor() ([]byte, []int) {
 	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *Score) GetId() uint32 {
+func (x *Score) GetId() string {
 	if x != nil {
 		return x.Id
 	}
-	return 0
+	return ""
 }
 
 func (x *Score) GetName() string {
@@ -307,7 +323,7 @@ func (x *Score) GetFileExtension() string {
 
 type ShareScoreRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ScoreId       uint32                 `protobuf:"varint,1,opt,name=score_id,json=scoreId,proto3" json:"score_id,omitempty"`
+	ScoreId       string                 `protobuf:"bytes,1,opt,name=score_id,json=scoreId,proto3" json:"score_id,omitempty"`
 	UserId        *uint32                `protobuf:"varint,2,opt,name=user_id,json=userId,proto3,oneof" json:"user_id,omitempty"`
 	BandId        *uint32                `protobuf:"varint,3,opt,name=band_id,json=bandId,proto3,oneof" json:"band_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -344,11 +360,11 @@ func (*ShareScoreRequest) Descriptor() ([]byte, []int) {
 	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *ShareScoreRequest) GetScoreId() uint32 {
+func (x *ShareScoreRequest) GetScoreId() string {
 	if x != nil {
 		return x.ScoreId
 	}
-	return 0
+	return ""
 }
 
 func (x *ShareScoreRequest) GetUserId() uint32 {
@@ -411,7 +427,7 @@ func (x *ShareScoreResponse) GetMessage() string {
 
 type DownloadScoreRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ScoreId       uint32                 `protobuf:"varint,1,opt,name=score_id,json=scoreId,proto3" json:"score_id,omitempty"`
+	ScoreId       string                 `protobuf:"bytes,1,opt,name=score_id,json=scoreId,proto3" json:"score_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -446,11 +462,11 @@ func (*DownloadScoreRequest) Descriptor() ([]byte, []int) {
 	return file_contracts_proto_score_service_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *DownloadScoreRequest) GetScoreId() uint32 {
+func (x *DownloadScoreRequest) GetScoreId() string {
 	if x != nil {
 		return x.ScoreId
 	}
-	return 0
+	return ""
 }
 
 type DownloadScoreResponse struct {
@@ -501,27 +517,30 @@ var File_contracts_proto_score_service_proto protoreflect.FileDescriptor
 
 const file_contracts_proto_score_service_proto_rawDesc = "" +
 	"\n" +
-	"#contracts/proto/score_service.proto\x12\x19digital_music_stand.score\"\xa9\x01\n" +
-	"\x12CreateScoreRequest\x12\x12\n" +
+	"#contracts/proto/score_service.proto\x12\x19digital_music_stand.score\"\xc5\x01\n" +
+	"\x12CreateScoreRequest\x12\x13\n" +
+	"\x02id\x18\a \x01(\tH\x00R\x02id\x88\x01\x01\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n" +
 	"\bcomposer\x18\x02 \x01(\tR\bcomposer\x12\x1b\n" +
 	"\tfile_data\x18\x05 \x01(\fR\bfileData\x12%\n" +
-	"\x0efile_extension\x18\x06 \x01(\tR\rfileExtensionJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\tfile_pathR\bowner_id\"?\n" +
+	"\x0efile_extension\x18\x06 \x01(\tR\rfileExtensionB\x05\n" +
+	"\x03_idJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\tfile_pathR\bowner_id\"[\n" +
 	"\x13CreateScoreResponse\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\rR\x02id\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"$\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1a\n" +
+	"\bchecksum\x18\x03 \x01(\tR\bchecksum\"$\n" +
 	"\x13ListMyScoresRequestJ\x04\b\x01\x10\x02R\auser_id\"P\n" +
 	"\x14ListMyScoresResponse\x128\n" +
 	"\x06scores\x18\x01 \x03(\v2 .digital_music_stand.score.ScoreR\x06scores\"\xa7\x01\n" +
 	"\x05Score\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\rR\x02id\x12\x12\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
 	"\bcomposer\x18\x03 \x01(\tR\bcomposer\x12\x1b\n" +
 	"\tfile_path\x18\x04 \x01(\tR\bfilePath\x12\x1a\n" +
 	"\bchecksum\x18\x05 \x01(\tR\bchecksum\x12%\n" +
 	"\x0efile_extension\x18\x06 \x01(\tR\rfileExtension\"\x82\x01\n" +
 	"\x11ShareScoreRequest\x12\x19\n" +
-	"\bscore_id\x18\x01 \x01(\rR\ascoreId\x12\x1c\n" +
+	"\bscore_id\x18\x01 \x01(\tR\ascoreId\x12\x1c\n" +
 	"\auser_id\x18\x02 \x01(\rH\x00R\x06userId\x88\x01\x01\x12\x1c\n" +
 	"\aband_id\x18\x03 \x01(\rH\x01R\x06bandId\x88\x01\x01B\n" +
 	"\n" +
@@ -531,7 +550,7 @@ const file_contracts_proto_score_service_proto_rawDesc = "" +
 	"\x12ShareScoreResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"1\n" +
 	"\x14DownloadScoreRequest\x12\x19\n" +
-	"\bscore_id\x18\x01 \x01(\rR\ascoreId\"6\n" +
+	"\bscore_id\x18\x01 \x01(\tR\ascoreId\"6\n" +
 	"\x15DownloadScoreResponse\x12\x1d\n" +
 	"\n" +
 	"chunk_data\x18\x01 \x01(\fR\tchunkData2\xce\x03\n" +
@@ -588,6 +607,7 @@ func file_contracts_proto_score_service_proto_init() {
 	if File_contracts_proto_score_service_proto != nil {
 		return
 	}
+	file_contracts_proto_score_service_proto_msgTypes[0].OneofWrappers = []any{}
 	file_contracts_proto_score_service_proto_msgTypes[5].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

@@ -225,3 +225,16 @@ func (m *DBManager) DeleteConcert(id string) error {
 	_, err := m.db.Exec("DELETE FROM concerts WHERE id = ?", id)
 	return err
 }
+
+func (m *DBManager) SyncScoreFromServer(id, title, filePath, checksum string) error {
+	_, err := m.db.Exec(`
+		INSERT INTO scores (id, title, file_path, checksum) 
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET 
+			title = excluded.title,
+			file_path = excluded.file_path,
+			checksum = excluded.checksum`,
+		id, title, filePath, checksum,
+	)
+	return err
+}

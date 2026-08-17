@@ -11,6 +11,7 @@ service ScoreService {
 }
 
 message CreateScoreRequest {
+  optional string id = 7;
   string name = 1;
   string composer = 2;
   bytes file_data = 5;
@@ -23,8 +24,9 @@ message CreateScoreRequest {
 }
 
 message CreateScoreResponse {
-  uint32 id = 1;
+  string id = 1;
   string message = 2;
+  string checksum = 3;
 }
 
 message ListMyScoresRequest {
@@ -37,7 +39,7 @@ message ListMyScoresResponse {
 }
 
 message Score {
-  uint32 id = 1;
+  string id = 1;
   string name = 2;
   string composer = 3;
   string file_path = 4;
@@ -46,8 +48,7 @@ message Score {
 }
 
 message ShareScoreRequest {
-  uint32 score_id = 1;
-
+  string score_id = 1;
   optional uint32 user_id = 2;
   optional uint32 band_id = 3;
 }
@@ -57,7 +58,7 @@ message ShareScoreResponse {
 }
 
 message DownloadScoreRequest {
-  uint32 score_id = 1;
+  string score_id = 1;
 }
 
 message DownloadScoreResponse {
