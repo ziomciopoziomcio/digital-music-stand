@@ -89,17 +89,28 @@ func (s *ScoreService) ListMyScores(ctx context.Context, req *scorepb.ListMyScor
 	}
 
 	var scores []models.Score
-	if err := s.db.Where("owner_id = ?", userID).Find(&scores).Error; err != nil {
+
+	subQueryDirect := s.db.Table("shared_user_scores").
+		Select("score_id").
+		Where("user_id = ?", userID)
+
+	subQueryBand := s.db.Table("shared_band_scores").
+		Joins("JOIN band_members ON band_members.band_id = shared_band_scores.band_id").
+		Where("band_members.user_id = ?", userID).
+		Select("shared_band_scores.score_id")
+
+	err = s.db.Where("owner_id = ? OR id IN (?) OR id IN (?)", userID, subQueryDirect, subQueryBand).
+		Distinct().
+		Find(&scores).Error
+
+	if err != nil {
 		return nil, fmt.Errorf("failed to fetch scores: %v", err)
 	}
 
 	var scoreList []*scorepb.Score
 	for _, score := range scores {
-		var composer string
-
-		if score.Composer == nil {
-			composer = "-"
-		} else {
+		composer := ""
+		if score.Composer != nil {
 			composer = *score.Composer
 		}
 
