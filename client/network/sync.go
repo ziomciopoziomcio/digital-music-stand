@@ -10,9 +10,14 @@ import (
 )
 
 func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertServiceClient, dbMgr *localdb.DBManager) error {
-	resp, err := concertClient.ListConcerts(ctx, &concertpb.ListConcertsRequest{})
+	remoteResp, err := concertClient.ListConcerts(ctx, &concertpb.ListConcertsRequest{})
 	if err != nil {
 		return fmt.Errorf("failed to list remote concerts: %w", err)
+	}
+
+	remoteMap := make(map[int]*concertpb.ConcertSummary)
+	for _, rc := range remoteResp.GetConcerts() {
+		remoteMap[int(rc.Id)] = rc
 	}
 
 	localConcerts, err := dbMgr.GetConcerts()
@@ -20,12 +25,51 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 		return fmt.Errorf("failed to get local concerts: %w", err)
 	}
 
+	for _, lc := range localConcerts {
+		if lc.Checksum == "" {
+			log.Printf("Pushing local concert %s to cloud...", lc.Name)
+			createResp, err := concertClient.CreateConcert(ctx, &concertpb.CreateConcertRequest{
+				Name:      lc.Name,
+				Location:  &lc.Location,
+				StartTime: &lc.StartTime,
+			})
+			if err != nil {
+				log.Printf("Failed to push concert %s to cloud: %v", lc.Name, err)
+				continue
+			}
+
+			remoteID := createResp.GetId()
+			for _, item := range lc.Items {
+				req := &concertpb.AddConcertItemRequest{
+					ConcertId: remoteID,
+					Order:     uint32(item.SortOrder),
+				}
+				if item.ScoreID != nil {
+					scoreID := uint32(*item.ScoreID)
+					req.ScoreId = &scoreID
+				} else if item.BreakMin != nil {
+					breakMin := uint32(*item.BreakMin)
+					req.BreakMin = &breakMin
+				}
+
+				if _, err := concertClient.AddConcertItem(ctx, req); err != nil {
+					log.Printf("Failed to push concert item to cloud: %v", err)
+				}
+			}
+		}
+	}
+
+	remoteResp, err = concertClient.ListConcerts(ctx, &concertpb.ListConcertsRequest{})
+	if err != nil {
+		return fmt.Errorf("failed to list remote concerts after push: %w", err)
+	}
+
 	localConcertsMap := make(map[int]localdb.Concert)
 	for _, lc := range localConcerts {
 		localConcertsMap[lc.ID] = lc
 	}
 
-	for _, remoteConcert := range resp.GetConcerts() {
+	for _, remoteConcert := range remoteResp.GetConcerts() {
 		concertID := int(remoteConcert.Id)
 		localConcert, exists := localConcertsMap[concertID]
 
