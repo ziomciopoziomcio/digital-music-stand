@@ -2,8 +2,10 @@ package services
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -38,43 +40,44 @@ func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScore
 	fileID := uuid.New().String()
 	ext := req.GetFileExtension()
 	if ext == "" {
-		ext = ".pdf" // default to PDF if no extension is provided
+		ext = ".pdf"
 	}
-	fileName := fileID + ext
 
-	storageDir := "./storage/scores"
-	if err := os.MkdirAll(storageDir, 0755); err != nil {
+	storageDir := "./uploads/scores"
+	if err := os.MkdirAll(storageDir, os.ModePerm); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %v", err)
 	}
 
-	fullPath := filepath.Join(storageDir, fileName)
+	filePath := filepath.Join(storageDir, fmt.Sprintf("%s%s", fileID, ext))
 
-	if err := os.WriteFile(fullPath, req.GetFileData(), 0644); err != nil {
+	if err := os.WriteFile(filePath, req.GetFileData(), 0644); err != nil {
 		return nil, fmt.Errorf("failed to save file: %v", err)
 	}
+
+	hash := sha256.Sum256(req.GetFileData())
+	checksum := hex.EncodeToString(hash[:])
 
 	var composer *string
 	if req.GetComposer() != "" {
 		composer = &req.Composer
 	}
 
-	newScore := models.Score{
-		Name:     req.GetName(),
-		Composer: composer,
-		FilePath: fileName,
-		OwnerID:  userID,
+	score := models.Score{
+		Name:          req.GetName(),
+		Composer:      composer,
+		FilePath:      filePath,
+		Checksum:      checksum,
+		OwnerID:       uint(userID),
+		FileExtension: ext,
 	}
 
-	if err := s.db.Create(&newScore).Error; err != nil {
-		err := os.Remove(fullPath)
-		if err != nil {
-			log.Printf("failed to remove file after DB error: %v", err)
-		}
-		return nil, fmt.Errorf("failed to create score: %v", err)
+	if err := s.db.Create(&score).Error; err != nil {
+		os.Remove(filePath)
+		return nil, fmt.Errorf("failed to save score in database: %v", err)
 	}
 
 	return &scorepb.CreateScoreResponse{
-		Id:      uint32(newScore.ID),
+		Id:      uint32(score.ID),
 		Message: "Score created successfully",
 	}, nil
 }
@@ -87,26 +90,65 @@ func (s *ScoreService) ListMyScores(ctx context.Context, req *scorepb.ListMyScor
 
 	var scores []models.Score
 	if err := s.db.Where("owner_id = ?", userID).Find(&scores).Error; err != nil {
-		return nil, fmt.Errorf("failed to list scores: %v", err)
+		return nil, fmt.Errorf("failed to fetch scores: %v", err)
 	}
 
 	var scoreList []*scorepb.Score
 	for _, score := range scores {
 		var composer string
-		if score.Composer != nil {
+
+		if score.Composer == nil {
+			composer = "-"
+		} else {
 			composer = *score.Composer
 		}
+
 		scoreList = append(scoreList, &scorepb.Score{
-			Id:       uint32(score.ID),
-			Name:     score.Name,
-			Composer: composer,
-			FilePath: score.FilePath,
+			Id:            uint32(score.ID),
+			Name:          score.Name,
+			Composer:      composer,
+			FilePath:      score.FilePath,
+			Checksum:      score.Checksum,
+			FileExtension: score.FileExtension,
 		})
 	}
 
 	return &scorepb.ListMyScoresResponse{
 		Scores: scoreList,
 	}, nil
+}
+
+func (s *ScoreService) DownloadScore(req *scorepb.DownloadScoreRequest, stream scorepb.ScoreService_DownloadScoreServer) error {
+	var score models.Score
+	if err := s.db.First(&score, req.GetScoreId()).Error; err != nil {
+		return fmt.Errorf("score not found: %v", err)
+	}
+
+	file, err := os.Open(score.FilePath)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %v", err)
+	}
+	defer file.Close()
+
+	buffer := make([]byte, 64*1024)
+	for {
+		bytesRead, err := file.Read(buffer)
+		if bytesRead > 0 {
+			if sendErr := stream.Send(&scorepb.DownloadScoreResponse{
+				ChunkData: buffer[:bytesRead],
+			}); sendErr != nil {
+				return fmt.Errorf("failed to send chunk: %v", sendErr)
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read file: %v", err)
+		}
+	}
+
+	return nil
 }
 
 func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRequest) (*scorepb.ShareScoreResponse, error) {
