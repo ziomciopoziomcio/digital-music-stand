@@ -13,6 +13,8 @@ service ConcertService {
 message CreateConcertRequest {
   string name = 1;
   optional uint32 band_id = 2;
+  optional string location = 4;
+  optional string start_time = 5;
 
   reserved 3;
   reserved "user_id";
@@ -51,6 +53,8 @@ message ConcertSummary {
   uint32 id = 1;
   string name = 2;
   string checksum = 3;
+  optional string location = 4;
+  optional string start_time = 5;
 }
 
 message ListConcertsResponse {

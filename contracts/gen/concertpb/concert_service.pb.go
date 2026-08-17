@@ -25,6 +25,8 @@ type CreateConcertRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	BandId        *uint32                `protobuf:"varint,2,opt,name=band_id,json=bandId,proto3,oneof" json:"band_id,omitempty"`
+	Location      *string                `protobuf:"bytes,4,opt,name=location,proto3,oneof" json:"location,omitempty"`
+	StartTime     *string                `protobuf:"bytes,5,opt,name=start_time,json=startTime,proto3,oneof" json:"start_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -71,6 +73,20 @@ func (x *CreateConcertRequest) GetBandId() uint32 {
 		return *x.BandId
 	}
 	return 0
+}
+
+func (x *CreateConcertRequest) GetLocation() string {
+	if x != nil && x.Location != nil {
+		return *x.Location
+	}
+	return ""
+}
+
+func (x *CreateConcertRequest) GetStartTime() string {
+	if x != nil && x.StartTime != nil {
+		return *x.StartTime
+	}
+	return ""
 }
 
 type CreateConcertResponse struct {
@@ -382,6 +398,8 @@ type ConcertSummary struct {
 	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Checksum      string                 `protobuf:"bytes,3,opt,name=checksum,proto3" json:"checksum,omitempty"`
+	Location      *string                `protobuf:"bytes,4,opt,name=location,proto3,oneof" json:"location,omitempty"`
+	StartTime     *string                `protobuf:"bytes,5,opt,name=start_time,json=startTime,proto3,oneof" json:"start_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -433,6 +451,20 @@ func (x *ConcertSummary) GetName() string {
 func (x *ConcertSummary) GetChecksum() string {
 	if x != nil {
 		return x.Checksum
+	}
+	return ""
+}
+
+func (x *ConcertSummary) GetLocation() string {
+	if x != nil && x.Location != nil {
+		return *x.Location
+	}
+	return ""
+}
+
+func (x *ConcertSummary) GetStartTime() string {
+	if x != nil && x.StartTime != nil {
+		return *x.StartTime
 	}
 	return ""
 }
@@ -569,12 +601,17 @@ var File_contracts_proto_concert_service_proto protoreflect.FileDescriptor
 
 const file_contracts_proto_concert_service_proto_rawDesc = "" +
 	"\n" +
-	"%contracts/proto/concert_service.proto\x12\x1bdigital_music_stand.concert\"c\n" +
+	"%contracts/proto/concert_service.proto\x12\x1bdigital_music_stand.concert\"\xc4\x01\n" +
 	"\x14CreateConcertRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
-	"\aband_id\x18\x02 \x01(\rH\x00R\x06bandId\x88\x01\x01B\n" +
+	"\aband_id\x18\x02 \x01(\rH\x00R\x06bandId\x88\x01\x01\x12\x1f\n" +
+	"\blocation\x18\x04 \x01(\tH\x01R\blocation\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"\b_band_idJ\x04\b\x03\x10\x04R\auser_id\"A\n" +
+	"start_time\x18\x05 \x01(\tH\x02R\tstartTime\x88\x01\x01B\n" +
+	"\n" +
+	"\b_band_idB\v\n" +
+	"\t_locationB\r\n" +
+	"\v_start_timeJ\x04\b\x03\x10\x04R\auser_id\"A\n" +
 	"\x15CreateConcertResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"\xa9\x01\n" +
@@ -598,11 +635,16 @@ const file_contracts_proto_concert_service_proto_rawDesc = "" +
 	"\x13ListConcertsRequest\x12\x1c\n" +
 	"\aband_id\x18\x01 \x01(\rH\x00R\x06bandId\x88\x01\x01B\n" +
 	"\n" +
-	"\b_band_id\"P\n" +
+	"\b_band_id\"\xb1\x01\n" +
 	"\x0eConcertSummary\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
-	"\bchecksum\x18\x03 \x01(\tR\bchecksum\"_\n" +
+	"\bchecksum\x18\x03 \x01(\tR\bchecksum\x12\x1f\n" +
+	"\blocation\x18\x04 \x01(\tH\x00R\blocation\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"start_time\x18\x05 \x01(\tH\x01R\tstartTime\x88\x01\x01B\v\n" +
+	"\t_locationB\r\n" +
+	"\v_start_time\"_\n" +
 	"\x14ListConcertsResponse\x12G\n" +
 	"\bconcerts\x18\x01 \x03(\v2+.digital_music_stand.concert.ConcertSummaryR\bconcerts\"\xf3\x01\n" +
 	"\vConcertItem\x12\x0e\n" +
@@ -676,6 +718,7 @@ func file_contracts_proto_concert_service_proto_init() {
 	file_contracts_proto_concert_service_proto_msgTypes[0].OneofWrappers = []any{}
 	file_contracts_proto_concert_service_proto_msgTypes[2].OneofWrappers = []any{}
 	file_contracts_proto_concert_service_proto_msgTypes[6].OneofWrappers = []any{}
+	file_contracts_proto_concert_service_proto_msgTypes[7].OneofWrappers = []any{}
 	file_contracts_proto_concert_service_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
