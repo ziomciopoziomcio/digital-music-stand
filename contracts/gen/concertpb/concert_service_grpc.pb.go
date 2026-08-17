@@ -22,6 +22,7 @@ const (
 	ConcertService_CreateConcert_FullMethodName     = "/digital_music_stand.concert.ConcertService/CreateConcert"
 	ConcertService_AddConcertItem_FullMethodName    = "/digital_music_stand.concert.ConcertService/AddConcertItem"
 	ConcertService_GetConcertSetlist_FullMethodName = "/digital_music_stand.concert.ConcertService/GetConcertSetlist"
+	ConcertService_ListConcerts_FullMethodName      = "/digital_music_stand.concert.ConcertService/ListConcerts"
 )
 
 // ConcertServiceClient is the client API for ConcertService service.
@@ -31,6 +32,7 @@ type ConcertServiceClient interface {
 	CreateConcert(ctx context.Context, in *CreateConcertRequest, opts ...grpc.CallOption) (*CreateConcertResponse, error)
 	AddConcertItem(ctx context.Context, in *AddConcertItemRequest, opts ...grpc.CallOption) (*AddConcertItemResponse, error)
 	GetConcertSetlist(ctx context.Context, in *GetConcertSetlistRequest, opts ...grpc.CallOption) (*GetConcertSetlistResponse, error)
+	ListConcerts(ctx context.Context, in *ListConcertsRequest, opts ...grpc.CallOption) (*ListConcertsResponse, error)
 }
 
 type concertServiceClient struct {
@@ -71,6 +73,16 @@ func (c *concertServiceClient) GetConcertSetlist(ctx context.Context, in *GetCon
 	return out, nil
 }
 
+func (c *concertServiceClient) ListConcerts(ctx context.Context, in *ListConcertsRequest, opts ...grpc.CallOption) (*ListConcertsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListConcertsResponse)
+	err := c.cc.Invoke(ctx, ConcertService_ListConcerts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ConcertServiceServer is the server API for ConcertService service.
 // All implementations must embed UnimplementedConcertServiceServer
 // for forward compatibility.
@@ -78,6 +90,7 @@ type ConcertServiceServer interface {
 	CreateConcert(context.Context, *CreateConcertRequest) (*CreateConcertResponse, error)
 	AddConcertItem(context.Context, *AddConcertItemRequest) (*AddConcertItemResponse, error)
 	GetConcertSetlist(context.Context, *GetConcertSetlistRequest) (*GetConcertSetlistResponse, error)
+	ListConcerts(context.Context, *ListConcertsRequest) (*ListConcertsResponse, error)
 	mustEmbedUnimplementedConcertServiceServer()
 }
 
@@ -96,6 +109,9 @@ func (UnimplementedConcertServiceServer) AddConcertItem(context.Context, *AddCon
 }
 func (UnimplementedConcertServiceServer) GetConcertSetlist(context.Context, *GetConcertSetlistRequest) (*GetConcertSetlistResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetConcertSetlist not implemented")
+}
+func (UnimplementedConcertServiceServer) ListConcerts(context.Context, *ListConcertsRequest) (*ListConcertsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListConcerts not implemented")
 }
 func (UnimplementedConcertServiceServer) mustEmbedUnimplementedConcertServiceServer() {}
 func (UnimplementedConcertServiceServer) testEmbeddedByValue()                        {}
@@ -172,6 +188,24 @@ func _ConcertService_GetConcertSetlist_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ConcertService_ListConcerts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListConcertsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConcertServiceServer).ListConcerts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ConcertService_ListConcerts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConcertServiceServer).ListConcerts(ctx, req.(*ListConcertsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ConcertService_ServiceDesc is the grpc.ServiceDesc for ConcertService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +224,10 @@ var ConcertService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetConcertSetlist",
 			Handler:    _ConcertService_GetConcertSetlist_Handler,
+		},
+		{
+			MethodName: "ListConcerts",
+			Handler:    _ConcertService_ListConcerts_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

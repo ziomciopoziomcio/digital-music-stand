@@ -7,6 +7,7 @@ service ConcertService {
   rpc CreateConcert(CreateConcertRequest) returns (CreateConcertResponse);
   rpc AddConcertItem(AddConcertItemRequest) returns (AddConcertItemResponse);
   rpc GetConcertSetlist(GetConcertSetlistRequest) returns (GetConcertSetlistResponse);
+  rpc ListConcerts(ListConcertsRequest) returns (ListConcertsResponse);
 }
 
 message CreateConcertRequest {
@@ -42,6 +43,20 @@ message GetConcertSetlistResponse {
   repeated ConcertItem items = 1;
 }
 
+message ListConcertsRequest {
+  optional uint32 band_id = 1;
+}
+
+message ConcertSummary {
+  uint32 id = 1;
+  string name = 2;
+  string checksum = 3;
+}
+
+message ListConcertsResponse {
+  repeated ConcertSummary concerts = 1;
+}
+
 message ConcertItem {
   uint32 id = 1;
   uint32 order = 2;
@@ -49,6 +64,5 @@ message ConcertItem {
   optional uint32 score_id = 3;
   optional string score_name = 4;
   optional string file_path = 5;
-
   optional uint32 break_min = 6;
 }
