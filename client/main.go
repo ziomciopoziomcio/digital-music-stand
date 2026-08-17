@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"log"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
@@ -57,10 +62,32 @@ func main() {
 			token, err := network.Authenticate(server, email, password)
 			if err == nil {
 				myApp.Preferences().SetString("jwt_token", token)
+				myApp.Preferences().SetString("server_addr", server)
+
+				go func() {
+					fmt.Println("Starting concerts sync...")
+					conn, err := network.NewGRPCClient(server, token)
+					if err != nil {
+						fmt.Println("Error while connecting to gRPC:", err)
+						return
+					}
+					defer conn.Close()
+
+					concertClient := concertpb.NewConcertServiceClient(conn)
+					err = network.SynchronizeConcerts(context.Background(), concertClient, dbMgr)
+					if err != nil {
+						fmt.Println("Concert sync error:", err)
+					} else {
+						fmt.Println("Concert synchronised successfully")
+						//todo: refresh concert-related screens
+					}
+				}()
+
 				showDashboard()
 			}
 			return err
 		}, showDashboard)
+
 		mainWrapper.Objects = []fyne.CanvasObject{loginView}
 		mainWrapper.Refresh()
 	}
@@ -78,7 +105,22 @@ func main() {
 	}
 
 	showConcertSetup = func() {
-		setupView := ui.BuildConcertSetup(myWindow, dbMgr, showConcert)
+		setupView := ui.BuildConcertSetup(myWindow, dbMgr, func(name, location, startTime string, setlist []localdb.Score) error {
+			_, err := dbMgr.AddConcert(name, location, startTime, setlist)
+			if err != nil {
+				return err
+			}
+
+			token := myApp.Preferences().String("jwt_token")
+			server := myApp.Preferences().String("server_addr")
+			go func() {
+				if err := network.CreateAndSyncConcert(server, token, name, location, startTime, setlist, dbMgr); err != nil {
+					log.Printf("Background cloud sync error: %v", err)
+				}
+			}()
+
+			return nil
+		}, showConcert)
 		mainWrapper.Objects = []fyne.CanvasObject{setupView}
 		mainWrapper.Refresh()
 	}
