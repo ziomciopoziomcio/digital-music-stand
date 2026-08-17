@@ -44,7 +44,7 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			concert := c
 
 			nameLabel := widget.NewLabelWithStyle(concert.Name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-			detailsLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s\n%s\nSongs: %d", concert.Location, concert.StartTime, len(concert.Setlist)), fyne.TextAlignCenter, fyne.TextStyle{})
+			detailsLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s\n%s\nItems: %d", concert.Location, concert.StartTime, len(concert.Items)), fyne.TextAlignCenter, fyne.TextStyle{})
 
 			cardContent := container.NewVBox(nameLabel, detailsLabel, layout.NewSpacer())
 			card := widget.NewCard("", "", cardContent)
@@ -64,8 +64,8 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 	}
 
 	playConcert = func(concert localdb.Concert) {
-		if len(concert.Setlist) == 0 {
-			dialog.ShowInformation("Empty Setlist", "This concert has no scores assigned.", w)
+		if len(concert.Items) == 0 {
+			dialog.ShowInformation("Empty Setlist", "This concert has no items assigned.", w)
 			return
 		}
 
@@ -86,11 +86,6 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 
 		renderPage = func() {
 			if currentPdfMgr == nil || totalPages == 0 {
-				pdfContainer.Objects = []fyne.CanvasObject{
-					widget.NewLabelWithStyle("No score loaded", fyne.TextAlignCenter, fyne.TextStyle{}),
-				}
-				pdfContainer.Refresh()
-				pageLabel.SetText("Page 0/0")
 				return
 			}
 
@@ -143,37 +138,55 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 				currentPdfMgr = nil
 			}
 
-			if currentSongIdx < 0 || currentSongIdx >= len(concert.Setlist) {
+			if currentSongIdx < 0 || currentSongIdx >= len(concert.Items) {
 				return
 			}
 
-			song := concert.Setlist[currentSongIdx]
-			songTitleLabel.SetText(fmt.Sprintf("%d/%d: %s", currentSongIdx+1, len(concert.Setlist), song.Title))
+			item := concert.Items[currentSongIdx]
+			var title string
 
-			pdfMgr, err := pdf.NewManager(song.FilePath)
-			if err != nil {
+			if item.ScoreName != nil {
+				title = *item.ScoreName
+			} else if item.BreakMin != nil {
+				title = fmt.Sprintf("Break (%d min)", *item.BreakMin)
+			} else {
+				title = "Unknown Item"
+			}
+
+			songTitleLabel.SetText(fmt.Sprintf("%d/%d: %s", currentSongIdx+1, len(concert.Items), title))
+
+			if item.ScoreID != nil && item.FilePath != nil && *item.FilePath != "" {
+				pdfMgr, err := pdf.NewManager(*item.FilePath)
+				if err != nil {
+					pdfContainer.Objects = []fyne.CanvasObject{
+						widget.NewLabelWithStyle(fmt.Sprintf("PDF file not found:\n%s", *item.FilePath), fyne.TextAlignCenter, fyne.TextStyle{}),
+					}
+					pdfContainer.Refresh()
+					totalPages = 0
+					pageLabel.SetText("Page 0/0")
+					return
+				}
+
+				currentPdfMgr = pdfMgr
+				totalPages = pdfMgr.GetPageCount()
+
+				if startAtEnd && totalPages > 0 {
+					currentPage = totalPages - 1
+					if viewerSize.Width > viewerSize.Height && totalPages >= 2 {
+						currentPage = totalPages - 2
+					}
+				} else {
+					currentPage = 0
+				}
+				renderPage()
+			} else {
 				pdfContainer.Objects = []fyne.CanvasObject{
-					widget.NewLabelWithStyle(fmt.Sprintf("PDF file not found:\n%s", song.FilePath), fyne.TextAlignCenter, fyne.TextStyle{}),
+					widget.NewLabelWithStyle(title, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 				}
 				pdfContainer.Refresh()
 				totalPages = 0
-				pageLabel.SetText("Page 0/0")
-				return
+				pageLabel.SetText("Break")
 			}
-
-			currentPdfMgr = pdfMgr
-			totalPages = pdfMgr.GetPageCount()
-
-			if startAtEnd && totalPages > 0 {
-				currentPage = totalPages - 1
-				if viewerSize.Width > viewerSize.Height && totalPages >= 2 {
-					currentPage = totalPages - 2
-				}
-			} else {
-				currentPage = 0
-			}
-
-			renderPage()
 		}
 
 		exitConcertBtn := widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
@@ -184,15 +197,15 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 		})
 		exitConcertBtn.Importance = widget.DangerImportance
 
-		prevSongBtn := widget.NewButtonWithIcon("Prev Song", theme.MediaSkipPreviousIcon(), func() {
+		prevSongBtn := widget.NewButtonWithIcon("Prev Item", theme.MediaSkipPreviousIcon(), func() {
 			if currentSongIdx > 0 {
 				currentSongIdx--
 				loadCurrentSong(false)
 			}
 		})
 
-		nextSongBtn := widget.NewButtonWithIcon("Next Song", theme.MediaSkipNextIcon(), func() {
-			if currentSongIdx < len(concert.Setlist)-1 {
+		nextSongBtn := widget.NewButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() {
+			if currentSongIdx < len(concert.Items)-1 {
 				currentSongIdx++
 				loadCurrentSong(false)
 			}
@@ -220,7 +233,7 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			if currentPage+pagesToShow < totalPages {
 				currentPage += pagesToShow
 				renderPage()
-			} else if currentSongIdx < len(concert.Setlist)-1 {
+			} else if currentSongIdx < len(concert.Items)-1 {
 				currentSongIdx++
 				loadCurrentSong(false)
 			}
