@@ -3,6 +3,7 @@ package network
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
@@ -11,31 +12,31 @@ import (
 func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertServiceClient, dbMgr *localdb.DBManager) error {
 	resp, err := concertClient.ListConcerts(ctx, &concertpb.ListConcertsRequest{})
 	if err != nil {
-		return fmt.Errorf("failed to list remote concerts: %v", err)
+		return fmt.Errorf("failed to list remote concerts: %w", err)
 	}
 
 	localConcerts, err := dbMgr.GetConcerts()
 	if err != nil {
-		return fmt.Errorf("failed to get local concerts: %v", err)
+		return fmt.Errorf("failed to get local concerts: %w", err)
 	}
 
-	localChecksums := make(map[int]string)
+	localConcertsMap := make(map[int]localdb.Concert)
 	for _, lc := range localConcerts {
-		localChecksums[lc.ID] = lc.Checksum
+		localConcertsMap[lc.ID] = lc
 	}
 
 	for _, remoteConcert := range resp.GetConcerts() {
-		concertID := int(remoteConcert.GetId())
-		localChecksum, exists := localChecksums[concertID]
+		concertID := int(remoteConcert.Id)
+		localConcert, exists := localConcertsMap[concertID]
 
-		if !exists || localChecksum != remoteConcert.Checksum {
-			fmt.Printf("updating concert %d (%s)...\n", concertID, remoteConcert.GetName())
+		if !exists || localConcert.Checksum != remoteConcert.Checksum {
+			log.Printf("Updating concert %d (%s) due to checksum mismatch", concertID, remoteConcert.Name)
 
 			setlistResp, err := concertClient.GetConcertSetlist(ctx, &concertpb.GetConcertSetlistRequest{
-				ConcertId: remoteConcert.GetId(),
+				ConcertId: remoteConcert.Id,
 			})
 			if err != nil {
-				fmt.Printf("Setlist download error for concert %d: %v\n", concertID, err)
+				log.Printf("Failed to fetch setlist for concert %d: %v", concertID, err)
 				continue
 			}
 
@@ -53,20 +54,30 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 				}
 
 				remoteItems = append(remoteItems, localdb.ConcertItem{
-					ID:        int(item.GetId()),
-					SortOrder: int(item.GetOrder()),
+					ID:        int(item.Id),
+					SortOrder: int(item.Order),
 					ScoreID:   scoreID,
 					BreakMin:  breakMin,
 				})
 			}
 
-			err = dbMgr.SyncConcertFromServer(concertID, remoteConcert.GetName(), remoteConcert.GetChecksum(), remoteItems)
+			loc := ""
+			if remoteConcert.Location != nil {
+				loc = *remoteConcert.Location
+			}
+			startTime := ""
+			if remoteConcert.StartTime != nil {
+				startTime = *remoteConcert.StartTime
+			}
+
+			err = dbMgr.SyncConcertFromServer(concertID, remoteConcert.Name, loc, startTime, remoteConcert.Checksum, remoteItems)
 			if err != nil {
-				fmt.Printf("Failed to saved sync concert %d: %v\n", concertID, err)
+				log.Printf("Failed to save concert %d to local database: %v", concertID, err)
 			}
 		} else {
-			fmt.Printf("Concert %d (%s) is up to date.\n", concertID, remoteConcert.Name)
+			log.Printf("Concert %d (%s) is up to date", concertID, remoteConcert.Name)
 		}
 	}
+
 	return nil
 }
