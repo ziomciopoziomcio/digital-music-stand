@@ -23,10 +23,12 @@ type ConcertItem struct {
 }
 
 type Concert struct {
-	ID       int
-	Name     string
-	Checksum string
-	Items    []ConcertItem
+	ID        int
+	Name      string
+	Location  string
+	StartTime string
+	Checksum  string
+	Items     []ConcertItem
 }
 
 type DBManager struct {
@@ -47,13 +49,15 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 	);
 
 	CREATE TABLE IF NOT EXISTS concerts (
-	    id INTEGER PRIMARY KEY,
+	    id INTEGER PRIMARY KEY AUTOINCREMENT,
 	    name TEXT NOT NULL,
-	    checksum TEXT NOT NULL
+	    location TEXT,
+	    start_time TEXT,
+	    checksum TEXT NOT NULL DEFAULT ''
 	);
 
 	CREATE TABLE IF NOT EXISTS concert_items (
-	    id INTEGER PRIMARY KEY,
+	    id INTEGER PRIMARY KEY AUTOINCREMENT,
 	    concert_id INTEGER NOT NULL,
 	    sort_order INTEGER NOT NULL,
 	    score_id INTEGER,
@@ -101,7 +105,35 @@ func (m *DBManager) DeleteScore(id int) error {
 	return err
 }
 
-func (m *DBManager) SyncConcertFromServer(concertID int, name string, checksum string, remoteItems []ConcertItem) error {
+func (m *DBManager) AddConcert(name, location, startTime string, setlist []Score) (int, error) {
+	tx, err := m.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.Exec("INSERT INTO concerts (name, location, start_time, checksum) VALUES (?, ?, ?, '')", name, location, startTime)
+	if err != nil {
+		return 0, err
+	}
+
+	concertID, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	for pos, score := range setlist {
+		scoreID := score.ID
+		_, err := tx.Exec("INSERT INTO concert_items (concert_id, sort_order, score_id) VALUES (?, ?, ?)", concertID, pos+1, scoreID)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return int(concertID), tx.Commit()
+}
+
+func (m *DBManager) SyncConcertFromServer(concertID int, name, location, startTime, checksum string, remoteItems []ConcertItem) error {
 	tx, err := m.db.Begin()
 	if err != nil {
 		return err
@@ -109,12 +141,14 @@ func (m *DBManager) SyncConcertFromServer(concertID int, name string, checksum s
 	defer tx.Rollback()
 
 	_, err = tx.Exec(`
-		INSERT INTO concerts (id, name, checksum) 
-		VALUES (?, ?, ?)
+		INSERT INTO concerts (id, name, location, start_time, checksum) 
+		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET 
 			name = excluded.name,
+			location = excluded.location,
+			start_time = excluded.start_time,
 			checksum = excluded.checksum`,
-		concertID, name, checksum,
+		concertID, name, location, startTime, checksum,
 	)
 	if err != nil {
 		return err
@@ -140,7 +174,7 @@ func (m *DBManager) SyncConcertFromServer(concertID int, name string, checksum s
 }
 
 func (m *DBManager) GetConcerts() ([]Concert, error) {
-	rows, err := m.db.Query("SELECT id, name, checksum FROM concerts ORDER BY id DESC")
+	rows, err := m.db.Query("SELECT id, name, COALESCE(location, ''), COALESCE(start_time, ''), checksum FROM concerts ORDER BY id DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -149,24 +183,32 @@ func (m *DBManager) GetConcerts() ([]Concert, error) {
 	var concerts []Concert
 	for rows.Next() {
 		var c Concert
-		if err := rows.Scan(&c.ID, &c.Name, &c.Checksum); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Location, &c.StartTime, &c.Checksum); err != nil {
 			return nil, err
 		}
 
 		itemRows, err := m.db.Query(`
-			SELECT id, sort_order, score_id, break_min 
-			FROM concert_items 
-			WHERE concert_id = ? 
-			ORDER BY sort_order ASC`, c.ID)
+			SELECT ci.id, ci.sort_order, ci.score_id, ci.break_min, s.title, s.file_path 
+			FROM concert_items ci 
+			LEFT JOIN scores s ON ci.score_id = s.id 
+			WHERE ci.concert_id = ? 
+			ORDER BY ci.sort_order ASC`, c.ID)
 		if err != nil {
 			return nil, err
 		}
 
 		for itemRows.Next() {
 			var item ConcertItem
-			if err := itemRows.Scan(&item.ID, &item.SortOrder, &item.ScoreID, &item.BreakMin); err != nil {
+			var scoreTitle, filePath sql.NullString
+			if err := itemRows.Scan(&item.ID, &item.SortOrder, &item.ScoreID, &item.BreakMin, &scoreTitle, &filePath); err != nil {
 				itemRows.Close()
 				return nil, err
+			}
+			if scoreTitle.Valid {
+				item.ScoreName = &scoreTitle.String
+			}
+			if filePath.Valid {
+				item.FilePath = &filePath.String
 			}
 			c.Items = append(c.Items, item)
 		}
