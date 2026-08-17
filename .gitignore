@@ -1,3 +1,5 @@
 /.idea
 server/.env
 client/musicstand.db
+/client/scores
+/server/uploads
