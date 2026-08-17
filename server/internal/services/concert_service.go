@@ -23,9 +23,9 @@ func NewConcertService(db *gorm.DB) *ConcertService {
 	}
 }
 
-func (s *ConcertService) calculateConcertChecksum(concertID uint) (string, error) {
+func (s *ConcertService) calculateConcertChecksum(concertID string) (string, error) {
 	var concert models.Concert
-	if err := s.db.First(&concert, concertID).Error; err != nil {
+	if err := s.db.First(&concert, "id = ?", concertID).Error; err != nil {
 		return "", err
 	}
 
@@ -42,7 +42,7 @@ func (s *ConcertService) calculateConcertChecksum(concertID uint) (string, error
 	for _, item := range items {
 		scoreStr := "nil"
 		if item.ScoreID != nil {
-			scoreStr = fmt.Sprintf("%d", *item.ScoreID)
+			scoreStr = *item.ScoreID
 		}
 		breakStr := "nil"
 		if item.BreakMin != nil {
@@ -54,7 +54,7 @@ func (s *ConcertService) calculateConcertChecksum(concertID uint) (string, error
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func (s *ConcertService) updateConcertChecksum(concertID uint) error {
+func (s *ConcertService) updateConcertChecksum(concertID string) error {
 	sum, err := s.calculateConcertChecksum(concertID)
 	if err != nil {
 		return err
@@ -98,6 +98,12 @@ func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.Creat
 		Checksum:  "initial",
 	}
 
+	// Jeśli klient przysłał UUID (stworzył koncert offline), używamy go.
+	// W przeciwnym razie GORM wygeneruje nowy za pomocą hooka BeforeCreate.
+	if req.Id != nil && *req.Id != "" {
+		newConcert.ID = *req.Id
+	}
+
 	if err := s.db.Create(&newConcert).Error; err != nil {
 		return nil, fmt.Errorf("failed to create concert: %v", err)
 	}
@@ -105,17 +111,17 @@ func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.Creat
 	_ = s.updateConcertChecksum(newConcert.ID)
 
 	return &concertpb.CreateConcertResponse{
-		Id:      uint32(newConcert.ID),
+		Id:      newConcert.ID,
 		Message: "Concert created successfully",
 	}, nil
 }
 
 func (s *ConcertService) AddConcertItem(ctx context.Context, req *concertpb.AddConcertItemRequest) (*concertpb.AddConcertItemResponse, error) {
-	if req.GetConcertId() == 0 {
+	if req.GetConcertId() == "" {
 		return nil, fmt.Errorf("missing required fields")
 	}
 
-	if err := s.checkConcertPermission(ctx, uint(req.GetConcertId())); err != nil {
+	if err := s.checkConcertPermission(ctx, req.GetConcertId()); err != nil {
 		return nil, err
 	}
 
@@ -126,19 +132,20 @@ func (s *ConcertService) AddConcertItem(ctx context.Context, req *concertpb.AddC
 		return nil, fmt.Errorf("only one of ScoreId or BreakMin can be provided")
 	}
 
-	var scoreID *uint
-	var breakMin *int
-	if req.ScoreId != nil {
-		id := uint(*req.ScoreId)
+	var scoreID *string
+	if req.ScoreId != nil && *req.ScoreId != "" {
+		id := *req.ScoreId
 		scoreID = &id
 	}
+
+	var breakMin *int
 	if req.BreakMin != nil {
 		val := int(*req.BreakMin)
 		breakMin = &val
 	}
 
 	newItem := models.ConcertItem{
-		ConcertID: uint(req.GetConcertId()),
+		ConcertID: req.GetConcertId(),
 		ScoreID:   scoreID,
 		BreakMin:  breakMin,
 		SortOrder: int(req.GetOrder()),
@@ -148,19 +155,19 @@ func (s *ConcertService) AddConcertItem(ctx context.Context, req *concertpb.AddC
 		return nil, fmt.Errorf("failed to add concert item: %v", err)
 	}
 
-	_ = s.updateConcertChecksum(uint(req.GetConcertId()))
+	_ = s.updateConcertChecksum(req.GetConcertId())
 
 	return &concertpb.AddConcertItemResponse{
-		Id:      uint32(newItem.ID),
+		Id:      newItem.ID,
 		Message: "Concert item added successfully",
 	}, nil
 }
 
 func (s *ConcertService) GetConcertSetlist(ctx context.Context, req *concertpb.GetConcertSetlistRequest) (*concertpb.GetConcertSetlistResponse, error) {
-	if req.GetConcertId() == 0 {
+	if req.GetConcertId() == "" {
 		return nil, fmt.Errorf("missing required fields")
 	}
-	if err := s.checkConcertPermission(ctx, uint(req.GetConcertId())); err != nil {
+	if err := s.checkConcertPermission(ctx, req.GetConcertId()); err != nil {
 		return nil, err
 	}
 
@@ -172,13 +179,12 @@ func (s *ConcertService) GetConcertSetlist(ctx context.Context, req *concertpb.G
 	var grpcItems []*concertpb.ConcertItem
 	for _, item := range items {
 		grpcItem := &concertpb.ConcertItem{
-			Id:    uint32(item.ID),
+			Id:    item.ID,
 			Order: uint32(item.SortOrder),
 		}
 
 		if item.ScoreID != nil {
-			scoreID := uint32(*item.ScoreID)
-			grpcItem.ScoreId = &scoreID
+			grpcItem.ScoreId = item.ScoreID
 
 			scoreName := item.Score.Name
 			filePath := item.Score.FilePath
@@ -217,7 +223,7 @@ func (s *ConcertService) ListConcerts(ctx context.Context, req *concertpb.ListCo
 		loc := c.Location
 		start := c.StartTime
 		summaries = append(summaries, &concertpb.ConcertSummary{
-			Id:        uint32(c.ID),
+			Id:        c.ID,
 			Name:      c.Name,
 			Checksum:  c.Checksum,
 			Location:  &loc,
@@ -230,14 +236,14 @@ func (s *ConcertService) ListConcerts(ctx context.Context, req *concertpb.ListCo
 	}, nil
 }
 
-func (s *ConcertService) checkConcertPermission(ctx context.Context, concertID uint) error {
+func (s *ConcertService) checkConcertPermission(ctx context.Context, concertID string) error {
 	authUserID, err := auth.GetUserIDFromContext(ctx)
 	if err != nil {
 		return err
 	}
 
 	var concert models.Concert
-	if err := s.db.Select("user_id, band_id").First(&concert, concertID).Error; err != nil {
+	if err := s.db.Select("user_id, band_id").First(&concert, "id = ?", concertID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return fmt.Errorf("concert not found")
 		}

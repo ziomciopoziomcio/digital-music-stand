@@ -37,14 +37,14 @@ func CreateAndSyncConcert(serverAddr, token string, name, location, startTime st
 	concertID := createResp.GetId()
 
 	for i, score := range scores {
-		scoreID := uint32(score.ID)
+		scoreID := score.ID
 		_, err := client.AddConcertItem(ctx, &concertpb.AddConcertItemRequest{
 			ConcertId: concertID,
 			ScoreId:   &scoreID,
 			Order:     uint32(i + 1),
 		})
 		if err != nil {
-			log.Printf("Cloud sync failed (add item %d): %v", score.ID, err)
+			log.Printf("Cloud sync failed (add item %s): %v", score.ID, err)
 			return nil
 		}
 	}

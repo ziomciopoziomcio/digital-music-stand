@@ -15,9 +15,9 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 		return fmt.Errorf("failed to list remote concerts: %w", err)
 	}
 
-	remoteMap := make(map[int]*concertpb.ConcertSummary)
+	remoteMap := make(map[string]*concertpb.ConcertSummary)
 	for _, rc := range remoteResp.GetConcerts() {
-		remoteMap[int(rc.Id)] = rc
+		remoteMap[rc.Id] = rc
 	}
 
 	localConcerts, err := dbMgr.GetConcerts()
@@ -27,8 +27,9 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 
 	for _, lc := range localConcerts {
 		if lc.Checksum == "" {
-			log.Printf("Pushing local concert %s to cloud...", lc.Name)
-			createResp, err := concertClient.CreateConcert(ctx, &concertpb.CreateConcertRequest{
+			log.Printf("Pushing local concert %s (%s) to cloud...", lc.Name, lc.ID)
+			_, err := concertClient.CreateConcert(ctx, &concertpb.CreateConcertRequest{
+				Id:        &lc.ID,
 				Name:      lc.Name,
 				Location:  &lc.Location,
 				StartTime: &lc.StartTime,
@@ -38,15 +39,13 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 				continue
 			}
 
-			remoteID := createResp.GetId()
 			for _, item := range lc.Items {
 				req := &concertpb.AddConcertItemRequest{
-					ConcertId: remoteID,
+					ConcertId: lc.ID,
 					Order:     uint32(item.SortOrder),
 				}
 				if item.ScoreID != nil {
-					scoreID := uint32(*item.ScoreID)
-					req.ScoreId = &scoreID
+					req.ScoreId = item.ScoreID
 				} else if item.BreakMin != nil {
 					breakMin := uint32(*item.BreakMin)
 					req.BreakMin = &breakMin
@@ -64,32 +63,30 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 		return fmt.Errorf("failed to list remote concerts after push: %w", err)
 	}
 
-	localConcertsMap := make(map[int]localdb.Concert)
+	localConcertsMap := make(map[string]localdb.Concert)
 	for _, lc := range localConcerts {
 		localConcertsMap[lc.ID] = lc
 	}
 
 	for _, remoteConcert := range remoteResp.GetConcerts() {
-		concertID := int(remoteConcert.Id)
-		localConcert, exists := localConcertsMap[concertID]
+		localConcert, exists := localConcertsMap[remoteConcert.Id]
 
 		if !exists || localConcert.Checksum != remoteConcert.Checksum {
-			log.Printf("Updating concert %d (%s) due to checksum mismatch", concertID, remoteConcert.Name)
+			log.Printf("Updating concert %s (%s) due to checksum mismatch", remoteConcert.Id, remoteConcert.Name)
 
 			setlistResp, err := concertClient.GetConcertSetlist(ctx, &concertpb.GetConcertSetlistRequest{
 				ConcertId: remoteConcert.Id,
 			})
 			if err != nil {
-				log.Printf("Failed to fetch setlist for concert %d: %v", concertID, err)
+				log.Printf("Failed to fetch setlist for concert %s: %v", remoteConcert.Id, err)
 				continue
 			}
 
 			var remoteItems []localdb.ConcertItem
 			for _, item := range setlistResp.GetItems() {
-				var scoreID *int
+				var scoreID *string
 				if item.ScoreId != nil {
-					id := int(*item.ScoreId)
-					scoreID = &id
+					scoreID = item.ScoreId
 				}
 				var breakMin *int
 				if item.BreakMin != nil {
@@ -98,7 +95,7 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 				}
 
 				remoteItems = append(remoteItems, localdb.ConcertItem{
-					ID:        int(item.Id),
+					ID:        item.Id,
 					SortOrder: int(item.Order),
 					ScoreID:   scoreID,
 					BreakMin:  breakMin,
@@ -114,12 +111,12 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 				startTime = *remoteConcert.StartTime
 			}
 
-			err = dbMgr.SyncConcertFromServer(concertID, remoteConcert.Name, loc, startTime, remoteConcert.Checksum, remoteItems)
+			err = dbMgr.SyncConcertFromServer(remoteConcert.Id, remoteConcert.Name, loc, startTime, remoteConcert.Checksum, remoteItems)
 			if err != nil {
-				log.Printf("Failed to save concert %d to local database: %v", concertID, err)
+				log.Printf("Failed to save concert %s to local database: %v", remoteConcert.Id, err)
 			}
 		} else {
-			log.Printf("Concert %d (%s) is up to date", concertID, remoteConcert.Name)
+			log.Printf("Concert %s (%s) is up to date", remoteConcert.Id, remoteConcert.Name)
 		}
 	}
 
