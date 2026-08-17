@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
@@ -19,6 +21,42 @@ func NewConcertService(db *gorm.DB) *ConcertService {
 	return &ConcertService{
 		db: db,
 	}
+}
+
+func (s *ConcertService) calculateConcertChecksum(concertID uint) (string, error) {
+	var concert models.Concert
+	if err := s.db.First(&concert, concertID).Error; err != nil {
+		return "", err
+	}
+
+	var items []models.ConcertItem
+	if err := s.db.Where("concert_id = ?", concertID).Order("sort_order asc").Find(&items).Error; err != nil {
+		return "", err
+	}
+
+	h := sha256.New()
+	h.Write([]byte(concert.Name))
+	for _, item := range items {
+		scoreStr := "nil"
+		if item.ScoreID != nil {
+			scoreStr = fmt.Sprintf("%d", *item.ScoreID)
+		}
+		breakStr := "nil"
+		if item.BreakMin != nil {
+			breakStr = fmt.Sprintf("%d", *item.BreakMin)
+		}
+		h.Write([]byte(fmt.Sprintf("|%d:%s:%s", item.SortOrder, scoreStr, breakStr)))
+	}
+
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func (s *ConcertService) updateConcertChecksum(concertID uint) error {
+	sum, err := s.calculateConcertChecksum(concertID)
+	if err != nil {
+		return err
+	}
+	return s.db.Model(&models.Concert{}).Where("id = ?", concertID).Update("checksum", sum).Error
 }
 
 func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.CreateConcertRequest) (*concertpb.CreateConcertResponse, error) {
@@ -40,14 +78,17 @@ func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.Creat
 	}
 
 	newConcert := models.Concert{
-		Name:   req.GetName(),
-		BandID: bandID,
-		UserID: userID,
+		Name:     req.GetName(),
+		BandID:   bandID,
+		UserID:   userID,
+		Checksum: "initial",
 	}
 
 	if err := s.db.Create(&newConcert).Error; err != nil {
 		return nil, fmt.Errorf("failed to create concert: %v", err)
 	}
+
+	_ = s.updateConcertChecksum(newConcert.ID)
 
 	return &concertpb.CreateConcertResponse{
 		Id:      uint32(newConcert.ID),
@@ -93,6 +134,8 @@ func (s *ConcertService) AddConcertItem(ctx context.Context, req *concertpb.AddC
 		return nil, fmt.Errorf("failed to add concert item: %v", err)
 	}
 
+	_ = s.updateConcertChecksum(uint(req.GetConcertId()))
+
 	return &concertpb.AddConcertItemResponse{
 		Id:      uint32(newItem.ID),
 		Message: "Concert item added successfully",
@@ -108,7 +151,6 @@ func (s *ConcertService) GetConcertSetlist(ctx context.Context, req *concertpb.G
 	}
 
 	var items []models.ConcertItem
-
 	if err := s.db.Preload("Score").Where("concert_id = ?", req.GetConcertId()).Order("sort_order asc").Find(&items).Error; err != nil {
 		return nil, fmt.Errorf("failed to get concert setlist: %v", err)
 	}
@@ -137,6 +179,36 @@ func (s *ConcertService) GetConcertSetlist(ctx context.Context, req *concertpb.G
 	}
 	return &concertpb.GetConcertSetlistResponse{
 		Items: grpcItems,
+	}, nil
+}
+
+func (s *ConcertService) ListConcerts(ctx context.Context, req *concertpb.ListConcertsRequest) (*concertpb.ListConcertsResponse, error) {
+	authUserID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var concerts []models.Concert
+	query := s.db.Where("user_id = ?", authUserID)
+	if req.BandId != nil {
+		query = s.db.Where("band_id = ?", *req.BandId)
+	}
+
+	if err := query.Find(&concerts).Error; err != nil {
+		return nil, fmt.Errorf("failed to list concerts: %v", err)
+	}
+
+	var summaries []*concertpb.ConcertSummary
+	for _, c := range concerts {
+		summaries = append(summaries, &concertpb.ConcertSummary{
+			Id:       uint32(c.ID),
+			Name:     c.Name,
+			Checksum: c.Checksum,
+		})
+	}
+
+	return &concertpb.ListConcertsResponse{
+		Concerts: summaries,
 	}, nil
 }
 
