@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -94,6 +95,14 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 
 		var currentPdfMgr *pdf.Manager
 		var viewerSize fyne.Size
+		var activeTimerStopChan chan struct{}
+
+		stopCurrentTimer := func() {
+			if activeTimerStopChan != nil {
+				close(activeTimerStopChan)
+				activeTimerStopChan = nil
+			}
+		}
 
 		pdfContainer := container.NewMax()
 		songTitleLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
@@ -150,7 +159,16 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			pageLabel.SetText(fmt.Sprintf("Page %d / %d", currentPage+1, totalPages))
 		}
 
+		formatTimerText := func(sec int) string {
+			if sec < 0 {
+				sec = 0
+			}
+			return fmt.Sprintf("%02d:%02d", sec/60, sec%60)
+		}
+
 		loadCurrentSong = func(startAtEnd bool) {
+			stopCurrentTimer()
+
 			if currentPdfMgr != nil {
 				currentPdfMgr.Close()
 				currentPdfMgr = nil
@@ -161,18 +179,125 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			}
 
 			item := concert.Items[currentSongIdx]
-			var title string
 
-			if item.ScoreName != nil {
-				title = *item.ScoreName
-			} else if item.BreakMin != nil {
-				title = fmt.Sprintf("Break (%d min)", *item.BreakMin)
-			} else if item.ScoreID != nil {
-				title = fmt.Sprintf("Score (%s)", *item.ScoreID)
-			} else {
-				title = "Unknown Item"
+			if item.BreakMin != nil {
+				breakDuration := *item.BreakMin
+				songTitleLabel.SetText(fmt.Sprintf("%d/%d: Break (%d min)", currentSongIdx+1, len(concert.Items), breakDuration))
+				pageLabel.SetText("Break")
+
+				remainingSec := breakDuration * 60
+				isTimerRunning := false
+
+				timerClockLabel := canvas.NewText(formatTimerText(remainingSec), theme.ForegroundColor())
+				timerClockLabel.Alignment = fyne.TextAlignCenter
+				timerClockLabel.TextStyle = fyne.TextStyle{Bold: true}
+				timerClockLabel.TextSize = 48
+
+				timerStatusLabel := widget.NewLabelWithStyle("PAUSED", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
+
+				var startPauseBtn *widget.Button
+
+				startPauseBtn = widget.NewButtonWithIcon("Start", theme.MediaPlayIcon(), func() {
+					if isTimerRunning {
+						isTimerRunning = false
+						stopCurrentTimer()
+						startPauseBtn.SetText("Start")
+						startPauseBtn.SetIcon(theme.MediaPlayIcon())
+						timerStatusLabel.SetText("PAUSED")
+					} else {
+						if remainingSec <= 0 {
+							return
+						}
+						isTimerRunning = true
+						startPauseBtn.SetText("Pause")
+						startPauseBtn.SetIcon(theme.MediaPauseIcon())
+						timerStatusLabel.SetText("COUNTDOWN IN PROGRESS")
+
+						stopCh := make(chan struct{})
+						activeTimerStopChan = stopCh
+
+						go func(stop <-chan struct{}) {
+							ticker := time.NewTicker(time.Second)
+							defer ticker.Stop()
+							for {
+								select {
+								case <-stop:
+									return
+								case <-ticker.C:
+									remainingSec--
+									timerClockLabel.Text = formatTimerText(remainingSec)
+									timerClockLabel.Refresh()
+
+									if remainingSec <= 0 {
+										isTimerRunning = false
+										timerStatusLabel.SetText("BREAK FINISHED!")
+										startPauseBtn.SetText("Start")
+										startPauseBtn.SetIcon(theme.MediaPlayIcon())
+										return
+									}
+								}
+							}
+						}(stopCh)
+					}
+				})
+				startPauseBtn.Importance = widget.HighImportance
+
+				resetBtn := widget.NewButtonWithIcon("Reset", theme.ViewRefreshIcon(), func() {
+					isTimerRunning = false
+					stopCurrentTimer()
+					remainingSec = breakDuration * 60
+					timerClockLabel.Text = formatTimerText(remainingSec)
+					timerClockLabel.Refresh()
+					timerStatusLabel.SetText("PAUSED")
+					startPauseBtn.SetText("Start")
+					startPauseBtn.SetIcon(theme.MediaPlayIcon())
+				})
+
+				addMinBtn := widget.NewButton("+1 Min", func() {
+					remainingSec += 60
+					timerClockLabel.Text = formatTimerText(remainingSec)
+					timerClockLabel.Refresh()
+				})
+
+				subMinBtn := widget.NewButton("-1 Min", func() {
+					if remainingSec > 60 {
+						remainingSec -= 60
+					} else {
+						remainingSec = 0
+					}
+					timerClockLabel.Text = formatTimerText(remainingSec)
+					timerClockLabel.Refresh()
+				})
+
+				timerControls := container.NewHBox(
+					layout.NewSpacer(),
+					startPauseBtn,
+					resetBtn,
+					subMinBtn,
+					addMinBtn,
+					layout.NewSpacer(),
+				)
+
+				breakView := container.NewVBox(
+					layout.NewSpacer(),
+					widget.NewLabelWithStyle("STAGE BREAK", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+					timerClockLabel,
+					timerStatusLabel,
+					widget.NewLabel(""),
+					timerControls,
+					layout.NewSpacer(),
+				)
+
+				pdfContainer.Objects = []fyne.CanvasObject{container.NewCenter(breakView)}
+				pdfContainer.Refresh()
+				totalPages = 0
+				return
 			}
 
+			title := "Unknown Item"
+			if item.ScoreName != nil {
+				title = *item.ScoreName
+			}
 			songTitleLabel.SetText(fmt.Sprintf("%d/%d: %s", currentSongIdx+1, len(concert.Items), title))
 
 			if item.ScoreID != nil && item.FilePath != nil && *item.FilePath != "" {
@@ -205,11 +330,12 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 				}
 				pdfContainer.Refresh()
 				totalPages = 0
-				pageLabel.SetText("Break")
+				pageLabel.SetText("No File")
 			}
 		}
 
 		exitConcertBtn := widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
+			stopCurrentTimer()
 			if currentPdfMgr != nil {
 				currentPdfMgr.Close()
 			}
@@ -242,8 +368,6 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 					title = *item.ScoreName
 				} else if item.BreakMin != nil {
 					title = fmt.Sprintf("Break (%d min)", *item.BreakMin)
-				} else if item.ScoreID != nil {
-					title = fmt.Sprintf("Score (%s)", *item.ScoreID)
 				} else {
 					title = "Unknown Item"
 				}
