@@ -32,11 +32,16 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 				continue
 			}
 
+			ext := filepath.Ext(ls.FilePath)
+			if ext == "" {
+				ext = ".pdf"
+			}
+
 			resp, err := scoreClient.CreateScore(ctx, &scorepb.CreateScoreRequest{
 				Id:            &ls.ID,
 				Name:          ls.Title,
 				FileData:      fileData,
-				FileExtension: filepath.Ext(ls.FilePath),
+				FileExtension: ext,
 			})
 			if err != nil {
 				log.Printf("Failed to push score %s to cloud: %v", ls.Title, err)
@@ -75,10 +80,20 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 				continue
 			}
 
-			localFilePath := filepath.Join("./scores", rs.Id+rs.FileExtension)
-			file, err := os.Create(localFilePath)
+			ext := rs.FileExtension
+			if ext == "" {
+				ext = ".pdf"
+			}
+
+			localFilePath := filepath.Join("./scores", rs.Id+ext)
+			absFilePath, err := filepath.Abs(localFilePath)
 			if err != nil {
-				log.Printf("Failed to create local file %s: %v", localFilePath, err)
+				absFilePath = localFilePath
+			}
+
+			file, err := os.Create(absFilePath)
+			if err != nil {
+				log.Printf("Failed to create local file %s: %v", absFilePath, err)
 				continue
 			}
 
@@ -95,12 +110,10 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 			}
 			file.Close()
 
-			err = dbMgr.SyncScoreFromServer(rs.Id, rs.Name, localFilePath, rs.Checksum)
+			err = dbMgr.SyncScoreFromServer(rs.Id, rs.Name, absFilePath, rs.Checksum)
 			if err != nil {
 				log.Printf("Failed to save synced score to local db: %v", err)
 			}
-		} else {
-			// log.Printf("Score %s is up to date", rs.Name)
 		}
 	}
 
