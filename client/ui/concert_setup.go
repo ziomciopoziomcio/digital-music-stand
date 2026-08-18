@@ -2,21 +2,29 @@ package ui
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 )
 
-func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *localdb.Concert, onSave func(id, name, location, startTime string, setlist []localdb.Score) error, goBack func()) *fyne.Container {
+type setlistSetupItem struct {
+	ScoreID  *string
+	BreakMin *int
+	Title    string
+}
+
+func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *localdb.Concert, onSave func(id, name, location, startTime string, setlist []localdb.SetlistItem) error, goBack func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 
-	var setlist []localdb.Score
+	var setlist []setlistSetupItem
 
 	availableScores, err := db.GetScores()
 	if err != nil {
@@ -48,8 +56,18 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 		for _, item := range editingConcert.Items {
 			if item.ScoreID != nil {
 				if score, ok := scoresMap[*item.ScoreID]; ok {
-					setlist = append(setlist, score)
+					sID := score.ID
+					setlist = append(setlist, setlistSetupItem{
+						ScoreID: &sID,
+						Title:   score.Title,
+					})
 				}
+			} else if item.BreakMin != nil {
+				bm := *item.BreakMin
+				setlist = append(setlist, setlistSetupItem{
+					BreakMin: &bm,
+					Title:    fmt.Sprintf("Break (%d min)", bm),
+				})
 			}
 		}
 	}
@@ -90,7 +108,11 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 			}
 			if addBtn != nil {
 				addBtn.OnTapped = func() {
-					setlist = append(setlist, score)
+					sID := score.ID
+					setlist = append(setlist, setlistSetupItem{
+						ScoreID: &sID,
+						Title:   score.Title,
+					})
 					rightList.Refresh()
 				}
 			}
@@ -109,7 +131,7 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 			return container.NewBorder(nil, nil, nil, buttons, title)
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
-			score := setlist[i]
+			item := setlist[i]
 			c := o.(*fyne.Container)
 
 			var title *widget.Label
@@ -124,7 +146,7 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 			}
 
 			if title != nil {
-				title.SetText(fmt.Sprintf("%d. %s", i+1, score.Title))
+				title.SetText(fmt.Sprintf("%d. %s", i+1, item.Title))
 			}
 
 			if buttons != nil {
@@ -152,24 +174,66 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 		},
 	)
 
+	addBreakBtn := widget.NewButtonWithIcon("Add Break", theme.ContentAddIcon(), func() {
+		entry := widget.NewEntry()
+		entry.SetText("10")
+
+		var d dialog.Dialog
+		submitAction := func() {
+			if mins, err := strconv.Atoi(entry.Text); err == nil && mins > 0 {
+				bm := mins
+				setlist = append(setlist, setlistSetupItem{
+					BreakMin: &bm,
+					Title:    fmt.Sprintf("Break (%d min)", bm),
+				})
+				rightList.Refresh()
+				d.Hide()
+			}
+		}
+
+		saveBtn := widget.NewButton("Add", submitAction)
+		cancelBtn := widget.NewButton("Cancel", func() { d.Hide() })
+
+		controls := container.NewHBox(layout.NewSpacer(), saveBtn, cancelBtn)
+		content := container.NewVBox(widget.NewLabel("Enter break duration (minutes):"), entry, controls)
+
+		d = dialog.NewCustomWithoutButtons("Add Break", content, w)
+		d.Show()
+		w.Canvas().Focus(entry)
+	})
+
+	rightHeader := container.NewBorder(
+		nil, nil,
+		widget.NewLabelWithStyle("Setlist Order", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		addBreakBtn,
+	)
+
 	listsContainer := container.NewGridWithColumns(2,
 		container.NewBorder(
 			widget.NewLabelWithStyle("Score Library", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 			nil, nil, nil, leftList,
 		),
 		container.NewBorder(
-			widget.NewLabelWithStyle("Setlist Order", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			rightHeader,
 			nil, nil, nil, rightList,
 		),
 	)
 
 	saveBtn := widget.NewButtonWithIcon("Save Concert", theme.DocumentSaveIcon(), func() {
 		if nameEntry.Text == "" || len(setlist) == 0 {
-			dialog.ShowError(fmt.Errorf("please provide event name and add at least one score"), w)
+			dialog.ShowError(fmt.Errorf("please provide event name and add at least one item"), w)
 			return
 		}
 
-		if err := onSave(concertID, nameEntry.Text, locEntry.Text, dateEntry.Text, setlist); err != nil {
+		var finalSetlist []localdb.SetlistItem
+		for _, item := range setlist {
+			finalSetlist = append(finalSetlist, localdb.SetlistItem{
+				ScoreID:  item.ScoreID,
+				BreakMin: item.BreakMin,
+			})
+		}
+
+		if err := onSave(concertID, nameEntry.Text, locEntry.Text, dateEntry.Text, finalSetlist); err != nil {
 			dialog.ShowError(fmt.Errorf("failed to save concert: %w", err), w)
 			return
 		}
