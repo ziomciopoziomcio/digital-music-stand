@@ -20,6 +20,8 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	ScoreService_CreateScore_FullMethodName   = "/digital_music_stand.score.ScoreService/CreateScore"
+	ScoreService_UpdateScore_FullMethodName   = "/digital_music_stand.score.ScoreService/UpdateScore"
+	ScoreService_DeleteScore_FullMethodName   = "/digital_music_stand.score.ScoreService/DeleteScore"
 	ScoreService_ListMyScores_FullMethodName  = "/digital_music_stand.score.ScoreService/ListMyScores"
 	ScoreService_ShareScore_FullMethodName    = "/digital_music_stand.score.ScoreService/ShareScore"
 	ScoreService_DownloadScore_FullMethodName = "/digital_music_stand.score.ScoreService/DownloadScore"
@@ -30,6 +32,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ScoreServiceClient interface {
 	CreateScore(ctx context.Context, in *CreateScoreRequest, opts ...grpc.CallOption) (*CreateScoreResponse, error)
+	UpdateScore(ctx context.Context, in *UpdateScoreRequest, opts ...grpc.CallOption) (*UpdateScoreResponse, error)
+	DeleteScore(ctx context.Context, in *DeleteScoreRequest, opts ...grpc.CallOption) (*DeleteScoreResponse, error)
 	ListMyScores(ctx context.Context, in *ListMyScoresRequest, opts ...grpc.CallOption) (*ListMyScoresResponse, error)
 	ShareScore(ctx context.Context, in *ShareScoreRequest, opts ...grpc.CallOption) (*ShareScoreResponse, error)
 	DownloadScore(ctx context.Context, in *DownloadScoreRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadScoreResponse], error)
@@ -47,6 +51,26 @@ func (c *scoreServiceClient) CreateScore(ctx context.Context, in *CreateScoreReq
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateScoreResponse)
 	err := c.cc.Invoke(ctx, ScoreService_CreateScore_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *scoreServiceClient) UpdateScore(ctx context.Context, in *UpdateScoreRequest, opts ...grpc.CallOption) (*UpdateScoreResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateScoreResponse)
+	err := c.cc.Invoke(ctx, ScoreService_UpdateScore_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *scoreServiceClient) DeleteScore(ctx context.Context, in *DeleteScoreRequest, opts ...grpc.CallOption) (*DeleteScoreResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteScoreResponse)
+	err := c.cc.Invoke(ctx, ScoreService_DeleteScore_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +121,8 @@ type ScoreService_DownloadScoreClient = grpc.ServerStreamingClient[DownloadScore
 // for forward compatibility.
 type ScoreServiceServer interface {
 	CreateScore(context.Context, *CreateScoreRequest) (*CreateScoreResponse, error)
+	UpdateScore(context.Context, *UpdateScoreRequest) (*UpdateScoreResponse, error)
+	DeleteScore(context.Context, *DeleteScoreRequest) (*DeleteScoreResponse, error)
 	ListMyScores(context.Context, *ListMyScoresRequest) (*ListMyScoresResponse, error)
 	ShareScore(context.Context, *ShareScoreRequest) (*ShareScoreResponse, error)
 	DownloadScore(*DownloadScoreRequest, grpc.ServerStreamingServer[DownloadScoreResponse]) error
@@ -112,6 +138,12 @@ type UnimplementedScoreServiceServer struct{}
 
 func (UnimplementedScoreServiceServer) CreateScore(context.Context, *CreateScoreRequest) (*CreateScoreResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateScore not implemented")
+}
+func (UnimplementedScoreServiceServer) UpdateScore(context.Context, *UpdateScoreRequest) (*UpdateScoreResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateScore not implemented")
+}
+func (UnimplementedScoreServiceServer) DeleteScore(context.Context, *DeleteScoreRequest) (*DeleteScoreResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteScore not implemented")
 }
 func (UnimplementedScoreServiceServer) ListMyScores(context.Context, *ListMyScoresRequest) (*ListMyScoresResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMyScores not implemented")
@@ -157,6 +189,42 @@ func _ScoreService_CreateScore_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ScoreServiceServer).CreateScore(ctx, req.(*CreateScoreRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ScoreService_UpdateScore_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateScoreRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ScoreServiceServer).UpdateScore(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ScoreService_UpdateScore_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ScoreServiceServer).UpdateScore(ctx, req.(*UpdateScoreRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ScoreService_DeleteScore_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteScoreRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ScoreServiceServer).DeleteScore(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ScoreService_DeleteScore_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ScoreServiceServer).DeleteScore(ctx, req.(*DeleteScoreRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -218,6 +286,14 @@ var ScoreService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateScore",
 			Handler:    _ScoreService_CreateScore_Handler,
+		},
+		{
+			MethodName: "UpdateScore",
+			Handler:    _ScoreService_UpdateScore_Handler,
+		},
+		{
+			MethodName: "DeleteScore",
+			Handler:    _ScoreService_DeleteScore_Handler,
 		},
 		{
 			MethodName: "ListMyScores",
