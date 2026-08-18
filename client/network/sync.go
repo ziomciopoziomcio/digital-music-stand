@@ -10,6 +10,19 @@ import (
 )
 
 func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertServiceClient, dbMgr *localdb.DBManager) error {
+	deletedIDs, err := dbMgr.GetDeletedConcertIDs()
+	if err == nil {
+		for _, id := range deletedIDs {
+			log.Printf("Pushing deletion for concert %s to cloud...", id)
+			_, err := concertClient.DeleteConcert(ctx, &concertpb.DeleteConcertRequest{Id: id})
+			if err != nil {
+				log.Printf("Failed to delete concert %s on server: %v", id, err)
+			} else {
+				_ = dbMgr.HardDeleteConcert(id)
+			}
+		}
+	}
+
 	remoteResp, err := concertClient.ListConcerts(ctx, &concertpb.ListConcertsRequest{})
 	if err != nil {
 		return fmt.Errorf("failed to list remote concerts: %w", err)
@@ -27,32 +40,57 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 
 	for _, lc := range localConcerts {
 		if lc.Checksum == "" {
-			log.Printf("Pushing local concert %s (%s) to cloud...", lc.Name, lc.ID)
-			_, err := concertClient.CreateConcert(ctx, &concertpb.CreateConcertRequest{
-				Id:        &lc.ID,
-				Name:      lc.Name,
-				Location:  &lc.Location,
-				StartTime: &lc.StartTime,
-			})
-			if err != nil {
-				log.Printf("Failed to push concert %s to cloud: %v", lc.Name, err)
-				continue
-			}
-
-			for _, item := range lc.Items {
-				req := &concertpb.AddConcertItemRequest{
-					ConcertId: lc.ID,
-					Order:     uint32(item.SortOrder),
-				}
-				if item.ScoreID != nil {
-					req.ScoreId = item.ScoreID
-				} else if item.BreakMin != nil {
-					breakMin := uint32(*item.BreakMin)
-					req.BreakMin = &breakMin
+			if _, existsOnServer := remoteMap[lc.ID]; existsOnServer {
+				log.Printf("Updating remote concert %s (%s)...", lc.Name, lc.ID)
+				_, err := concertClient.UpdateConcert(ctx, &concertpb.UpdateConcertRequest{
+					Id:        lc.ID,
+					Name:      lc.Name,
+					Location:  &lc.Location,
+					StartTime: &lc.StartTime,
+				})
+				if err != nil {
+					log.Printf("Failed to update concert %s on server: %v", lc.Name, err)
+					continue
 				}
 
-				if _, err := concertClient.AddConcertItem(ctx, req); err != nil {
-					log.Printf("Failed to push concert item to cloud: %v", err)
+				for _, item := range lc.Items {
+					req := &concertpb.AddConcertItemRequest{
+						ConcertId: lc.ID,
+						Order:     uint32(item.SortOrder),
+					}
+					if item.ScoreID != nil {
+						req.ScoreId = item.ScoreID
+					} else if item.BreakMin != nil {
+						breakMin := uint32(*item.BreakMin)
+						req.BreakMin = &breakMin
+					}
+					_, _ = concertClient.AddConcertItem(ctx, req)
+				}
+			} else {
+				log.Printf("Pushing new concert %s (%s) to cloud...", lc.Name, lc.ID)
+				_, err := concertClient.CreateConcert(ctx, &concertpb.CreateConcertRequest{
+					Id:        &lc.ID,
+					Name:      lc.Name,
+					Location:  &lc.Location,
+					StartTime: &lc.StartTime,
+				})
+				if err != nil {
+					log.Printf("Failed to push concert %s to cloud: %v", lc.Name, err)
+					continue
+				}
+
+				for _, item := range lc.Items {
+					req := &concertpb.AddConcertItemRequest{
+						ConcertId: lc.ID,
+						Order:     uint32(item.SortOrder),
+					}
+					if item.ScoreID != nil {
+						req.ScoreId = item.ScoreID
+					} else if item.BreakMin != nil {
+						breakMin := uint32(*item.BreakMin)
+						req.BreakMin = &breakMin
+					}
+					_, _ = concertClient.AddConcertItem(ctx, req)
 				}
 			}
 		}
@@ -63,7 +101,13 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 		return fmt.Errorf("failed to list remote concerts after push: %w", err)
 	}
 
+	remoteMap = make(map[string]*concertpb.ConcertSummary)
+	for _, rc := range remoteResp.GetConcerts() {
+		remoteMap[rc.Id] = rc
+	}
+
 	localConcertsMap := make(map[string]localdb.Concert)
+	localConcerts, _ = dbMgr.GetConcerts()
 	for _, lc := range localConcerts {
 		localConcertsMap[lc.ID] = lc
 	}
@@ -115,8 +159,15 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 			if err != nil {
 				log.Printf("Failed to save concert %s to local database: %v", remoteConcert.Id, err)
 			}
-		} else {
-			log.Printf("Concert %s (%s) is up to date", remoteConcert.Id, remoteConcert.Name)
+		}
+	}
+
+	for _, lc := range localConcerts {
+		if lc.Checksum != "" {
+			if _, existsOnServer := remoteMap[lc.ID]; !existsOnServer {
+				log.Printf("Concert %s (%s) was deleted on server. Removing locally...", lc.Name, lc.ID)
+				_ = dbMgr.HardDeleteConcert(lc.ID)
+			}
 		}
 	}
 
