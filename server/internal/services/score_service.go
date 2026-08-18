@@ -212,3 +212,59 @@ func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRe
 		Message: "Score shared successfully",
 	}, nil
 }
+
+func (s *ScoreService) UpdateScore(ctx context.Context, req *scorepb.UpdateScoreRequest) (*scorepb.UpdateScoreResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user id: %v", err)
+	}
+
+	if req.GetId() == "" || req.GetName() == "" {
+		return nil, fmt.Errorf("missing required fields")
+	}
+
+	var score models.Score
+	if err := s.db.Where("id = ? AND owner_id = ?", req.GetId(), userID).First(&score).Error; err != nil {
+		return nil, fmt.Errorf("score not found or permission denied: %v", err)
+	}
+
+	updates := map[string]interface{}{"name": req.GetName()}
+	if req.Composer != nil {
+		updates["composer"] = *req.Composer
+	}
+
+	if err := s.db.Model(&score).Updates(updates).Error; err != nil {
+		return nil, fmt.Errorf("failed to update score: %v", err)
+	}
+
+	return &scorepb.UpdateScoreResponse{
+		Message:  "Score updated successfully",
+		Checksum: score.Checksum,
+	}, nil
+}
+
+func (s *ScoreService) DeleteScore(ctx context.Context, req *scorepb.DeleteScoreRequest) (*scorepb.DeleteScoreResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user id: %v", err)
+	}
+
+	if req.GetId() == "" {
+		return nil, fmt.Errorf("missing required fields")
+	}
+
+	var score models.Score
+	if err := s.db.Where("id = ? AND owner_id = ?", req.GetId(), userID).First(&score).Error; err != nil {
+		return nil, fmt.Errorf("score not found or permission denied: %v", err)
+	}
+
+	if err := s.db.Delete(&score).Error; err != nil {
+		return nil, fmt.Errorf("failed to delete score record: %v", err)
+	}
+
+	_ = os.Remove(score.FilePath)
+
+	return &scorepb.DeleteScoreResponse{
+		Message: "Score deleted successfully",
+	}, nil
+}

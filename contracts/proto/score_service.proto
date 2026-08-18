@@ -5,6 +5,8 @@ option go_package = "github.com/ziomciopoziomcio/digital-music-stand/contracts/g
 
 service ScoreService {
   rpc CreateScore(CreateScoreRequest) returns (CreateScoreResponse);
+  rpc UpdateScore(UpdateScoreRequest) returns (UpdateScoreResponse);
+  rpc DeleteScore(DeleteScoreRequest) returns (DeleteScoreResponse);
   rpc ListMyScores(ListMyScoresRequest) returns (ListMyScoresResponse);
   rpc ShareScore(ShareScoreRequest) returns (ShareScoreResponse);
   rpc DownloadScore(DownloadScoreRequest) returns (stream DownloadScoreResponse);
@@ -27,6 +29,25 @@ message CreateScoreResponse {
   string id = 1;
   string message = 2;
   string checksum = 3;
+}
+
+message UpdateScoreRequest {
+  string id = 1;
+  string name = 2;
+  optional string composer = 3;
+}
+
+message UpdateScoreResponse {
+  string message = 1;
+  string checksum = 2;
+}
+
+message DeleteScoreRequest {
+  string id = 1;
+}
+
+message DeleteScoreResponse {
+  string message = 1;
 }
 
 message ListMyScoresRequest {

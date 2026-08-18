@@ -11,10 +11,11 @@ import (
 )
 
 type Score struct {
-	ID       string
-	Title    string
-	FilePath string
-	Checksum string
+	ID        string
+	Title     string
+	FilePath  string
+	Checksum  string
+	IsDeleted bool
 }
 
 type ConcertItem struct {
@@ -51,7 +52,8 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 	    id TEXT PRIMARY KEY,
 	    title TEXT NOT NULL,
 	    file_path TEXT NOT NULL,
-	    checksum TEXT NOT NULL DEFAULT ''
+	    checksum TEXT NOT NULL DEFAULT '',
+	    is_deleted INTEGER NOT NULL DEFAULT 0
 	);
 
 	CREATE TABLE IF NOT EXISTS concerts (
@@ -80,7 +82,7 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 }
 
 func (m *DBManager) GetScores() ([]Score, error) {
-	rows, err := m.db.Query("SELECT id, title, file_path, checksum FROM scores ORDER BY title")
+	rows, err := m.db.Query("SELECT id, title, file_path, checksum FROM scores WHERE is_deleted = 0 ORDER BY title")
 	if err != nil {
 		return nil, err
 	}
@@ -98,12 +100,7 @@ func (m *DBManager) GetScores() ([]Score, error) {
 }
 
 func (m *DBManager) UpdateScore(id string, title string) error {
-	_, err := m.db.Exec("UPDATE scores SET title = ? WHERE id = ?", title, id)
-	return err
-}
-
-func (m *DBManager) DeleteScore(id string) error {
-	_, err := m.db.Exec("DELETE FROM scores WHERE id = ?", id)
+	_, err := m.db.Exec("UPDATE scores SET title = ?, checksum = '' WHERE id = ?", title, id)
 	return err
 }
 
@@ -133,8 +130,41 @@ func (m *DBManager) AddScore(title, originalFilePath string) (string, error) {
 		return "", fmt.Errorf("failed to copy score file locally: %w", err)
 	}
 
-	_, err = m.db.Exec("INSERT INTO scores (id, title, file_path, checksum) VALUES (?, ?, ?, '')", newID, title, absPath)
+	_, err = m.db.Exec("INSERT INTO scores (id, title, file_path, checksum, is_deleted) VALUES (?, ?, ?, '', 0)", newID, title, absPath)
 	return newID, err
+}
+
+func (m *DBManager) MarkScoreDeleted(id string) error {
+	_, err := m.db.Exec("UPDATE scores SET is_deleted = 1, checksum = '' WHERE id = ?", id)
+	return err
+}
+
+func (m *DBManager) HardDeleteScore(id string) error {
+	var filePath string
+	_ = m.db.QueryRow("SELECT file_path FROM scores WHERE id = ?", id).Scan(&filePath)
+	if filePath != "" {
+		_ = os.Remove(filePath)
+	}
+	_, err := m.db.Exec("DELETE FROM scores WHERE id = ?", id)
+	return err
+}
+
+func (m *DBManager) GetDeletedScoreIDs() ([]string, error) {
+	rows, err := m.db.Query("SELECT id FROM scores WHERE is_deleted = 1")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 func (m *DBManager) AddConcert(name, location, startTime string, setlist []Score) (string, error) {
@@ -291,12 +321,13 @@ func (m *DBManager) GetConcerts() ([]Concert, error) {
 
 func (m *DBManager) SyncScoreFromServer(id, title, filePath, checksum string) error {
 	_, err := m.db.Exec(`
-		INSERT INTO scores (id, title, file_path, checksum) 
-		VALUES (?, ?, ?, ?)
+		INSERT INTO scores (id, title, file_path, checksum, is_deleted) 
+		VALUES (?, ?, ?, ?, 0)
 		ON CONFLICT(id) DO UPDATE SET 
 			title = excluded.title,
 			file_path = excluded.file_path,
-			checksum = excluded.checksum`,
+			checksum = excluded.checksum,
+			is_deleted = 0`,
 		id, title, filePath, checksum,
 	)
 	return err
