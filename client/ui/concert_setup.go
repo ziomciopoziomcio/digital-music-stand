@@ -13,7 +13,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 )
 
-func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, onSave func(name, location, startTime string, setlist []localdb.Score) error, goBack func()) *fyne.Container {
+func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *localdb.Concert, onSave func(id, name, location, startTime string, setlist []localdb.Score) error, goBack func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var setlist []localdb.Score
@@ -32,6 +32,27 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, onSave func(name, l
 	dateEntry := widget.NewEntry()
 	dateEntry.SetPlaceHolder("YYYY-MM-DD HH:MM")
 	dateEntry.SetText(time.Now().Format("2006-01-02 15:00"))
+
+	concertID := ""
+	if editingConcert != nil {
+		concertID = editingConcert.ID
+		nameEntry.SetText(editingConcert.Name)
+		locEntry.SetText(editingConcert.Location)
+		dateEntry.SetText(editingConcert.StartTime)
+
+		scoresMap := make(map[string]localdb.Score)
+		for _, s := range availableScores {
+			scoresMap[s.ID] = s
+		}
+
+		for _, item := range editingConcert.Items {
+			if item.ScoreID != nil {
+				if score, ok := scoresMap[*item.ScoreID]; ok {
+					setlist = append(setlist, score)
+				}
+			}
+		}
+	}
 
 	form := widget.NewForm(
 		widget.NewFormItem("Event Name", nameEntry),
@@ -148,7 +169,7 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, onSave func(name, l
 			return
 		}
 
-		if err := onSave(nameEntry.Text, locEntry.Text, dateEntry.Text, setlist); err != nil {
+		if err := onSave(concertID, nameEntry.Text, locEntry.Text, dateEntry.Text, setlist); err != nil {
 			dialog.ShowError(fmt.Errorf("failed to save concert: %w", err), w)
 			return
 		}
@@ -161,7 +182,12 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, onSave func(name, l
 	backToDashBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 	backToDashBtn.Importance = widget.WarningImportance
 
-	header := container.NewBorder(nil, nil, backToDashBtn, nil, widget.NewLabelWithStyle("Concert Setup", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
+	headerTitle := "New Concert"
+	if editingConcert != nil {
+		headerTitle = "Edit Concert"
+	}
+
+	header := container.NewBorder(nil, nil, backToDashBtn, nil, widget.NewLabelWithStyle(headerTitle, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
 
 	mainLayout := container.NewBorder(
 		container.NewPadded(form),

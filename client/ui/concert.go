@@ -15,7 +15,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
 )
 
-func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openSetup func()) *fyne.Container {
+func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var showConcertList func()
@@ -25,7 +25,9 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 		backBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 		backBtn.Importance = widget.WarningImportance
 
-		newConcertBtn := widget.NewButtonWithIcon("New Concert", theme.ContentAddIcon(), openSetup)
+		newConcertBtn := widget.NewButtonWithIcon("New Concert", theme.ContentAddIcon(), func() {
+			openSetup(nil)
+		})
 		newConcertBtn.Importance = widget.HighImportance
 
 		topControls := container.NewHBox(newConcertBtn)
@@ -38,7 +40,7 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			concerts = []localdb.Concert{}
 		}
 
-		grid := container.NewGridWrap(fyne.NewSize(240, 180))
+		grid := container.NewGridWrap(fyne.NewSize(260, 220))
 
 		for _, c := range concerts {
 			concert := c
@@ -46,15 +48,31 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			nameLabel := widget.NewLabelWithStyle(concert.Name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 			detailsLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s\n%s\nItems: %d", concert.Location, concert.StartTime, len(concert.Items)), fyne.TextAlignCenter, fyne.TextStyle{})
 
-			cardContent := container.NewVBox(nameLabel, detailsLabel, layout.NewSpacer())
-			card := widget.NewCard("", "", cardContent)
-
 			openBtn := widget.NewButtonWithIcon("ENTER", theme.MediaPlayIcon(), func() {
 				playConcert(concert)
 			})
 			openBtn.Importance = widget.HighImportance
 
-			item := container.NewBorder(nil, openBtn, nil, nil, card)
+			editBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
+				openSetup(&concert)
+			})
+
+			deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+				dialog.ShowConfirm("Delete Concert", fmt.Sprintf("Are you sure you want to delete '%s'?", concert.Name), func(confirmed bool) {
+					if confirmed {
+						_ = db.MarkConcertDeleted(concert.ID)
+						onDeleteConcert()
+						showConcertList()
+					}
+				}, w)
+			})
+			deleteBtn.Importance = widget.DangerImportance
+
+			actionButtons := container.NewHBox(editBtn, deleteBtn, openBtn)
+			cardContent := container.NewVBox(nameLabel, detailsLabel, layout.NewSpacer())
+			card := widget.NewCard("", "", cardContent)
+
+			item := container.NewBorder(nil, actionButtons, nil, nil, card)
 			grid.Add(item)
 		}
 
@@ -149,6 +167,8 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 				title = *item.ScoreName
 			} else if item.BreakMin != nil {
 				title = fmt.Sprintf("Break (%d min)", *item.BreakMin)
+			} else if item.ScoreID != nil {
+				title = fmt.Sprintf("Score (%s)", *item.ScoreID)
 			} else {
 				title = "Unknown Item"
 			}

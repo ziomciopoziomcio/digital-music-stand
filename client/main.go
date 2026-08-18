@@ -44,7 +44,7 @@ func main() {
 	var showLogin func()
 	var showPractice func()
 	var showConcert func()
-	var showConcertSetup func()
+	var showConcertSetup func(editingConcert *localdb.Concert)
 	var showPairing func()
 
 	showDashboard = func() {
@@ -122,34 +122,44 @@ func main() {
 		mainWrapper.Refresh()
 	}
 
+	triggerConcertSync := func() {
+		token := myApp.Preferences().String("jwt_token")
+		server := myApp.Preferences().String("server_addr")
+		if token != "" && server != "" {
+			go func() {
+				conn, err := network.NewGRPCClient(server, token)
+				if err == nil {
+					defer conn.Close()
+					concertClient := concertpb.NewConcertServiceClient(conn)
+					if syncErr := network.SynchronizeConcerts(context.Background(), concertClient, dbMgr); syncErr != nil {
+						log.Printf("Background concert sync error: %v", syncErr)
+					}
+				}
+			}()
+		}
+	}
+
 	showConcert = func() {
-		concertView := ui.BuildConcertMode(myWindow, dbMgr, showDashboard, showConcertSetup)
+		concertView := ui.BuildConcertMode(myWindow, dbMgr, showDashboard, showConcertSetup, triggerConcertSync)
 		mainWrapper.Objects = []fyne.CanvasObject{concertView}
 		mainWrapper.Refresh()
 	}
 
-	showConcertSetup = func() {
-		setupView := ui.BuildConcertSetup(myWindow, dbMgr, func(name, location, startTime string, setlist []localdb.Score) error {
-			_, err := dbMgr.AddConcert(name, location, startTime, setlist)
-			if err != nil {
-				return err
+	showConcertSetup = func(editingConcert *localdb.Concert) {
+		setupView := ui.BuildConcertSetup(myWindow, dbMgr, editingConcert, func(id, name, location, startTime string, setlist []localdb.Score) error {
+			if id == "" {
+				_, err := dbMgr.AddConcert(name, location, startTime, setlist)
+				if err != nil {
+					return err
+				}
+			} else {
+				err := dbMgr.UpdateConcert(id, name, location, startTime, setlist)
+				if err != nil {
+					return err
+				}
 			}
 
-			token := myApp.Preferences().String("jwt_token")
-			server := myApp.Preferences().String("server_addr")
-			if token != "" && server != "" {
-				go func() {
-					conn, err := network.NewGRPCClient(server, token)
-					if err == nil {
-						defer conn.Close()
-						concertClient := concertpb.NewConcertServiceClient(conn)
-						if syncErr := network.SynchronizeConcerts(context.Background(), concertClient, dbMgr); syncErr != nil {
-							log.Printf("Background concert sync error: %v", syncErr)
-						}
-					}
-				}()
-			}
-
+			triggerConcertSync()
 			return nil
 		}, showConcert)
 		mainWrapper.Objects = []fyne.CanvasObject{setupView}
