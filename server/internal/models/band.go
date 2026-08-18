@@ -8,8 +8,8 @@ import (
 
 type Band struct {
 	ID        uint           `gorm:"primaryKey"`
-	ManagerID uint           `gorm:"not null;uniqueIndex:idx_band_name"`
-	Name      string         `gorm:"not null;uniqueIndex:idx_band_name"`
+	ManagerID uint           `gorm:"not null"`
+	Name      string         `gorm:"not null"`
 	CreatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
 	DeletedAt gorm.DeletedAt `gorm:"index"`
@@ -26,5 +26,17 @@ type BandMember struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	User User `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Band Band `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+type BandInvitation struct {
+	ID           uint           `gorm:"primaryKey"`
+	BandID       uint           `gorm:"not null;uniqueIndex:idx_band_email"`
+	InviteeEmail string         `gorm:"not null;uniqueIndex:idx_band_email"`
+	Status       string         `gorm:"not null;default:'pending'"`
+	CreatedAt    time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
+	UpdatedAt    time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt    gorm.DeletedAt `gorm:"index"`
+
 	Band Band `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }

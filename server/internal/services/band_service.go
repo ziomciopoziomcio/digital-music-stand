@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"gorm.io/gorm"
+
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/auth"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
-	"gorm.io/gorm"
 )
 
 type BandService struct {
@@ -16,134 +17,179 @@ type BandService struct {
 }
 
 func NewBandService(db *gorm.DB) *BandService {
-	return &BandService{
-		db: db,
-	}
+	return &BandService{db: db}
 }
 
 func (s *BandService) CreateBand(ctx context.Context, req *bandpb.CreateBandRequest) (*bandpb.CreateBandResponse, error) {
 	userID, err := auth.GetUserIDFromContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user id from context: %v", err)
+		return nil, fmt.Errorf("unauthorized: %v", err)
 	}
 
 	if req.GetName() == "" {
-		return nil, fmt.Errorf("missing required fields")
+		return nil, fmt.Errorf("band name cannot be empty")
 	}
 
-	var newBand models.Band
+	band := models.Band{
+		Name:      req.GetName(),
+		ManagerID: userID,
+	}
+
 	err = s.db.Transaction(func(tx *gorm.DB) error {
-		newBand = models.Band{
-			Name:      req.GetName(),
-			ManagerID: userID,
+		if err := tx.Create(&band).Error; err != nil {
+			return err
 		}
 
-		if err := tx.Create(&newBand).Error; err != nil {
-			return fmt.Errorf("failed to create band: %v", err)
-		}
-
-		firstMember := models.BandMember{
-			BandID: newBand.ID,
+		member := models.BandMember{
 			UserID: userID,
+			BandID: band.ID,
 		}
-		if err := tx.Create(&firstMember).Error; err != nil {
-			return fmt.Errorf("failed to add manager as first member: %v", err)
+		if err := tx.Create(&member).Error; err != nil {
+			return err
 		}
 
 		return nil
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to create band: %v", err)
 	}
 
 	return &bandpb.CreateBandResponse{
-		Id:      uint32(newBand.ID),
+		Id:      uint32(band.ID),
 		Message: "Band created successfully",
 	}, nil
 }
 
-func (s *BandService) AddBandMember(ctx context.Context, req *bandpb.AddBandMemberRequest) (*bandpb.AddBandMemberResponse, error) {
-	if req.GetBandId() == 0 || req.GetUserId() == 0 {
-		return nil, fmt.Errorf("missing required fields")
-	}
-
-	authUserID, err := auth.GetUserIDFromContext(ctx)
+func (s *BandService) InviteMember(ctx context.Context, req *bandpb.InviteMemberRequest) (*bandpb.InviteMemberResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user id from context: %v", err)
+		return nil, fmt.Errorf("unauthorized: %v", err)
 	}
 
 	var band models.Band
-	if err := s.db.Select("manager_id").First(&band, req.GetBandId()).Error; err != nil {
-		return nil, fmt.Errorf("failed to find band: %v", err)
+	if err := s.db.Where("id = ? AND manager_id = ?", req.GetBandId(), userID).First(&band).Error; err != nil {
+		return nil, fmt.Errorf("band not found or permission denied")
 	}
 
-	if band.ManagerID != authUserID {
-		return nil, fmt.Errorf("only the band manager can add members")
+	if req.GetInviteeEmail() == "" {
+		return nil, fmt.Errorf("invitee email cannot be empty")
 	}
 
-	newMember := models.BandMember{
-		BandID: uint(req.GetBandId()),
-		UserID: uint(req.GetUserId()),
+	invite := models.BandInvitation{
+		BandID:       uint(req.GetBandId()),
+		InviteeEmail: req.GetInviteeEmail(),
+		Status:       "pending",
 	}
 
-	if err := s.db.Create(&newMember).Error; err != nil {
-		return nil, fmt.Errorf("failed to add band member: %v", err)
+	if err := s.db.FirstOrCreate(&invite, models.BandInvitation{BandID: invite.BandID, InviteeEmail: invite.InviteeEmail}).Error; err != nil {
+		return nil, fmt.Errorf("failed to create invitation: %v", err)
 	}
 
-	return &bandpb.AddBandMemberResponse{
-		Message: "Band member added successfully",
+	return &bandpb.InviteMemberResponse{
+		Message: "Invitation sent successfully",
 	}, nil
 }
 
-func (s *BandService) ListBandMembers(ctx context.Context, req *bandpb.ListBandMembersRequest) (*bandpb.ListBandMembersResponse, error) {
-	if req.GetBandId() == 0 {
-		return nil, fmt.Errorf("missing required fields")
-	}
-
-	authUserID, err := auth.GetUserIDFromContext(ctx)
+func (s *BandService) ListMyInvitations(ctx context.Context, req *bandpb.ListMyInvitationsRequest) (*bandpb.ListMyInvitationsResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user id from context: %v", err)
+		return nil, fmt.Errorf("unauthorized: %v", err)
 	}
 
-	var count int64
-
-	if err := s.db.Model(&models.BandMember{}).
-		Where("band_id = ? AND user_id = ?", req.GetBandId(), authUserID).
-		Count(&count).Error; err != nil {
-		return nil, fmt.Errorf("failed to check if user is a member of the band: %v", err)
+	var user models.User
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return nil, fmt.Errorf("user not found")
 	}
 
-	if count == 0 {
-		return nil, fmt.Errorf("user is not a member of the band")
+	var invites []models.BandInvitation
+	if err := s.db.Preload("Band").Where("invitee_email = ? AND status = ?", user.Email, "pending").Find(&invites).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch invitations: %v", err)
 	}
 
-	type MemberResult struct {
-		ID      uint
-		Name    string
-		Surname string
-	}
-	var results []MemberResult
-
-	err = s.db.Table("band_members").
-		Select("users.id, users.name, users.surname").
-		Joins("JOIN users ON band_members.user_id = users.id").
-		Where("band_members.band_id = ?", req.GetBandId()).
-		Scan(&results).Error
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to list band members: %v", err)
-	}
-
-	var grpcMembers []*bandpb.BandMember
-	for _, res := range results {
-		grpcMembers = append(grpcMembers, &bandpb.BandMember{
-			Id:      uint32(res.ID),
-			Name:    res.Name,
-			Surname: res.Surname,
+	var response []*bandpb.Invitation
+	for _, inv := range invites {
+		response = append(response, &bandpb.Invitation{
+			Id:       uint32(inv.ID),
+			BandName: inv.Band.Name,
+			Status:   inv.Status,
 		})
 	}
 
-	return &bandpb.ListBandMembersResponse{
-		Members: grpcMembers,
+	return &bandpb.ListMyInvitationsResponse{
+		Invitations: response,
+	}, nil
+}
+
+func (s *BandService) RespondToInvitation(ctx context.Context, req *bandpb.RespondToInvitationRequest) (*bandpb.RespondToInvitationResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
+	}
+
+	var user models.User
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	var invite models.BandInvitation
+	if err := s.db.Where("id = ? AND invitee_email = ? AND status = ?", req.GetInvitationId(), user.Email, "pending").First(&invite).Error; err != nil {
+		return nil, fmt.Errorf("invitation not found or already processed")
+	}
+
+	status := "declined"
+	if req.GetAccept() {
+		status = "accepted"
+	}
+
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&invite).Update("status", status).Error; err != nil {
+			return err
+		}
+
+		if req.GetAccept() {
+			member := models.BandMember{
+				UserID: userID,
+				BandID: invite.BandID,
+			}
+			if err := tx.FirstOrCreate(&member, member).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to process invitation: %v", err)
+	}
+
+	return &bandpb.RespondToInvitationResponse{
+		Message: "Invitation processed successfully",
+	}, nil
+}
+
+func (s *BandService) ListMyBands(ctx context.Context, req *bandpb.ListMyBandsRequest) (*bandpb.ListMyBandsResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
+	}
+
+	var members []models.BandMember
+	if err := s.db.Preload("Band").Where("user_id = ?", userID).Find(&members).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch bands: %v", err)
+	}
+
+	var response []*bandpb.Band
+	for _, m := range members {
+		response = append(response, &bandpb.Band{
+			Id:        uint32(m.Band.ID),
+			Name:      m.Band.Name,
+			IsManager: m.Band.ManagerID == userID,
+		})
+	}
+
+	return &bandpb.ListMyBandsResponse{
+		Bands: response,
 	}, nil
 }

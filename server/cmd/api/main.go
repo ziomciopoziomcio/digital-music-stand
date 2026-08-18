@@ -69,6 +69,7 @@ func main() {
 		&models.SharedUserScore{},
 		&models.Concert{},
 		&models.ConcertItem{},
+		&models.BandInvitation{},
 	)
 
 	if err != nil {
