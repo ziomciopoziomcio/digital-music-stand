@@ -231,6 +231,47 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			}
 		})
 
+		var setlistDialog dialog.Dialog
+		setlistBtn := widget.NewButtonWithIcon("Setlist", theme.ListIcon(), func() {
+			var items []fyne.CanvasObject
+			for i, item := range concert.Items {
+				idx := i
+				var title string
+
+				if item.ScoreName != nil {
+					title = *item.ScoreName
+				} else if item.BreakMin != nil {
+					title = fmt.Sprintf("Break (%d min)", *item.BreakMin)
+				} else if item.ScoreID != nil {
+					title = fmt.Sprintf("Score (%s)", *item.ScoreID)
+				} else {
+					title = "Unknown Item"
+				}
+
+				btn := widget.NewButton(fmt.Sprintf("%d. %s", idx+1, title), func() {
+					currentSongIdx = idx
+					loadCurrentSong(false)
+					if setlistDialog != nil {
+						setlistDialog.Hide()
+					}
+				})
+
+				if idx == currentSongIdx {
+					btn.Importance = widget.HighImportance
+					btn.SetIcon(theme.MediaPlayIcon())
+				}
+
+				items = append(items, btn)
+			}
+
+			scroll := container.NewVScroll(container.NewVBox(items...))
+			scroll.SetMinSize(fyne.NewSize(350, 400))
+
+			setlistDialog = dialog.NewCustom("Concert Setlist", "Close", scroll, w)
+			setlistDialog.Show()
+		})
+		setlistBtn.Importance = widget.HighImportance
+
 		toolsBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
 			ShowToolsMenu(w)
 		})
@@ -261,7 +302,7 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 		nextPageBtn.Importance = widget.HighImportance
 
 		rightSidebar := container.NewBorder(
-			container.NewVBox(pageLabel, widget.NewSeparator(), toolsBtn, widget.NewSeparator()),
+			container.NewVBox(pageLabel, widget.NewSeparator(), setlistBtn, toolsBtn, widget.NewSeparator()),
 			nil, nil, nil,
 			container.NewGridWithRows(2, prevPageBtn, nextPageBtn),
 		)
