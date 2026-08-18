@@ -169,6 +169,14 @@ func main() {
 		ui.ShowPairingDialog(myWindow, wsMgr)
 	}
 
+	savedToken := myApp.Preferences().String("jwt_token")
+	savedServer := myApp.Preferences().String("server_addr")
+
+	if savedToken != "" && savedServer != "" {
+		log.Println("Saved login data detected. Auto-login and background sync initiated...")
+		startBackgroundSync(savedServer, savedToken)
+	}
+
 	showDashboard()
 
 	myWindow.SetContent(mainWrapper)
