@@ -19,7 +19,7 @@ import (
 )
 
 func main() {
-	myApp := app.New()
+	myApp := app.NewWithID("com.digitalmusicstand.client")
 	myWindow := myApp.NewWindow("Digital Music Stand")
 
 	dbMgr, err := localdb.NewDBManager("musicstand.db")
