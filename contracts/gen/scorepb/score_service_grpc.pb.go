@@ -19,12 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ScoreService_CreateScore_FullMethodName   = "/digital_music_stand.score.ScoreService/CreateScore"
-	ScoreService_UpdateScore_FullMethodName   = "/digital_music_stand.score.ScoreService/UpdateScore"
-	ScoreService_DeleteScore_FullMethodName   = "/digital_music_stand.score.ScoreService/DeleteScore"
-	ScoreService_ListMyScores_FullMethodName  = "/digital_music_stand.score.ScoreService/ListMyScores"
-	ScoreService_ShareScore_FullMethodName    = "/digital_music_stand.score.ScoreService/ShareScore"
-	ScoreService_DownloadScore_FullMethodName = "/digital_music_stand.score.ScoreService/DownloadScore"
+	ScoreService_CreateScore_FullMethodName              = "/digital_music_stand.score.ScoreService/CreateScore"
+	ScoreService_UpdateScore_FullMethodName              = "/digital_music_stand.score.ScoreService/UpdateScore"
+	ScoreService_DeleteScore_FullMethodName              = "/digital_music_stand.score.ScoreService/DeleteScore"
+	ScoreService_ListMyScores_FullMethodName             = "/digital_music_stand.score.ScoreService/ListMyScores"
+	ScoreService_DownloadScore_FullMethodName            = "/digital_music_stand.score.ScoreService/DownloadScore"
+	ScoreService_ShareScore_FullMethodName               = "/digital_music_stand.score.ScoreService/ShareScore"
+	ScoreService_RevokeScoreAccess_FullMethodName        = "/digital_music_stand.score.ScoreService/RevokeScoreAccess"
+	ScoreService_ListScoreInvitations_FullMethodName     = "/digital_music_stand.score.ScoreService/ListScoreInvitations"
+	ScoreService_RespondToScoreInvitation_FullMethodName = "/digital_music_stand.score.ScoreService/RespondToScoreInvitation"
 )
 
 // ScoreServiceClient is the client API for ScoreService service.
@@ -35,8 +38,11 @@ type ScoreServiceClient interface {
 	UpdateScore(ctx context.Context, in *UpdateScoreRequest, opts ...grpc.CallOption) (*UpdateScoreResponse, error)
 	DeleteScore(ctx context.Context, in *DeleteScoreRequest, opts ...grpc.CallOption) (*DeleteScoreResponse, error)
 	ListMyScores(ctx context.Context, in *ListMyScoresRequest, opts ...grpc.CallOption) (*ListMyScoresResponse, error)
-	ShareScore(ctx context.Context, in *ShareScoreRequest, opts ...grpc.CallOption) (*ShareScoreResponse, error)
 	DownloadScore(ctx context.Context, in *DownloadScoreRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadScoreResponse], error)
+	ShareScore(ctx context.Context, in *ShareScoreRequest, opts ...grpc.CallOption) (*ShareScoreResponse, error)
+	RevokeScoreAccess(ctx context.Context, in *RevokeScoreAccessRequest, opts ...grpc.CallOption) (*RevokeScoreAccessResponse, error)
+	ListScoreInvitations(ctx context.Context, in *ListScoreInvitationsRequest, opts ...grpc.CallOption) (*ListScoreInvitationsResponse, error)
+	RespondToScoreInvitation(ctx context.Context, in *RespondToScoreInvitationRequest, opts ...grpc.CallOption) (*RespondToScoreInvitationResponse, error)
 }
 
 type scoreServiceClient struct {
@@ -87,16 +93,6 @@ func (c *scoreServiceClient) ListMyScores(ctx context.Context, in *ListMyScoresR
 	return out, nil
 }
 
-func (c *scoreServiceClient) ShareScore(ctx context.Context, in *ShareScoreRequest, opts ...grpc.CallOption) (*ShareScoreResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ShareScoreResponse)
-	err := c.cc.Invoke(ctx, ScoreService_ShareScore_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *scoreServiceClient) DownloadScore(ctx context.Context, in *DownloadScoreRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadScoreResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &ScoreService_ServiceDesc.Streams[0], ScoreService_DownloadScore_FullMethodName, cOpts...)
@@ -116,6 +112,46 @@ func (c *scoreServiceClient) DownloadScore(ctx context.Context, in *DownloadScor
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ScoreService_DownloadScoreClient = grpc.ServerStreamingClient[DownloadScoreResponse]
 
+func (c *scoreServiceClient) ShareScore(ctx context.Context, in *ShareScoreRequest, opts ...grpc.CallOption) (*ShareScoreResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ShareScoreResponse)
+	err := c.cc.Invoke(ctx, ScoreService_ShareScore_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *scoreServiceClient) RevokeScoreAccess(ctx context.Context, in *RevokeScoreAccessRequest, opts ...grpc.CallOption) (*RevokeScoreAccessResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeScoreAccessResponse)
+	err := c.cc.Invoke(ctx, ScoreService_RevokeScoreAccess_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *scoreServiceClient) ListScoreInvitations(ctx context.Context, in *ListScoreInvitationsRequest, opts ...grpc.CallOption) (*ListScoreInvitationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListScoreInvitationsResponse)
+	err := c.cc.Invoke(ctx, ScoreService_ListScoreInvitations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *scoreServiceClient) RespondToScoreInvitation(ctx context.Context, in *RespondToScoreInvitationRequest, opts ...grpc.CallOption) (*RespondToScoreInvitationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RespondToScoreInvitationResponse)
+	err := c.cc.Invoke(ctx, ScoreService_RespondToScoreInvitation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ScoreServiceServer is the server API for ScoreService service.
 // All implementations must embed UnimplementedScoreServiceServer
 // for forward compatibility.
@@ -124,8 +160,11 @@ type ScoreServiceServer interface {
 	UpdateScore(context.Context, *UpdateScoreRequest) (*UpdateScoreResponse, error)
 	DeleteScore(context.Context, *DeleteScoreRequest) (*DeleteScoreResponse, error)
 	ListMyScores(context.Context, *ListMyScoresRequest) (*ListMyScoresResponse, error)
-	ShareScore(context.Context, *ShareScoreRequest) (*ShareScoreResponse, error)
 	DownloadScore(*DownloadScoreRequest, grpc.ServerStreamingServer[DownloadScoreResponse]) error
+	ShareScore(context.Context, *ShareScoreRequest) (*ShareScoreResponse, error)
+	RevokeScoreAccess(context.Context, *RevokeScoreAccessRequest) (*RevokeScoreAccessResponse, error)
+	ListScoreInvitations(context.Context, *ListScoreInvitationsRequest) (*ListScoreInvitationsResponse, error)
+	RespondToScoreInvitation(context.Context, *RespondToScoreInvitationRequest) (*RespondToScoreInvitationResponse, error)
 	mustEmbedUnimplementedScoreServiceServer()
 }
 
@@ -148,11 +187,20 @@ func (UnimplementedScoreServiceServer) DeleteScore(context.Context, *DeleteScore
 func (UnimplementedScoreServiceServer) ListMyScores(context.Context, *ListMyScoresRequest) (*ListMyScoresResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMyScores not implemented")
 }
+func (UnimplementedScoreServiceServer) DownloadScore(*DownloadScoreRequest, grpc.ServerStreamingServer[DownloadScoreResponse]) error {
+	return status.Error(codes.Unimplemented, "method DownloadScore not implemented")
+}
 func (UnimplementedScoreServiceServer) ShareScore(context.Context, *ShareScoreRequest) (*ShareScoreResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ShareScore not implemented")
 }
-func (UnimplementedScoreServiceServer) DownloadScore(*DownloadScoreRequest, grpc.ServerStreamingServer[DownloadScoreResponse]) error {
-	return status.Error(codes.Unimplemented, "method DownloadScore not implemented")
+func (UnimplementedScoreServiceServer) RevokeScoreAccess(context.Context, *RevokeScoreAccessRequest) (*RevokeScoreAccessResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeScoreAccess not implemented")
+}
+func (UnimplementedScoreServiceServer) ListScoreInvitations(context.Context, *ListScoreInvitationsRequest) (*ListScoreInvitationsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListScoreInvitations not implemented")
+}
+func (UnimplementedScoreServiceServer) RespondToScoreInvitation(context.Context, *RespondToScoreInvitationRequest) (*RespondToScoreInvitationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RespondToScoreInvitation not implemented")
 }
 func (UnimplementedScoreServiceServer) mustEmbedUnimplementedScoreServiceServer() {}
 func (UnimplementedScoreServiceServer) testEmbeddedByValue()                      {}
@@ -247,6 +295,17 @@ func _ScoreService_ListMyScores_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ScoreService_DownloadScore_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DownloadScoreRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ScoreServiceServer).DownloadScore(m, &grpc.GenericServerStream[DownloadScoreRequest, DownloadScoreResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ScoreService_DownloadScoreServer = grpc.ServerStreamingServer[DownloadScoreResponse]
+
 func _ScoreService_ShareScore_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ShareScoreRequest)
 	if err := dec(in); err != nil {
@@ -265,16 +324,59 @@ func _ScoreService_ShareScore_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ScoreService_DownloadScore_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(DownloadScoreRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _ScoreService_RevokeScoreAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeScoreAccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(ScoreServiceServer).DownloadScore(m, &grpc.GenericServerStream[DownloadScoreRequest, DownloadScoreResponse]{ServerStream: stream})
+	if interceptor == nil {
+		return srv.(ScoreServiceServer).RevokeScoreAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ScoreService_RevokeScoreAccess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ScoreServiceServer).RevokeScoreAccess(ctx, req.(*RevokeScoreAccessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type ScoreService_DownloadScoreServer = grpc.ServerStreamingServer[DownloadScoreResponse]
+func _ScoreService_ListScoreInvitations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListScoreInvitationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ScoreServiceServer).ListScoreInvitations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ScoreService_ListScoreInvitations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ScoreServiceServer).ListScoreInvitations(ctx, req.(*ListScoreInvitationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ScoreService_RespondToScoreInvitation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RespondToScoreInvitationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ScoreServiceServer).RespondToScoreInvitation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ScoreService_RespondToScoreInvitation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ScoreServiceServer).RespondToScoreInvitation(ctx, req.(*RespondToScoreInvitationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
 
 // ScoreService_ServiceDesc is the grpc.ServiceDesc for ScoreService service.
 // It's only intended for direct use with grpc.RegisterService,
@@ -302,6 +404,18 @@ var ScoreService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ShareScore",
 			Handler:    _ScoreService_ShareScore_Handler,
+		},
+		{
+			MethodName: "RevokeScoreAccess",
+			Handler:    _ScoreService_RevokeScoreAccess_Handler,
+		},
+		{
+			MethodName: "ListScoreInvitations",
+			Handler:    _ScoreService_ListScoreInvitations_Handler,
+		},
+		{
+			MethodName: "RespondToScoreInvitation",
+			Handler:    _ScoreService_RespondToScoreInvitation_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
