@@ -330,3 +330,182 @@ func (s *ConcertService) DeleteConcert(ctx context.Context, req *concertpb.Delet
 		Message: "Concert deleted successfully",
 	}, nil
 }
+
+func (s *ConcertService) ShareConcert(ctx context.Context, req *concertpb.ShareConcertRequest) (*concertpb.ShareConcertResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
+	}
+
+	var concert models.Concert
+	if err := s.db.Where("id = ? AND (user_id = ? OR band_id IN (SELECT band_id FROM band_members WHERE user_id = ?))", req.GetConcertId(), userID, userID).First(&concert).Error; err != nil {
+		return nil, fmt.Errorf("concert not found or permission denied")
+	}
+
+	if req.TargetBandId != nil {
+		var member models.BandMember
+		if err := s.db.Where("band_id = ? AND user_id = ?", *req.TargetBandId, userID).First(&member).Error; err != nil {
+			return nil, fmt.Errorf("you are not a member of this band")
+		}
+
+		sharedBand := models.SharedBandConcert{
+			ConcertID: concert.ID,
+			BandID:    uint(*req.TargetBandId),
+		}
+		if err := s.db.FirstOrCreate(&sharedBand, sharedBand).Error; err != nil {
+			return nil, fmt.Errorf("failed to share concert with band: %v", err)
+		}
+
+		// Automatycznie przyznajemy dostęp do utworów z koncertu dla całego zespołu
+		var items []models.ConcertItem
+		s.db.Where("concert_id = ? AND score_id IS NOT NULL", concert.ID).Find(&items)
+		for _, item := range items {
+			if item.ScoreID != nil {
+				sharedBandScore := models.SharedBandScore{
+					ScoreID: *item.ScoreID,
+					BandID:  uint(*req.TargetBandId),
+				}
+				s.db.FirstOrCreate(&sharedBandScore, sharedBandScore)
+			}
+		}
+
+		return &concertpb.ShareConcertResponse{Message: "Concert and its scores shared with band successfully"}, nil
+	}
+
+	if req.TargetEmail != nil {
+		invite := models.ShareConcertInvitation{
+			ConcertID:    concert.ID,
+			InviteeEmail: *req.TargetEmail,
+			Status:       "pending",
+		}
+		if err := s.db.FirstOrCreate(&invite, models.ShareConcertInvitation{ConcertID: invite.ConcertID, InviteeEmail: invite.InviteeEmail}).Error; err != nil {
+			return nil, fmt.Errorf("failed to create concert invitation: %v", err)
+		}
+		return &concertpb.ShareConcertResponse{Message: "Concert invitation sent to user"}, nil
+	}
+
+	return nil, fmt.Errorf("target_email or target_band_id must be provided")
+}
+
+func (s *ConcertService) RevokeConcertAccess(ctx context.Context, req *concertpb.RevokeConcertAccessRequest) (*concertpb.RevokeConcertAccessResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
+	}
+
+	var concert models.Concert
+	if err := s.db.Where("id = ? AND user_id = ?", req.GetConcertId(), userID).First(&concert).Error; err != nil {
+		return nil, fmt.Errorf("concert not found or permission denied")
+	}
+
+	if req.TargetBandId != nil {
+		if err := s.db.Where("concert_id = ? AND band_id = ?", concert.ID, *req.TargetBandId).Delete(&models.SharedBandConcert{}).Error; err != nil {
+			return nil, fmt.Errorf("failed to revoke band access: %v", err)
+		}
+		return &concertpb.RevokeConcertAccessResponse{Message: "Concert access revoked for band"}, nil
+	}
+
+	if req.TargetEmail != nil {
+		var targetUser models.User
+		if err := s.db.Where("email = ?", *req.TargetEmail).First(&targetUser).Error; err == nil {
+			_ = s.db.Where("concert_id = ? AND user_id = ?", concert.ID, targetUser.ID).Delete(&models.SharedUserConcert{})
+		}
+		_ = s.db.Where("concert_id = ? AND invitee_email = ?", concert.ID, *req.TargetEmail).Delete(&models.ShareConcertInvitation{})
+
+		return &concertpb.RevokeConcertAccessResponse{Message: "Concert access revoked for user"}, nil
+	}
+
+	return nil, fmt.Errorf("target_email or target_band_id must be provided")
+}
+
+func (s *ConcertService) ListConcertInvitations(ctx context.Context, req *concertpb.ListConcertInvitationsRequest) (*concertpb.ListConcertInvitationsResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
+	}
+
+	var user models.User
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	var invites []models.ShareConcertInvitation
+	if err := s.db.Preload("Concert.User").Where("invitee_email = ? AND status = ?", user.Email, "pending").Find(&invites).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch concert invitations: %v", err)
+	}
+
+	var response []*concertpb.ConcertInvitation
+	for _, inv := range invites {
+		ownerEmail := "Unknown"
+		if inv.Concert.User.Email != "" {
+			ownerEmail = inv.Concert.User.Email
+		}
+		response = append(response, &concertpb.ConcertInvitation{
+			Id:          uint32(inv.ID),
+			ConcertId:   inv.ConcertID,
+			ConcertName: inv.Concert.Name,
+			OwnerEmail:  ownerEmail,
+		})
+	}
+
+	return &concertpb.ListConcertInvitationsResponse{Invitations: response}, nil
+}
+
+func (s *ConcertService) RespondToConcertInvitation(ctx context.Context, req *concertpb.RespondToConcertInvitationRequest) (*concertpb.RespondToConcertInvitationResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
+	}
+
+	var user models.User
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	var invite models.ShareConcertInvitation
+	if err := s.db.Where("id = ? AND invitee_email = ? AND status = ?", req.GetInvitationId(), user.Email, "pending").First(&invite).Error; err != nil {
+		return nil, fmt.Errorf("invitation not found or already processed")
+	}
+
+	status := "declined"
+	if req.GetAccept() {
+		status = "accepted"
+	}
+
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&invite).Update("status", status).Error; err != nil {
+			return err
+		}
+
+		if req.GetAccept() {
+			sharedConcert := models.SharedUserConcert{
+				ConcertID: invite.ConcertID,
+				UserID:    userID,
+			}
+			if err := tx.FirstOrCreate(&sharedConcert, sharedConcert).Error; err != nil {
+				return err
+			}
+
+			// Automatycznie przyznajemy również dostęp do wszystkich utworów wchodzących w skład koncertu
+			var items []models.ConcertItem
+			if err := tx.Where("concert_id = ? AND score_id IS NOT NULL", invite.ConcertID).Find(&items).Error; err == nil {
+				for _, item := range items {
+					if item.ScoreID != nil {
+						sharedScore := models.SharedUserScore{
+							ScoreID: *item.ScoreID,
+							UserID:  userID,
+						}
+						_ = tx.FirstOrCreate(&sharedScore, sharedScore)
+					}
+				}
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to process concert invitation: %v", err)
+	}
+
+	return &concertpb.RespondToConcertInvitationResponse{Message: "Concert invitation processed successfully"}, nil
+}
