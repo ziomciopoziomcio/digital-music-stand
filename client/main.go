@@ -2,15 +2,11 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-
-	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
-	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
@@ -18,6 +14,8 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system/sysmock"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/ui"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/webserver"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 )
 
 func main() {
@@ -47,6 +45,32 @@ func main() {
 	var showConcertSetup func(editingConcert *localdb.Concert)
 	var showPairing func()
 
+	startBackgroundSync := func(server, token string) {
+		go func() {
+			log.Println("=== BACKGROUND SYNC STARTED ===")
+			conn, err := network.NewGRPCClient(server, token)
+			if err != nil {
+				log.Printf("gRPC connection error: %v", err)
+				return
+			}
+			defer conn.Close()
+
+			scoreClient := scorepb.NewScoreServiceClient(conn)
+			if err := network.SynchronizeScores(context.Background(), scoreClient, dbMgr); err != nil {
+				log.Printf("SCORE SYNC ERROR: %v", err)
+			} else {
+				log.Println("SCORE SYNC SUCCESSFUL")
+			}
+
+			concertClient := concertpb.NewConcertServiceClient(conn)
+			if err := network.SynchronizeConcerts(context.Background(), concertClient, dbMgr); err != nil {
+				log.Printf("CONCERT SYNC ERROR: %v", err)
+			} else {
+				log.Println("CONCERT SYNC SUCCESSFUL")
+			}
+		}()
+	}
+
 	showDashboard = func() {
 		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice, showConcert, showPairing)
 		mainWrapper.Objects = []fyne.CanvasObject{dash}
@@ -66,32 +90,7 @@ func main() {
 				myApp.Preferences().SetString("jwt_token", token)
 				myApp.Preferences().SetString("server_addr", server)
 
-				go func() {
-					fmt.Println("Starting sync processes...")
-					conn, err := network.NewGRPCClient(server, token)
-					if err != nil {
-						fmt.Println("Error while connecting to gRPC:", err)
-						return
-					}
-					defer conn.Close()
-
-					scoreClient := scorepb.NewScoreServiceClient(conn)
-					err = network.SynchronizeScores(context.Background(), scoreClient, dbMgr)
-					if err != nil {
-						fmt.Println("Score sync error:", err)
-					} else {
-						fmt.Println("Scores synchronised successfully")
-					}
-
-					concertClient := concertpb.NewConcertServiceClient(conn)
-					err = network.SynchronizeConcerts(context.Background(), concertClient, dbMgr)
-					if err != nil {
-						fmt.Println("Concert sync error:", err)
-					} else {
-						fmt.Println("Concert synchronised successfully")
-					}
-				}()
-
+				startBackgroundSync(server, token)
 				showDashboard()
 			}
 			return err
