@@ -18,6 +18,11 @@ type Score struct {
 	IsDeleted bool
 }
 
+type SetlistItem struct {
+	ScoreID  *string
+	BreakMin *int
+}
+
 type ConcertItem struct {
 	ID        string
 	SortOrder int
@@ -99,11 +104,6 @@ func (m *DBManager) GetScores() ([]Score, error) {
 	return scores, nil
 }
 
-func (m *DBManager) UpdateScore(id string, title string) error {
-	_, err := m.db.Exec("UPDATE scores SET title = ?, checksum = '' WHERE id = ?", title, id)
-	return err
-}
-
 func (m *DBManager) AddScore(title, originalFilePath string) (string, error) {
 	if err := os.MkdirAll("./scores", 0755); err != nil {
 		return "", fmt.Errorf("failed to create scores directory: %w", err)
@@ -132,6 +132,11 @@ func (m *DBManager) AddScore(title, originalFilePath string) (string, error) {
 
 	_, err = m.db.Exec("INSERT INTO scores (id, title, file_path, checksum, is_deleted) VALUES (?, ?, ?, '', 0)", newID, title, absPath)
 	return newID, err
+}
+
+func (m *DBManager) UpdateScore(id string, title string) error {
+	_, err := m.db.Exec("UPDATE scores SET title = ?, checksum = '' WHERE id = ?", title, id)
+	return err
 }
 
 func (m *DBManager) MarkScoreDeleted(id string) error {
@@ -167,7 +172,21 @@ func (m *DBManager) GetDeletedScoreIDs() ([]string, error) {
 	return ids, nil
 }
 
-func (m *DBManager) AddConcert(name, location, startTime string, setlist []Score) (string, error) {
+func (m *DBManager) SyncScoreFromServer(id, title, filePath, checksum string) error {
+	_, err := m.db.Exec(`
+		INSERT INTO scores (id, title, file_path, checksum, is_deleted) 
+		VALUES (?, ?, ?, ?, 0)
+		ON CONFLICT(id) DO UPDATE SET 
+			title = excluded.title,
+			file_path = excluded.file_path,
+			checksum = excluded.checksum,
+			is_deleted = 0`,
+		id, title, filePath, checksum,
+	)
+	return err
+}
+
+func (m *DBManager) AddConcert(name, location, startTime string, setlist []SetlistItem) (string, error) {
 	tx, err := m.db.Begin()
 	if err != nil {
 		return "", err
@@ -181,10 +200,9 @@ func (m *DBManager) AddConcert(name, location, startTime string, setlist []Score
 		return "", err
 	}
 
-	for pos, score := range setlist {
+	for pos, item := range setlist {
 		itemID := uuid.New().String()
-		scoreID := score.ID
-		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id) VALUES (?, ?, ?, ?)", itemID, concertID, pos+1, scoreID)
+		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min) VALUES (?, ?, ?, ?, ?)", itemID, concertID, pos+1, item.ScoreID, item.BreakMin)
 		if err != nil {
 			return "", err
 		}
@@ -193,7 +211,7 @@ func (m *DBManager) AddConcert(name, location, startTime string, setlist []Score
 	return concertID, tx.Commit()
 }
 
-func (m *DBManager) UpdateConcert(id, name, location, startTime string, setlist []Score) error {
+func (m *DBManager) UpdateConcert(id, name, location, startTime string, setlist []SetlistItem) error {
 	tx, err := m.db.Begin()
 	if err != nil {
 		return err
@@ -210,10 +228,9 @@ func (m *DBManager) UpdateConcert(id, name, location, startTime string, setlist 
 		return err
 	}
 
-	for pos, score := range setlist {
+	for pos, item := range setlist {
 		itemID := uuid.New().String()
-		scoreID := score.ID
-		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id) VALUES (?, ?, ?, ?)", itemID, id, pos+1, scoreID)
+		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min) VALUES (?, ?, ?, ?, ?)", itemID, id, pos+1, item.ScoreID, item.BreakMin)
 		if err != nil {
 			return err
 		}
@@ -317,20 +334,6 @@ func (m *DBManager) GetConcerts() ([]Concert, error) {
 		concerts = append(concerts, c)
 	}
 	return concerts, nil
-}
-
-func (m *DBManager) SyncScoreFromServer(id, title, filePath, checksum string) error {
-	_, err := m.db.Exec(`
-		INSERT INTO scores (id, title, file_path, checksum, is_deleted) 
-		VALUES (?, ?, ?, ?, 0)
-		ON CONFLICT(id) DO UPDATE SET 
-			title = excluded.title,
-			file_path = excluded.file_path,
-			checksum = excluded.checksum,
-			is_deleted = 0`,
-		id, title, filePath, checksum,
-	)
-	return err
 }
 
 func (m *DBManager) GetDeletedConcertIDs() ([]string, error) {
