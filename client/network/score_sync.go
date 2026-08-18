@@ -17,40 +17,15 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 		return fmt.Errorf("failed to create local scores directory: %w", err)
 	}
 
-	localScores, err := dbMgr.GetScores()
-	if err != nil {
-		return fmt.Errorf("failed to get local scores: %w", err)
-	}
-
-	for _, ls := range localScores {
-		if ls.Checksum == "" {
-			log.Printf("Pushing local score %s (%s) to cloud...", ls.Title, ls.ID)
-
-			fileData, err := os.ReadFile(ls.FilePath)
+	deletedIDs, err := dbMgr.GetDeletedScoreIDs()
+	if err == nil {
+		for _, id := range deletedIDs {
+			log.Printf("Pushing deletion for score %s to cloud...", id)
+			_, err := scoreClient.DeleteScore(ctx, &scorepb.DeleteScoreRequest{Id: id})
 			if err != nil {
-				log.Printf("Failed to read local PDF %s: %v", ls.FilePath, err)
-				continue
-			}
-
-			ext := filepath.Ext(ls.FilePath)
-			if ext == "" {
-				ext = ".pdf"
-			}
-
-			resp, err := scoreClient.CreateScore(ctx, &scorepb.CreateScoreRequest{
-				Id:            &ls.ID,
-				Name:          ls.Title,
-				FileData:      fileData,
-				FileExtension: ext,
-			})
-			if err != nil {
-				log.Printf("Failed to push score %s to cloud: %v", ls.Title, err)
+				log.Printf("Failed to delete score %s on server: %v", id, err)
 			} else {
-				log.Printf("Score %s pushed successfully", ls.Title)
-				err = dbMgr.SyncScoreFromServer(resp.Id, ls.Title, ls.FilePath, resp.Checksum)
-				if err != nil {
-					log.Printf("Failed to update local checksum for %s: %v", ls.Title, err)
-				}
+				_ = dbMgr.HardDeleteScore(id)
 			}
 		}
 	}
@@ -60,9 +35,71 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 		return fmt.Errorf("failed to list remote scores: %w", err)
 	}
 
+	remoteMap := make(map[string]*scorepb.Score)
+	for _, rs := range remoteResp.GetScores() {
+		remoteMap[rs.Id] = rs
+	}
+
+	localScores, err := dbMgr.GetScores()
+	if err != nil {
+		return fmt.Errorf("failed to get local scores: %w", err)
+	}
+
+	for _, ls := range localScores {
+		if ls.Checksum == "" {
+			if _, existsOnServer := remoteMap[ls.ID]; existsOnServer {
+				log.Printf("Updating remote score %s (%s)...", ls.Title, ls.ID)
+				resp, err := scoreClient.UpdateScore(ctx, &scorepb.UpdateScoreRequest{
+					Id:   ls.ID,
+					Name: ls.Title,
+				})
+				if err != nil {
+					log.Printf("Failed to update score %s on server: %v", ls.Title, err)
+				} else {
+					_ = dbMgr.SyncScoreFromServer(ls.ID, ls.Title, ls.FilePath, resp.Checksum)
+				}
+			} else {
+				log.Printf("Pushing new score %s (%s) to cloud...", ls.Title, ls.ID)
+
+				fileData, err := os.ReadFile(ls.FilePath)
+				if err != nil {
+					log.Printf("Failed to read local PDF %s: %v", ls.FilePath, err)
+					continue
+				}
+
+				ext := filepath.Ext(ls.FilePath)
+				if ext == "" {
+					ext = ".pdf"
+				}
+
+				resp, err := scoreClient.CreateScore(ctx, &scorepb.CreateScoreRequest{
+					Id:            &ls.ID,
+					Name:          ls.Title,
+					FileData:      fileData,
+					FileExtension: ext,
+				})
+				if err != nil {
+					log.Printf("Failed to push score %s to cloud: %v", ls.Title, err)
+				} else {
+					_ = dbMgr.SyncScoreFromServer(resp.Id, ls.Title, ls.FilePath, resp.Checksum)
+				}
+			}
+		}
+	}
+
+	remoteResp, err = scoreClient.ListMyScores(ctx, &scorepb.ListMyScoresRequest{})
+	if err != nil {
+		return fmt.Errorf("failed to list remote scores after push: %w", err)
+	}
+
+	remoteMap = make(map[string]*scorepb.Score)
+	for _, rs := range remoteResp.GetScores() {
+		remoteMap[rs.Id] = rs
+	}
+
 	localScoresMap := make(map[string]localdb.Score)
-	localScoresAfterPush, _ := dbMgr.GetScores()
-	for _, ls := range localScoresAfterPush {
+	localScores, _ = dbMgr.GetScores()
+	for _, ls := range localScores {
 		localScoresMap[ls.ID] = ls
 	}
 
@@ -113,6 +150,15 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 			err = dbMgr.SyncScoreFromServer(rs.Id, rs.Name, absFilePath, rs.Checksum)
 			if err != nil {
 				log.Printf("Failed to save synced score to local db: %v", err)
+			}
+		}
+	}
+
+	for _, ls := range localScores {
+		if ls.Checksum != "" {
+			if _, existsOnServer := remoteMap[ls.ID]; !existsOnServer {
+				log.Printf("Score %s (%s) was deleted on server. Removing locally...", ls.Title, ls.ID)
+				_ = dbMgr.HardDeleteScore(ls.ID)
 			}
 		}
 	}
