@@ -10,7 +10,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func(), openPractice func(), openConcert func(), openPairing func()) *fyne.Container {
+func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func(), openPractice func(), openConcert func(), openPairing func(), openInbox func()) *fyne.Container {
 	clock := widget.NewLabel(time.Now().Format("15:04"))
 	clock.TextStyle = fyne.TextStyle{Bold: true}
 
@@ -28,11 +28,13 @@ func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin 
 		cloudStatusBtn.Importance = widget.WarningImportance
 	}
 
+	inboxBtn := widget.NewButtonWithIcon("Inbox", theme.InfoIcon(), openInbox)
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), openSettings)
 
 	topBar := container.NewHBox(
 		clock,
 		layout.NewSpacer(),
+		inboxBtn,
 		cloudStatusBtn,
 		settingsBtn,
 	)
@@ -41,14 +43,28 @@ func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin 
 	practiceBtn.Importance = widget.HighImportance
 
 	concertBtn := widget.NewButtonWithIcon("Concert Mode", theme.MediaPlayIcon(), openConcert)
+	concertBtn.Importance = widget.HighImportance
 
-	uploadBtn := widget.NewButtonWithIcon("Remote Upload", theme.ComputerIcon(), openPairing)
+	pairingBtn := widget.NewButtonWithIcon("Pair Remote", theme.ComputerIcon(), openPairing)
 
-	mainGrid := container.NewGridWithColumns(2,
-		practiceBtn,
-		concertBtn,
-		uploadBtn,
+	grid := container.NewGridWithColumns(2, practiceBtn, concertBtn)
+
+	bottomArea := container.NewVBox(
+		widget.NewSeparator(),
+		pairingBtn,
 	)
 
-	return container.NewBorder(topBar, nil, nil, nil, mainGrid)
+	mainContent := container.NewBorder(
+		nil,
+		bottomArea,
+		nil,
+		nil,
+		grid,
+	)
+
+	return container.NewBorder(
+		container.NewPadded(topBar),
+		nil, nil, nil,
+		container.NewPadded(mainContent),
+	)
 }
