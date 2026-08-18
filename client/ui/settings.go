@@ -1,10 +1,9 @@
 package ui
 
 import (
-	"fmt"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -12,8 +11,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system"
 )
 
-func BuildSettings(w fyne.Window, onClose func(), netMgr system.NetworkManager, pwrMgr system.PowerManager, medMgr system.MediaManager, devMgr system.DeviceManager) *fyne.Container {
-	//todo: handle errors
+func BuildSettings(w fyne.Window, app fyne.App, onClose func(), netMgr system.NetworkManager, pwrMgr system.PowerManager, medMgr system.MediaManager, devMgr system.DeviceManager) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var showCategories func()
@@ -34,80 +32,73 @@ func BuildSettings(w fyne.Window, onClose func(), netMgr system.NetworkManager, 
 		contentWrapper.Refresh()
 	}
 
-	buildNetworkView := func() fyne.CanvasObject {
-		scanBtn := widget.NewButtonWithIcon("Scan for Wi-Fi", theme.SearchIcon(), func() {})
+	buildSecurityView := func() fyne.CanvasObject {
+		pinEntry := widget.NewPasswordEntry()
+		pinEntry.SetPlaceHolder("Enter PIN (numbers only)")
 
-		wifiList := container.NewVBox()
-		networks, _ := netMgr.GetAvailableNetworks()
-
-		for _, net := range networks {
-			ssid := net.SSID
-			wifiList.Add(widget.NewButton(fmt.Sprintf("%s (Signal: %d%%)", ssid, net.Strength), func() {
-				netMgr.ConnectWiFi(ssid, "mock_password")
-			}))
+		statusLabel := widget.NewLabel("")
+		updateStatus := func() {
+			savedPin := app.Preferences().String("app_pin")
+			if savedPin != "" {
+				statusLabel.SetText("Status: PIN Protection Active")
+			} else {
+				statusLabel.SetText("Status: PIN Protection Disabled")
+			}
 		}
+		updateStatus()
 
-		return container.NewBorder(container.NewPadded(scanBtn), nil, nil, nil, container.NewVScroll(wifiList))
+		savePinBtn := widget.NewButtonWithIcon("Save PIN", theme.DocumentSaveIcon(), func() {
+			if pinEntry.Text != "" {
+				app.Preferences().SetString("app_pin", pinEntry.Text)
+				dialog.ShowInformation("Security", "PIN updated successfully.", w)
+				pinEntry.SetText("")
+				updateStatus()
+			}
+		})
+		savePinBtn.Importance = widget.HighImportance
+
+		clearPinBtn := widget.NewButtonWithIcon("Remove PIN", theme.DeleteIcon(), func() {
+			app.Preferences().SetString("app_pin", "")
+			dialog.ShowInformation("Security", "PIN removed successfully.", w)
+			pinEntry.SetText("")
+			updateStatus()
+		})
+		clearPinBtn.Importance = widget.DangerImportance
+
+		return container.NewVBox(
+			statusLabel,
+			widget.NewSeparator(),
+			widget.NewLabel("New PIN Code:"),
+			pinEntry,
+			container.NewHBox(savePinBtn, clearPinBtn),
+		)
+	}
+
+	buildNetworkView := func() fyne.CanvasObject {
+		return widget.NewLabel("Network settings content...")
 	}
 
 	buildMediaView := func() fyne.CanvasObject {
-		currentVol, _ := medMgr.GetVolume()
-		volLabel := widget.NewLabel(fmt.Sprintf("Volume: %d%%", currentVol))
-		volSlider := widget.NewSlider(0, 100)
-		volSlider.SetValue(float64(currentVol))
-		volSlider.OnChanged = func(val float64) {
-			medMgr.SetVolume(int(val))
-			volLabel.SetText(fmt.Sprintf("Volume: %d%%", int(val)))
-		}
-
-		currentBright, _ := medMgr.GetBrightness()
-		brightLabel := widget.NewLabel(fmt.Sprintf("Screen Brightness: %d%%", currentBright))
-		brightSlider := widget.NewSlider(10, 100)
-		brightSlider.SetValue(float64(currentBright))
-		brightSlider.OnChanged = func(val float64) {
-			medMgr.SetBrightness(int(val))
-			brightLabel.SetText(fmt.Sprintf("Screen Brightness: %d%%", int(val)))
-		}
-
-		return container.NewVBox(
-			volLabel,
-			volSlider,
-			widget.NewLabel(""),
-			brightLabel,
-			brightSlider,
-		)
+		return widget.NewLabel("Display & Audio content...")
 	}
 
 	buildPowerView := func() fyne.CanvasObject {
-		battLevel, _ := pwrMgr.GetBatteryPercentage()
-		charging, _ := pwrMgr.IsCharging()
-
-		status := "Discharging"
-		if charging {
-			status = "Charging"
-		}
-
-		battLabel := widget.NewLabel(fmt.Sprintf("Battery Level: %d%% (%s)", battLevel, status))
-		battBar := widget.NewProgressBar()
-		battBar.SetValue(float64(battLevel) / 100.0)
-
-		return container.NewVBox(
-			battLabel,
-			battBar,
-		)
+		return widget.NewLabel("Power management content...")
 	}
 
 	buildSystemView := func() fyne.CanvasObject {
-		awakeCheck := widget.NewCheck("Keep Screen Awake", func(checked bool) {
-			devMgr.SetKeepAwake(checked)
+		awakeCheck := widget.NewCheck("Keep Device Awake", func(checked bool) {
+			_ = devMgr.SetKeepAwake(checked)
 		})
-		awakeCheck.SetChecked(true)
+		awakeCheck.Checked = devMgr.IsKeepAwake()
 
-		rebootBtn := widget.NewButtonWithIcon("Reboot Device", theme.ViewRefreshIcon(), func() {
-			devMgr.Reboot()
+		rebootBtn := widget.NewButtonWithIcon("Reboot System", theme.ViewRefreshIcon(), func() {
+			_ = devMgr.Reboot()
 		})
-		shutdownBtn := widget.NewButtonWithIcon("Shutdown Device", theme.CancelIcon(), func() {
-			devMgr.Shutdown()
+		rebootBtn.Importance = widget.WarningImportance
+
+		shutdownBtn := widget.NewButtonWithIcon("Shutdown System", theme.CancelIcon(), func() {
+			_ = devMgr.Shutdown()
 		})
 		shutdownBtn.Importance = widget.DangerImportance
 
@@ -124,13 +115,15 @@ func BuildSettings(w fyne.Window, onClose func(), netMgr system.NetworkManager, 
 		mediaBtn := widget.NewButtonWithIcon("Display & Audio", theme.ColorPaletteIcon(), func() { showDetail("Display & Audio", buildMediaView()) })
 		powerBtn := widget.NewButtonWithIcon("Power", theme.InfoIcon(), func() { showDetail("Power Management", buildPowerView()) })
 		sysBtn := widget.NewButtonWithIcon("System", theme.SettingsIcon(), func() { showDetail("System Controls", buildSystemView()) })
+		secBtn := widget.NewButtonWithIcon("Security & PIN", theme.VisibilityOffIcon(), func() { showDetail("Security Settings", buildSecurityView()) })
 
 		netBtn.Importance = widget.HighImportance
 		mediaBtn.Importance = widget.HighImportance
 		powerBtn.Importance = widget.HighImportance
 		sysBtn.Importance = widget.HighImportance
+		secBtn.Importance = widget.HighImportance
 
-		grid := container.NewGridWithColumns(2, netBtn, mediaBtn, powerBtn, sysBtn)
+		grid := container.NewGridWithColumns(3, netBtn, mediaBtn, powerBtn, sysBtn, secBtn)
 
 		closeBtn := widget.NewButtonWithIcon("Close Settings", theme.CancelIcon(), onClose)
 		closeBtn.Importance = widget.DangerImportance
@@ -143,6 +136,5 @@ func BuildSettings(w fyne.Window, onClose func(), netMgr system.NetworkManager, 
 	}
 
 	showCategories()
-
 	return contentWrapper
 }

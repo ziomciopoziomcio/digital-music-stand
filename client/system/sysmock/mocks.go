@@ -81,6 +81,10 @@ func (m *MockDeviceManager) SetKeepAwake(awake bool) error {
 	return nil
 }
 
+func (m *MockDeviceManager) IsKeepAwake() bool {
+	return m.IsAwake
+}
+
 type MockStorageManager struct{}
 
 func (m *MockStorageManager) GetMountedUSBDrives() ([]string, error) {
