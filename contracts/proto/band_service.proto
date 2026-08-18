@@ -5,15 +5,14 @@ option go_package = "github.com/ziomciopoziomcio/digital-music-stand/contracts/g
 
 service BandService {
   rpc CreateBand(CreateBandRequest) returns (CreateBandResponse);
-  rpc AddBandMember(AddBandMemberRequest) returns (AddBandMemberResponse);
-  rpc ListBandMembers(ListBandMembersRequest) returns (ListBandMembersResponse);
+  rpc InviteMember(InviteMemberRequest) returns (InviteMemberResponse);
+  rpc ListMyInvitations(ListMyInvitationsRequest) returns (ListMyInvitationsResponse);
+  rpc RespondToInvitation(RespondToInvitationRequest) returns (RespondToInvitationResponse);
+  rpc ListMyBands(ListMyBandsRequest) returns (ListMyBandsResponse);
 }
 
 message CreateBandRequest {
   string name = 1;
-
-  reserved 2;
-  reserved "manager_id";
 }
 
 message CreateBandResponse {
@@ -21,25 +20,44 @@ message CreateBandResponse {
   string message = 2;
 }
 
-message AddBandMemberRequest {
+message InviteMemberRequest {
   uint32 band_id = 1;
-  uint32 user_id = 2;
+  string invitee_email = 2;
 }
 
-message AddBandMemberResponse {
+message InviteMemberResponse {
   string message = 1;
 }
 
-message ListBandMembersRequest {
-  uint32 band_id = 1;
+message ListMyInvitationsRequest {}
+
+message Invitation {
+  uint32 id = 1;
+  string band_name = 2;
+  string status = 3;
 }
 
-message ListBandMembersResponse {
-  repeated BandMember members = 1;
+message ListMyInvitationsResponse {
+  repeated Invitation invitations = 1;
 }
 
-message BandMember {
+message RespondToInvitationRequest {
+  uint32 invitation_id = 1;
+  bool accept = 2;
+}
+
+message RespondToInvitationResponse {
+  string message = 1;
+}
+
+message ListMyBandsRequest {}
+
+message Band {
   uint32 id = 1;
   string name = 2;
-  string surname = 3;
+  bool is_manager = 3;
+}
+
+message ListMyBandsResponse {
+  repeated Band bands = 1;
 }

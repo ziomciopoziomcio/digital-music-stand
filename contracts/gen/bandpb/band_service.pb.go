@@ -117,28 +117,28 @@ func (x *CreateBandResponse) GetMessage() string {
 	return ""
 }
 
-type AddBandMemberRequest struct {
+type InviteMemberRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	BandId        uint32                 `protobuf:"varint,1,opt,name=band_id,json=bandId,proto3" json:"band_id,omitempty"`
-	UserId        uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	InviteeEmail  string                 `protobuf:"bytes,2,opt,name=invitee_email,json=inviteeEmail,proto3" json:"invitee_email,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AddBandMemberRequest) Reset() {
-	*x = AddBandMemberRequest{}
+func (x *InviteMemberRequest) Reset() {
+	*x = InviteMemberRequest{}
 	mi := &file_contracts_proto_band_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AddBandMemberRequest) String() string {
+func (x *InviteMemberRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AddBandMemberRequest) ProtoMessage() {}
+func (*InviteMemberRequest) ProtoMessage() {}
 
-func (x *AddBandMemberRequest) ProtoReflect() protoreflect.Message {
+func (x *InviteMemberRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_contracts_proto_band_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -150,46 +150,46 @@ func (x *AddBandMemberRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AddBandMemberRequest.ProtoReflect.Descriptor instead.
-func (*AddBandMemberRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use InviteMemberRequest.ProtoReflect.Descriptor instead.
+func (*InviteMemberRequest) Descriptor() ([]byte, []int) {
 	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *AddBandMemberRequest) GetBandId() uint32 {
+func (x *InviteMemberRequest) GetBandId() uint32 {
 	if x != nil {
 		return x.BandId
 	}
 	return 0
 }
 
-func (x *AddBandMemberRequest) GetUserId() uint32 {
+func (x *InviteMemberRequest) GetInviteeEmail() string {
 	if x != nil {
-		return x.UserId
+		return x.InviteeEmail
 	}
-	return 0
+	return ""
 }
 
-type AddBandMemberResponse struct {
+type InviteMemberResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AddBandMemberResponse) Reset() {
-	*x = AddBandMemberResponse{}
+func (x *InviteMemberResponse) Reset() {
+	*x = InviteMemberResponse{}
 	mi := &file_contracts_proto_band_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AddBandMemberResponse) String() string {
+func (x *InviteMemberResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AddBandMemberResponse) ProtoMessage() {}
+func (*InviteMemberResponse) ProtoMessage() {}
 
-func (x *AddBandMemberResponse) ProtoReflect() protoreflect.Message {
+func (x *InviteMemberResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_contracts_proto_band_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -201,39 +201,38 @@ func (x *AddBandMemberResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AddBandMemberResponse.ProtoReflect.Descriptor instead.
-func (*AddBandMemberResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use InviteMemberResponse.ProtoReflect.Descriptor instead.
+func (*InviteMemberResponse) Descriptor() ([]byte, []int) {
 	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *AddBandMemberResponse) GetMessage() string {
+func (x *InviteMemberResponse) GetMessage() string {
 	if x != nil {
 		return x.Message
 	}
 	return ""
 }
 
-type ListBandMembersRequest struct {
+type ListMyInvitationsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	BandId        uint32                 `protobuf:"varint,1,opt,name=band_id,json=bandId,proto3" json:"band_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListBandMembersRequest) Reset() {
-	*x = ListBandMembersRequest{}
+func (x *ListMyInvitationsRequest) Reset() {
+	*x = ListMyInvitationsRequest{}
 	mi := &file_contracts_proto_band_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListBandMembersRequest) String() string {
+func (x *ListMyInvitationsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListBandMembersRequest) ProtoMessage() {}
+func (*ListMyInvitationsRequest) ProtoMessage() {}
 
-func (x *ListBandMembersRequest) ProtoReflect() protoreflect.Message {
+func (x *ListMyInvitationsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_contracts_proto_band_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -245,39 +244,34 @@ func (x *ListBandMembersRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListBandMembersRequest.ProtoReflect.Descriptor instead.
-func (*ListBandMembersRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListMyInvitationsRequest.ProtoReflect.Descriptor instead.
+func (*ListMyInvitationsRequest) Descriptor() ([]byte, []int) {
 	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *ListBandMembersRequest) GetBandId() uint32 {
-	if x != nil {
-		return x.BandId
-	}
-	return 0
-}
-
-type ListBandMembersResponse struct {
+type Invitation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Members       []*BandMember          `protobuf:"bytes,1,rep,name=members,proto3" json:"members,omitempty"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	BandName      string                 `protobuf:"bytes,2,opt,name=band_name,json=bandName,proto3" json:"band_name,omitempty"`
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListBandMembersResponse) Reset() {
-	*x = ListBandMembersResponse{}
+func (x *Invitation) Reset() {
+	*x = Invitation{}
 	mi := &file_contracts_proto_band_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListBandMembersResponse) String() string {
+func (x *Invitation) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListBandMembersResponse) ProtoMessage() {}
+func (*Invitation) ProtoMessage() {}
 
-func (x *ListBandMembersResponse) ProtoReflect() protoreflect.Message {
+func (x *Invitation) ProtoReflect() protoreflect.Message {
 	mi := &file_contracts_proto_band_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -289,108 +283,355 @@ func (x *ListBandMembersResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListBandMembersResponse.ProtoReflect.Descriptor instead.
-func (*ListBandMembersResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use Invitation.ProtoReflect.Descriptor instead.
+func (*Invitation) Descriptor() ([]byte, []int) {
 	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *ListBandMembersResponse) GetMembers() []*BandMember {
-	if x != nil {
-		return x.Members
-	}
-	return nil
-}
-
-type BandMember struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Surname       string                 `protobuf:"bytes,3,opt,name=surname,proto3" json:"surname,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *BandMember) Reset() {
-	*x = BandMember{}
-	mi := &file_contracts_proto_band_service_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *BandMember) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*BandMember) ProtoMessage() {}
-
-func (x *BandMember) ProtoReflect() protoreflect.Message {
-	mi := &file_contracts_proto_band_service_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use BandMember.ProtoReflect.Descriptor instead.
-func (*BandMember) Descriptor() ([]byte, []int) {
-	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *BandMember) GetId() uint32 {
+func (x *Invitation) GetId() uint32 {
 	if x != nil {
 		return x.Id
 	}
 	return 0
 }
 
-func (x *BandMember) GetName() string {
+func (x *Invitation) GetBandName() string {
+	if x != nil {
+		return x.BandName
+	}
+	return ""
+}
+
+func (x *Invitation) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type ListMyInvitationsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Invitations   []*Invitation          `protobuf:"bytes,1,rep,name=invitations,proto3" json:"invitations,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMyInvitationsResponse) Reset() {
+	*x = ListMyInvitationsResponse{}
+	mi := &file_contracts_proto_band_service_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMyInvitationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMyInvitationsResponse) ProtoMessage() {}
+
+func (x *ListMyInvitationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_band_service_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMyInvitationsResponse.ProtoReflect.Descriptor instead.
+func (*ListMyInvitationsResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ListMyInvitationsResponse) GetInvitations() []*Invitation {
+	if x != nil {
+		return x.Invitations
+	}
+	return nil
+}
+
+type RespondToInvitationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	InvitationId  uint32                 `protobuf:"varint,1,opt,name=invitation_id,json=invitationId,proto3" json:"invitation_id,omitempty"`
+	Accept        bool                   `protobuf:"varint,2,opt,name=accept,proto3" json:"accept,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RespondToInvitationRequest) Reset() {
+	*x = RespondToInvitationRequest{}
+	mi := &file_contracts_proto_band_service_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RespondToInvitationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RespondToInvitationRequest) ProtoMessage() {}
+
+func (x *RespondToInvitationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_band_service_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RespondToInvitationRequest.ProtoReflect.Descriptor instead.
+func (*RespondToInvitationRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *RespondToInvitationRequest) GetInvitationId() uint32 {
+	if x != nil {
+		return x.InvitationId
+	}
+	return 0
+}
+
+func (x *RespondToInvitationRequest) GetAccept() bool {
+	if x != nil {
+		return x.Accept
+	}
+	return false
+}
+
+type RespondToInvitationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RespondToInvitationResponse) Reset() {
+	*x = RespondToInvitationResponse{}
+	mi := &file_contracts_proto_band_service_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RespondToInvitationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RespondToInvitationResponse) ProtoMessage() {}
+
+func (x *RespondToInvitationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_band_service_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RespondToInvitationResponse.ProtoReflect.Descriptor instead.
+func (*RespondToInvitationResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *RespondToInvitationResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type ListMyBandsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMyBandsRequest) Reset() {
+	*x = ListMyBandsRequest{}
+	mi := &file_contracts_proto_band_service_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMyBandsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMyBandsRequest) ProtoMessage() {}
+
+func (x *ListMyBandsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_band_service_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMyBandsRequest.ProtoReflect.Descriptor instead.
+func (*ListMyBandsRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{9}
+}
+
+type Band struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	IsManager     bool                   `protobuf:"varint,3,opt,name=is_manager,json=isManager,proto3" json:"is_manager,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Band) Reset() {
+	*x = Band{}
+	mi := &file_contracts_proto_band_service_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Band) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Band) ProtoMessage() {}
+
+func (x *Band) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_band_service_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Band.ProtoReflect.Descriptor instead.
+func (*Band) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *Band) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *Band) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *BandMember) GetSurname() string {
+func (x *Band) GetIsManager() bool {
 	if x != nil {
-		return x.Surname
+		return x.IsManager
 	}
-	return ""
+	return false
+}
+
+type ListMyBandsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Bands         []*Band                `protobuf:"bytes,1,rep,name=bands,proto3" json:"bands,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMyBandsResponse) Reset() {
+	*x = ListMyBandsResponse{}
+	mi := &file_contracts_proto_band_service_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMyBandsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMyBandsResponse) ProtoMessage() {}
+
+func (x *ListMyBandsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_band_service_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMyBandsResponse.ProtoReflect.Descriptor instead.
+func (*ListMyBandsResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ListMyBandsResponse) GetBands() []*Band {
+	if x != nil {
+		return x.Bands
+	}
+	return nil
 }
 
 var File_contracts_proto_band_service_proto protoreflect.FileDescriptor
 
 const file_contracts_proto_band_service_proto_rawDesc = "" +
 	"\n" +
-	"\"contracts/proto/band_service.proto\x12\x18digital_music_stand.band\"9\n" +
+	"\"contracts/proto/band_service.proto\x12\x18digital_music_stand.band\"'\n" +
 	"\x11CreateBandRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04nameJ\x04\b\x02\x10\x03R\n" +
-	"manager_id\">\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\">\n" +
 	"\x12CreateBandResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"H\n" +
-	"\x14AddBandMemberRequest\x12\x17\n" +
-	"\aband_id\x18\x01 \x01(\rR\x06bandId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\rR\x06userId\"1\n" +
-	"\x15AddBandMemberResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"1\n" +
-	"\x16ListBandMembersRequest\x12\x17\n" +
-	"\aband_id\x18\x01 \x01(\rR\x06bandId\"Y\n" +
-	"\x17ListBandMembersResponse\x12>\n" +
-	"\amembers\x18\x01 \x03(\v2$.digital_music_stand.band.BandMemberR\amembers\"J\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"S\n" +
+	"\x13InviteMemberRequest\x12\x17\n" +
+	"\aband_id\x18\x01 \x01(\rR\x06bandId\x12#\n" +
+	"\rinvitee_email\x18\x02 \x01(\tR\finviteeEmail\"0\n" +
+	"\x14InviteMemberResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x1a\n" +
+	"\x18ListMyInvitationsRequest\"Q\n" +
 	"\n" +
-	"BandMember\x12\x0e\n" +
+	"Invitation\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12\x1b\n" +
+	"\tband_name\x18\x02 \x01(\tR\bbandName\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\"c\n" +
+	"\x19ListMyInvitationsResponse\x12F\n" +
+	"\vinvitations\x18\x01 \x03(\v2$.digital_music_stand.band.InvitationR\vinvitations\"Y\n" +
+	"\x1aRespondToInvitationRequest\x12#\n" +
+	"\rinvitation_id\x18\x01 \x01(\rR\finvitationId\x12\x16\n" +
+	"\x06accept\x18\x02 \x01(\bR\x06accept\"7\n" +
+	"\x1bRespondToInvitationResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x14\n" +
+	"\x12ListMyBandsRequest\"I\n" +
+	"\x04Band\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
-	"\asurname\x18\x03 \x01(\tR\asurname2\xe0\x02\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"is_manager\x18\x03 \x01(\bR\tisManager\"K\n" +
+	"\x13ListMyBandsResponse\x124\n" +
+	"\x05bands\x18\x01 \x03(\v2\x1e.digital_music_stand.band.BandR\x05bands2\xd4\x04\n" +
 	"\vBandService\x12g\n" +
 	"\n" +
-	"CreateBand\x12+.digital_music_stand.band.CreateBandRequest\x1a,.digital_music_stand.band.CreateBandResponse\x12p\n" +
-	"\rAddBandMember\x12..digital_music_stand.band.AddBandMemberRequest\x1a/.digital_music_stand.band.AddBandMemberResponse\x12v\n" +
-	"\x0fListBandMembers\x120.digital_music_stand.band.ListBandMembersRequest\x1a1.digital_music_stand.band.ListBandMembersResponseBFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpbb\x06proto3"
+	"CreateBand\x12+.digital_music_stand.band.CreateBandRequest\x1a,.digital_music_stand.band.CreateBandResponse\x12m\n" +
+	"\fInviteMember\x12-.digital_music_stand.band.InviteMemberRequest\x1a..digital_music_stand.band.InviteMemberResponse\x12|\n" +
+	"\x11ListMyInvitations\x122.digital_music_stand.band.ListMyInvitationsRequest\x1a3.digital_music_stand.band.ListMyInvitationsResponse\x12\x82\x01\n" +
+	"\x13RespondToInvitation\x124.digital_music_stand.band.RespondToInvitationRequest\x1a5.digital_music_stand.band.RespondToInvitationResponse\x12j\n" +
+	"\vListMyBands\x12,.digital_music_stand.band.ListMyBandsRequest\x1a-.digital_music_stand.band.ListMyBandsResponseBFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpbb\x06proto3"
 
 var (
 	file_contracts_proto_band_service_proto_rawDescOnce sync.Once
@@ -404,29 +645,39 @@ func file_contracts_proto_band_service_proto_rawDescGZIP() []byte {
 	return file_contracts_proto_band_service_proto_rawDescData
 }
 
-var file_contracts_proto_band_service_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_contracts_proto_band_service_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_contracts_proto_band_service_proto_goTypes = []any{
-	(*CreateBandRequest)(nil),       // 0: digital_music_stand.band.CreateBandRequest
-	(*CreateBandResponse)(nil),      // 1: digital_music_stand.band.CreateBandResponse
-	(*AddBandMemberRequest)(nil),    // 2: digital_music_stand.band.AddBandMemberRequest
-	(*AddBandMemberResponse)(nil),   // 3: digital_music_stand.band.AddBandMemberResponse
-	(*ListBandMembersRequest)(nil),  // 4: digital_music_stand.band.ListBandMembersRequest
-	(*ListBandMembersResponse)(nil), // 5: digital_music_stand.band.ListBandMembersResponse
-	(*BandMember)(nil),              // 6: digital_music_stand.band.BandMember
+	(*CreateBandRequest)(nil),           // 0: digital_music_stand.band.CreateBandRequest
+	(*CreateBandResponse)(nil),          // 1: digital_music_stand.band.CreateBandResponse
+	(*InviteMemberRequest)(nil),         // 2: digital_music_stand.band.InviteMemberRequest
+	(*InviteMemberResponse)(nil),        // 3: digital_music_stand.band.InviteMemberResponse
+	(*ListMyInvitationsRequest)(nil),    // 4: digital_music_stand.band.ListMyInvitationsRequest
+	(*Invitation)(nil),                  // 5: digital_music_stand.band.Invitation
+	(*ListMyInvitationsResponse)(nil),   // 6: digital_music_stand.band.ListMyInvitationsResponse
+	(*RespondToInvitationRequest)(nil),  // 7: digital_music_stand.band.RespondToInvitationRequest
+	(*RespondToInvitationResponse)(nil), // 8: digital_music_stand.band.RespondToInvitationResponse
+	(*ListMyBandsRequest)(nil),          // 9: digital_music_stand.band.ListMyBandsRequest
+	(*Band)(nil),                        // 10: digital_music_stand.band.Band
+	(*ListMyBandsResponse)(nil),         // 11: digital_music_stand.band.ListMyBandsResponse
 }
 var file_contracts_proto_band_service_proto_depIdxs = []int32{
-	6, // 0: digital_music_stand.band.ListBandMembersResponse.members:type_name -> digital_music_stand.band.BandMember
-	0, // 1: digital_music_stand.band.BandService.CreateBand:input_type -> digital_music_stand.band.CreateBandRequest
-	2, // 2: digital_music_stand.band.BandService.AddBandMember:input_type -> digital_music_stand.band.AddBandMemberRequest
-	4, // 3: digital_music_stand.band.BandService.ListBandMembers:input_type -> digital_music_stand.band.ListBandMembersRequest
-	1, // 4: digital_music_stand.band.BandService.CreateBand:output_type -> digital_music_stand.band.CreateBandResponse
-	3, // 5: digital_music_stand.band.BandService.AddBandMember:output_type -> digital_music_stand.band.AddBandMemberResponse
-	5, // 6: digital_music_stand.band.BandService.ListBandMembers:output_type -> digital_music_stand.band.ListBandMembersResponse
-	4, // [4:7] is the sub-list for method output_type
-	1, // [1:4] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	5,  // 0: digital_music_stand.band.ListMyInvitationsResponse.invitations:type_name -> digital_music_stand.band.Invitation
+	10, // 1: digital_music_stand.band.ListMyBandsResponse.bands:type_name -> digital_music_stand.band.Band
+	0,  // 2: digital_music_stand.band.BandService.CreateBand:input_type -> digital_music_stand.band.CreateBandRequest
+	2,  // 3: digital_music_stand.band.BandService.InviteMember:input_type -> digital_music_stand.band.InviteMemberRequest
+	4,  // 4: digital_music_stand.band.BandService.ListMyInvitations:input_type -> digital_music_stand.band.ListMyInvitationsRequest
+	7,  // 5: digital_music_stand.band.BandService.RespondToInvitation:input_type -> digital_music_stand.band.RespondToInvitationRequest
+	9,  // 6: digital_music_stand.band.BandService.ListMyBands:input_type -> digital_music_stand.band.ListMyBandsRequest
+	1,  // 7: digital_music_stand.band.BandService.CreateBand:output_type -> digital_music_stand.band.CreateBandResponse
+	3,  // 8: digital_music_stand.band.BandService.InviteMember:output_type -> digital_music_stand.band.InviteMemberResponse
+	6,  // 9: digital_music_stand.band.BandService.ListMyInvitations:output_type -> digital_music_stand.band.ListMyInvitationsResponse
+	8,  // 10: digital_music_stand.band.BandService.RespondToInvitation:output_type -> digital_music_stand.band.RespondToInvitationResponse
+	11, // 11: digital_music_stand.band.BandService.ListMyBands:output_type -> digital_music_stand.band.ListMyBandsResponse
+	7,  // [7:12] is the sub-list for method output_type
+	2,  // [2:7] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_contracts_proto_band_service_proto_init() }
@@ -440,7 +691,7 @@ func file_contracts_proto_band_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_contracts_proto_band_service_proto_rawDesc), len(file_contracts_proto_band_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
