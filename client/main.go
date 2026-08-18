@@ -44,6 +44,7 @@ func main() {
 	var showConcert func()
 	var showConcertSetup func(editingConcert *localdb.Concert)
 	var showPairing func()
+	var showLockScreen func()
 
 	startBackgroundSync := func(server, token string) {
 		go func() {
@@ -77,8 +78,14 @@ func main() {
 		mainWrapper.Refresh()
 	}
 
+	showLockScreen = func() {
+		lockView := ui.BuildLockScreen(myWindow, myApp, showDashboard)
+		mainWrapper.Objects = []fyne.CanvasObject{lockView}
+		mainWrapper.Refresh()
+	}
+
 	showSettings = func() {
-		settingsView := ui.BuildSettings(myWindow, showDashboard, netMgr, pwrMgr, medMgr, devMgr)
+		settingsView := ui.BuildSettings(myWindow, myApp, showDashboard, netMgr, pwrMgr, medMgr, devMgr)
 		mainWrapper.Objects = []fyne.CanvasObject{settingsView}
 		mainWrapper.Refresh()
 	}
@@ -177,7 +184,12 @@ func main() {
 		startBackgroundSync(savedServer, savedToken)
 	}
 
-	showDashboard()
+	savedPin := myApp.Preferences().String("app_pin")
+	if savedPin != "" {
+		showLockScreen()
+	} else {
+		showDashboard()
+	}
 
 	myWindow.SetContent(mainWrapper)
 	myWindow.Resize(fyne.NewSize(800, 480))
