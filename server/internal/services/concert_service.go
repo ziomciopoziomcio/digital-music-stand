@@ -270,3 +270,63 @@ func (s *ConcertService) checkConcertPermission(ctx context.Context, concertID s
 	}
 	return fmt.Errorf("invalid concert data: neither user_id nor band_id is set")
 }
+
+func (s *ConcertService) UpdateConcert(ctx context.Context, req *concertpb.UpdateConcertRequest) (*concertpb.UpdateConcertResponse, error) {
+	if req.GetId() == "" {
+		return nil, fmt.Errorf("missing concert id")
+	}
+
+	if err := s.checkConcertPermission(ctx, req.GetId()); err != nil {
+		return nil, err
+	}
+
+	loc := ""
+	if req.Location != nil {
+		loc = *req.Location
+	}
+	startTime := ""
+	if req.StartTime != nil {
+		startTime = *req.StartTime
+	}
+
+	err := s.db.Model(&models.Concert{}).Where("id = ?", req.GetId()).Updates(map[string]interface{}{
+		"name":       req.GetName(),
+		"location":   loc,
+		"start_time": startTime,
+	}).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to update concert: %v", err)
+	}
+
+	if err := s.db.Where("concert_id = ?", req.GetId()).Delete(&models.ConcertItem{}).Error; err != nil {
+		return nil, fmt.Errorf("failed to clear old concert items: %v", err)
+	}
+
+	_ = s.updateConcertChecksum(req.GetId())
+
+	return &concertpb.UpdateConcertResponse{
+		Message: "Concert updated successfully",
+	}, nil
+}
+
+func (s *ConcertService) DeleteConcert(ctx context.Context, req *concertpb.DeleteConcertRequest) (*concertpb.DeleteConcertResponse, error) {
+	if req.GetId() == "" {
+		return nil, fmt.Errorf("missing concert id")
+	}
+
+	if err := s.checkConcertPermission(ctx, req.GetId()); err != nil {
+		return nil, err
+	}
+
+	if err := s.db.Where("concert_id = ?", req.GetId()).Delete(&models.ConcertItem{}).Error; err != nil {
+		return nil, fmt.Errorf("failed to delete concert items: %v", err)
+	}
+
+	if err := s.db.Delete(&models.Concert{}, "id = ?", req.GetId()).Error; err != nil {
+		return nil, fmt.Errorf("failed to delete concert: %v", err)
+	}
+
+	return &concertpb.DeleteConcertResponse{
+		Message: "Concert deleted successfully",
+	}, nil
+}

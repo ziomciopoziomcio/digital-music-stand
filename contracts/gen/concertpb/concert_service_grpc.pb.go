@@ -20,6 +20,8 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	ConcertService_CreateConcert_FullMethodName     = "/digital_music_stand.concert.ConcertService/CreateConcert"
+	ConcertService_UpdateConcert_FullMethodName     = "/digital_music_stand.concert.ConcertService/UpdateConcert"
+	ConcertService_DeleteConcert_FullMethodName     = "/digital_music_stand.concert.ConcertService/DeleteConcert"
 	ConcertService_AddConcertItem_FullMethodName    = "/digital_music_stand.concert.ConcertService/AddConcertItem"
 	ConcertService_GetConcertSetlist_FullMethodName = "/digital_music_stand.concert.ConcertService/GetConcertSetlist"
 	ConcertService_ListConcerts_FullMethodName      = "/digital_music_stand.concert.ConcertService/ListConcerts"
@@ -30,6 +32,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ConcertServiceClient interface {
 	CreateConcert(ctx context.Context, in *CreateConcertRequest, opts ...grpc.CallOption) (*CreateConcertResponse, error)
+	UpdateConcert(ctx context.Context, in *UpdateConcertRequest, opts ...grpc.CallOption) (*UpdateConcertResponse, error)
+	DeleteConcert(ctx context.Context, in *DeleteConcertRequest, opts ...grpc.CallOption) (*DeleteConcertResponse, error)
 	AddConcertItem(ctx context.Context, in *AddConcertItemRequest, opts ...grpc.CallOption) (*AddConcertItemResponse, error)
 	GetConcertSetlist(ctx context.Context, in *GetConcertSetlistRequest, opts ...grpc.CallOption) (*GetConcertSetlistResponse, error)
 	ListConcerts(ctx context.Context, in *ListConcertsRequest, opts ...grpc.CallOption) (*ListConcertsResponse, error)
@@ -47,6 +51,26 @@ func (c *concertServiceClient) CreateConcert(ctx context.Context, in *CreateConc
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateConcertResponse)
 	err := c.cc.Invoke(ctx, ConcertService_CreateConcert_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *concertServiceClient) UpdateConcert(ctx context.Context, in *UpdateConcertRequest, opts ...grpc.CallOption) (*UpdateConcertResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateConcertResponse)
+	err := c.cc.Invoke(ctx, ConcertService_UpdateConcert_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *concertServiceClient) DeleteConcert(ctx context.Context, in *DeleteConcertRequest, opts ...grpc.CallOption) (*DeleteConcertResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteConcertResponse)
+	err := c.cc.Invoke(ctx, ConcertService_DeleteConcert_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +112,8 @@ func (c *concertServiceClient) ListConcerts(ctx context.Context, in *ListConcert
 // for forward compatibility.
 type ConcertServiceServer interface {
 	CreateConcert(context.Context, *CreateConcertRequest) (*CreateConcertResponse, error)
+	UpdateConcert(context.Context, *UpdateConcertRequest) (*UpdateConcertResponse, error)
+	DeleteConcert(context.Context, *DeleteConcertRequest) (*DeleteConcertResponse, error)
 	AddConcertItem(context.Context, *AddConcertItemRequest) (*AddConcertItemResponse, error)
 	GetConcertSetlist(context.Context, *GetConcertSetlistRequest) (*GetConcertSetlistResponse, error)
 	ListConcerts(context.Context, *ListConcertsRequest) (*ListConcertsResponse, error)
@@ -103,6 +129,12 @@ type UnimplementedConcertServiceServer struct{}
 
 func (UnimplementedConcertServiceServer) CreateConcert(context.Context, *CreateConcertRequest) (*CreateConcertResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateConcert not implemented")
+}
+func (UnimplementedConcertServiceServer) UpdateConcert(context.Context, *UpdateConcertRequest) (*UpdateConcertResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateConcert not implemented")
+}
+func (UnimplementedConcertServiceServer) DeleteConcert(context.Context, *DeleteConcertRequest) (*DeleteConcertResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteConcert not implemented")
 }
 func (UnimplementedConcertServiceServer) AddConcertItem(context.Context, *AddConcertItemRequest) (*AddConcertItemResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AddConcertItem not implemented")
@@ -148,6 +180,42 @@ func _ConcertService_CreateConcert_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ConcertServiceServer).CreateConcert(ctx, req.(*CreateConcertRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ConcertService_UpdateConcert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateConcertRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConcertServiceServer).UpdateConcert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ConcertService_UpdateConcert_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConcertServiceServer).UpdateConcert(ctx, req.(*UpdateConcertRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ConcertService_DeleteConcert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteConcertRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConcertServiceServer).DeleteConcert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ConcertService_DeleteConcert_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConcertServiceServer).DeleteConcert(ctx, req.(*DeleteConcertRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -216,6 +284,14 @@ var ConcertService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateConcert",
 			Handler:    _ConcertService_CreateConcert_Handler,
+		},
+		{
+			MethodName: "UpdateConcert",
+			Handler:    _ConcertService_UpdateConcert_Handler,
+		},
+		{
+			MethodName: "DeleteConcert",
+			Handler:    _ConcertService_DeleteConcert_Handler,
 		},
 		{
 			MethodName: "AddConcertItem",

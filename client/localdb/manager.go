@@ -32,6 +32,7 @@ type Concert struct {
 	Location  string
 	StartTime string
 	Checksum  string
+	IsDeleted bool
 	Items     []ConcertItem
 }
 
@@ -58,7 +59,8 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 	    name TEXT NOT NULL,
 	    location TEXT,
 	    start_time TEXT,
-	    checksum TEXT NOT NULL DEFAULT ''
+	    checksum TEXT NOT NULL DEFAULT '',
+	    is_deleted INTEGER NOT NULL DEFAULT 0
 	);
 
 	CREATE TABLE IF NOT EXISTS concert_items (
@@ -144,7 +146,7 @@ func (m *DBManager) AddConcert(name, location, startTime string, setlist []Score
 
 	concertID := uuid.New().String()
 
-	_, err = tx.Exec("INSERT INTO concerts (id, name, location, start_time, checksum) VALUES (?, ?, ?, ?, '')", concertID, name, location, startTime)
+	_, err = tx.Exec("INSERT INTO concerts (id, name, location, start_time, checksum, is_deleted) VALUES (?, ?, ?, ?, '', 0)", concertID, name, location, startTime)
 	if err != nil {
 		return "", err
 	}
@@ -161,6 +163,45 @@ func (m *DBManager) AddConcert(name, location, startTime string, setlist []Score
 	return concertID, tx.Commit()
 }
 
+func (m *DBManager) UpdateConcert(id, name, location, startTime string, setlist []Score) error {
+	tx, err := m.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec("UPDATE concerts SET name = ?, location = ?, start_time = ?, checksum = '' WHERE id = ?", name, location, startTime, id)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("DELETE FROM concert_items WHERE concert_id = ?", id)
+	if err != nil {
+		return err
+	}
+
+	for pos, score := range setlist {
+		itemID := uuid.New().String()
+		scoreID := score.ID
+		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id) VALUES (?, ?, ?, ?)", itemID, id, pos+1, scoreID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (m *DBManager) MarkConcertDeleted(id string) error {
+	_, err := m.db.Exec("UPDATE concerts SET is_deleted = 1, checksum = '' WHERE id = ?", id)
+	return err
+}
+
+func (m *DBManager) HardDeleteConcert(id string) error {
+	_, err := m.db.Exec("DELETE FROM concerts WHERE id = ?", id)
+	return err
+}
+
 func (m *DBManager) SyncConcertFromServer(concertID string, name, location, startTime, checksum string, remoteItems []ConcertItem) error {
 	tx, err := m.db.Begin()
 	if err != nil {
@@ -169,13 +210,14 @@ func (m *DBManager) SyncConcertFromServer(concertID string, name, location, star
 	defer tx.Rollback()
 
 	_, err = tx.Exec(`
-		INSERT INTO concerts (id, name, location, start_time, checksum) 
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO concerts (id, name, location, start_time, checksum, is_deleted) 
+		VALUES (?, ?, ?, ?, ?, 0)
 		ON CONFLICT(id) DO UPDATE SET 
 			name = excluded.name,
 			location = excluded.location,
 			start_time = excluded.start_time,
-			checksum = excluded.checksum`,
+			checksum = excluded.checksum,
+			is_deleted = 0`,
 		concertID, name, location, startTime, checksum,
 	)
 	if err != nil {
@@ -202,7 +244,7 @@ func (m *DBManager) SyncConcertFromServer(concertID string, name, location, star
 }
 
 func (m *DBManager) GetConcerts() ([]Concert, error) {
-	rows, err := m.db.Query("SELECT id, name, COALESCE(location, ''), COALESCE(start_time, ''), checksum FROM concerts ORDER BY rowid DESC")
+	rows, err := m.db.Query("SELECT id, name, COALESCE(location, ''), COALESCE(start_time, ''), checksum FROM concerts WHERE is_deleted = 0 ORDER BY rowid DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -247,11 +289,6 @@ func (m *DBManager) GetConcerts() ([]Concert, error) {
 	return concerts, nil
 }
 
-func (m *DBManager) DeleteConcert(id string) error {
-	_, err := m.db.Exec("DELETE FROM concerts WHERE id = ?", id)
-	return err
-}
-
 func (m *DBManager) SyncScoreFromServer(id, title, filePath, checksum string) error {
 	_, err := m.db.Exec(`
 		INSERT INTO scores (id, title, file_path, checksum) 
@@ -263,4 +300,22 @@ func (m *DBManager) SyncScoreFromServer(id, title, filePath, checksum string) er
 		id, title, filePath, checksum,
 	)
 	return err
+}
+
+func (m *DBManager) GetDeletedConcertIDs() ([]string, error) {
+	rows, err := m.db.Query("SELECT id FROM concerts WHERE is_deleted = 1")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
