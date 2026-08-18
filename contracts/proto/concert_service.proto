@@ -5,6 +5,8 @@ option go_package = "github.com/ziomciopoziomcio/digital-music-stand/contracts/g
 
 service ConcertService {
   rpc CreateConcert(CreateConcertRequest) returns (CreateConcertResponse);
+  rpc UpdateConcert(UpdateConcertRequest) returns (UpdateConcertResponse);
+  rpc DeleteConcert(DeleteConcertRequest) returns (DeleteConcertResponse);
   rpc AddConcertItem(AddConcertItemRequest) returns (AddConcertItemResponse);
   rpc GetConcertSetlist(GetConcertSetlistRequest) returns (GetConcertSetlistResponse);
   rpc ListConcerts(ListConcertsRequest) returns (ListConcertsResponse);
@@ -21,6 +23,25 @@ message CreateConcertRequest {
 message CreateConcertResponse {
   string id = 1;
   string message = 2;
+}
+
+message UpdateConcertRequest {
+  string id = 1;
+  string name = 2;
+  optional string location = 3;
+  optional string start_time = 4;
+}
+
+message UpdateConcertResponse {
+  string message = 1;
+}
+
+message DeleteConcertRequest {
+  string id = 1;
+}
+
+message DeleteConcertResponse {
+  string message = 1;
 }
 
 message AddConcertItemRequest {
