@@ -36,6 +36,7 @@ type DeviceManager interface {
 	Reboot() error
 	Shutdown() error
 	SetKeepAwake(awake bool) error
+	IsKeepAwake() bool
 }
 
 type StorageManager interface {
