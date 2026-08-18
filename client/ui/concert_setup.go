@@ -13,7 +13,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 )
 
-func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, goBack func()) *fyne.Container {
+func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, onSave func(name, location, startTime string, setlist []localdb.Score) error, goBack func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var setlist []localdb.Score
@@ -148,13 +148,12 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 			return
 		}
 
-		err := db.AddConcert(nameEntry.Text, locEntry.Text, dateEntry.Text, setlist)
-		if err != nil {
+		if err := onSave(nameEntry.Text, locEntry.Text, dateEntry.Text, setlist); err != nil {
 			dialog.ShowError(fmt.Errorf("failed to save concert: %w", err), w)
 			return
 		}
 
-		dialog.ShowInformation("Success", "Concert saved to database", w)
+		dialog.ShowInformation("Success", "Concert saved successfully", w)
 		goBack()
 	})
 	saveBtn.Importance = widget.HighImportance

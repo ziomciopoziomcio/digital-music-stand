@@ -4,21 +4,33 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 type Score struct {
-	ID       int
+	ID       string
 	Title    string
 	FilePath string
+	Checksum string
+}
+
+type ConcertItem struct {
+	ID        string
+	SortOrder int
+	ScoreID   *string
+	BreakMin  *int
+	ScoreName *string
+	FilePath  *string
 }
 
 type Concert struct {
-	ID        int
+	ID        string
 	Name      string
 	Location  string
 	StartTime string
-	Setlist   []Score
+	Checksum  string
+	Items     []ConcertItem
 }
 
 type DBManager struct {
@@ -33,22 +45,26 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 
 	query := `
 	CREATE TABLE IF NOT EXISTS scores (
-	    id INTEGER PRIMARY KEY AUTOINCREMENT,
+	    id TEXT PRIMARY KEY,
 	    title TEXT NOT NULL,
-	    file_path TEXT NOT NULL
+	    file_path TEXT NOT NULL,
+	    checksum TEXT NOT NULL DEFAULT ''
 	);
 
 	CREATE TABLE IF NOT EXISTS concerts (
-	    id INTEGER PRIMARY KEY AUTOINCREMENT,
+	    id TEXT PRIMARY KEY,
 	    name TEXT NOT NULL,
 	    location TEXT,
-	    start_time TEXT
+	    start_time TEXT,
+	    checksum TEXT NOT NULL DEFAULT ''
 	);
 
-	CREATE TABLE IF NOT EXISTS concert_scores (
-	    concert_id INTEGER NOT NULL,
-	    score_id INTEGER NOT NULL,
-	    position INTEGER NOT NULL,
+	CREATE TABLE IF NOT EXISTS concert_items (
+	    id TEXT PRIMARY KEY,
+	    concert_id TEXT NOT NULL,
+	    sort_order INTEGER NOT NULL,
+	    score_id TEXT,
+	    break_min INTEGER,
 	    FOREIGN KEY(concert_id) REFERENCES concerts(id) ON DELETE CASCADE,
 	    FOREIGN KEY(score_id) REFERENCES scores(id) ON DELETE CASCADE
 	);`
@@ -60,7 +76,7 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 }
 
 func (m *DBManager) GetScores() ([]Score, error) {
-	rows, err := m.db.Query("SELECT id, title, file_path FROM scores ORDER BY title")
+	rows, err := m.db.Query("SELECT id, title, file_path, checksum FROM scores ORDER BY title")
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +85,7 @@ func (m *DBManager) GetScores() ([]Score, error) {
 	var scores []Score
 	for rows.Next() {
 		var s Score
-		if err := rows.Scan(&s.ID, &s.Title, &s.FilePath); err != nil {
+		if err := rows.Scan(&s.ID, &s.Title, &s.FilePath, &s.Checksum); err != nil {
 			return nil, err
 		}
 		scores = append(scores, s)
@@ -77,40 +93,80 @@ func (m *DBManager) GetScores() ([]Score, error) {
 	return scores, nil
 }
 
-func (m *DBManager) AddScore(title, filePath string) error {
-	_, err := m.db.Exec("INSERT INTO scores (title, file_path) VALUES (?, ?)", title, filePath)
-	return err
-}
-
-func (m *DBManager) UpdateScore(id int, title string) error {
+func (m *DBManager) UpdateScore(id string, title string) error {
 	_, err := m.db.Exec("UPDATE scores SET title = ? WHERE id = ?", title, id)
 	return err
 }
 
-func (m *DBManager) DeleteScore(id int) error {
+func (m *DBManager) DeleteScore(id string) error {
 	_, err := m.db.Exec("DELETE FROM scores WHERE id = ?", id)
 	return err
 }
 
-func (m *DBManager) AddConcert(name, location, startTime string, setlist []Score) error {
+func (m *DBManager) AddScore(title, filePath string) (string, error) {
+	newID := uuid.New().String()
+	_, err := m.db.Exec("INSERT INTO scores (id, title, file_path, checksum) VALUES (?, ?, ?, '')", newID, title, filePath)
+	return newID, err
+}
+
+func (m *DBManager) AddConcert(name, location, startTime string, setlist []Score) (string, error) {
+	tx, err := m.db.Begin()
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+
+	concertID := uuid.New().String()
+
+	_, err = tx.Exec("INSERT INTO concerts (id, name, location, start_time, checksum) VALUES (?, ?, ?, ?, '')", concertID, name, location, startTime)
+	if err != nil {
+		return "", err
+	}
+
+	for pos, score := range setlist {
+		itemID := uuid.New().String()
+		scoreID := score.ID
+		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id) VALUES (?, ?, ?, ?)", itemID, concertID, pos+1, scoreID)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return concertID, tx.Commit()
+}
+
+func (m *DBManager) SyncConcertFromServer(concertID string, name, location, startTime, checksum string, remoteItems []ConcertItem) error {
 	tx, err := m.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec("INSERT INTO concerts (name, location, start_time) VALUES (?, ?, ?)", name, location, startTime)
+	_, err = tx.Exec(`
+		INSERT INTO concerts (id, name, location, start_time, checksum) 
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET 
+			name = excluded.name,
+			location = excluded.location,
+			start_time = excluded.start_time,
+			checksum = excluded.checksum`,
+		concertID, name, location, startTime, checksum,
+	)
 	if err != nil {
 		return err
 	}
 
-	concertID, err := res.LastInsertId()
+	_, err = tx.Exec("DELETE FROM concert_items WHERE concert_id = ?", concertID)
 	if err != nil {
 		return err
 	}
 
-	for pos, score := range setlist {
-		_, err := tx.Exec("INSERT INTO concert_scores (concert_id, score_id, position) VALUES (?, ?, ?)", concertID, score.ID, pos)
+	for _, item := range remoteItems {
+		_, err = tx.Exec(`
+			INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min) 
+			VALUES (?, ?, ?, ?, ?)`,
+			item.ID, concertID, item.SortOrder, item.ScoreID, item.BreakMin,
+		)
 		if err != nil {
 			return err
 		}
@@ -120,7 +176,7 @@ func (m *DBManager) AddConcert(name, location, startTime string, setlist []Score
 }
 
 func (m *DBManager) GetConcerts() ([]Concert, error) {
-	rows, err := m.db.Query("SELECT id, name, location, start_time FROM concerts ORDER BY id DESC")
+	rows, err := m.db.Query("SELECT id, name, COALESCE(location, ''), COALESCE(start_time, ''), checksum FROM concerts ORDER BY rowid DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -129,36 +185,56 @@ func (m *DBManager) GetConcerts() ([]Concert, error) {
 	var concerts []Concert
 	for rows.Next() {
 		var c Concert
-		if err := rows.Scan(&c.ID, &c.Name, &c.Location, &c.StartTime); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Location, &c.StartTime, &c.Checksum); err != nil {
 			return nil, err
 		}
 
-		scoreRows, err := m.db.Query(`
-			SELECT s.id, s.title, s.file_path 
-			FROM scores s 
-			JOIN concert_scores cs ON s.id = cs.score_id 
-			WHERE cs.concert_id = ? 
-			ORDER BY cs.position ASC`, c.ID)
+		itemRows, err := m.db.Query(`
+			SELECT ci.id, ci.sort_order, ci.score_id, ci.break_min, s.title, s.file_path 
+			FROM concert_items ci 
+			LEFT JOIN scores s ON ci.score_id = s.id 
+			WHERE ci.concert_id = ? 
+			ORDER BY ci.sort_order ASC`, c.ID)
 		if err != nil {
 			return nil, err
 		}
 
-		for scoreRows.Next() {
-			var s Score
-			if err := scoreRows.Scan(&s.ID, &s.Title, &s.FilePath); err != nil {
-				scoreRows.Close()
+		for itemRows.Next() {
+			var item ConcertItem
+			var scoreTitle, filePath sql.NullString
+			if err := itemRows.Scan(&item.ID, &item.SortOrder, &item.ScoreID, &item.BreakMin, &scoreTitle, &filePath); err != nil {
+				itemRows.Close()
 				return nil, err
 			}
-			c.Setlist = append(c.Setlist, s)
+			if scoreTitle.Valid {
+				item.ScoreName = &scoreTitle.String
+			}
+			if filePath.Valid {
+				item.FilePath = &filePath.String
+			}
+			c.Items = append(c.Items, item)
 		}
-		scoreRows.Close()
+		itemRows.Close()
 
 		concerts = append(concerts, c)
 	}
 	return concerts, nil
 }
 
-func (m *DBManager) DeleteConcert(id int) error {
+func (m *DBManager) DeleteConcert(id string) error {
 	_, err := m.db.Exec("DELETE FROM concerts WHERE id = ?", id)
+	return err
+}
+
+func (m *DBManager) SyncScoreFromServer(id, title, filePath, checksum string) error {
+	_, err := m.db.Exec(`
+		INSERT INTO scores (id, title, file_path, checksum) 
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET 
+			title = excluded.title,
+			file_path = excluded.file_path,
+			checksum = excluded.checksum`,
+		id, title, filePath, checksum,
+	)
 	return err
 }

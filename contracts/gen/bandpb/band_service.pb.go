@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v3.21.12
-// source: proto/band_service.proto
+// source: contracts/proto/band_service.proto
 
 package bandpb
 
@@ -30,7 +30,7 @@ type CreateBandRequest struct {
 
 func (x *CreateBandRequest) Reset() {
 	*x = CreateBandRequest{}
-	mi := &file_proto_band_service_proto_msgTypes[0]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -42,7 +42,7 @@ func (x *CreateBandRequest) String() string {
 func (*CreateBandRequest) ProtoMessage() {}
 
 func (x *CreateBandRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_band_service_proto_msgTypes[0]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -55,7 +55,7 @@ func (x *CreateBandRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBandRequest.ProtoReflect.Descriptor instead.
 func (*CreateBandRequest) Descriptor() ([]byte, []int) {
-	return file_proto_band_service_proto_rawDescGZIP(), []int{0}
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CreateBandRequest) GetName() string {
@@ -75,7 +75,7 @@ type CreateBandResponse struct {
 
 func (x *CreateBandResponse) Reset() {
 	*x = CreateBandResponse{}
-	mi := &file_proto_band_service_proto_msgTypes[1]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -87,7 +87,7 @@ func (x *CreateBandResponse) String() string {
 func (*CreateBandResponse) ProtoMessage() {}
 
 func (x *CreateBandResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_band_service_proto_msgTypes[1]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -100,7 +100,7 @@ func (x *CreateBandResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBandResponse.ProtoReflect.Descriptor instead.
 func (*CreateBandResponse) Descriptor() ([]byte, []int) {
-	return file_proto_band_service_proto_rawDescGZIP(), []int{1}
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CreateBandResponse) GetId() uint32 {
@@ -127,7 +127,7 @@ type AddBandMemberRequest struct {
 
 func (x *AddBandMemberRequest) Reset() {
 	*x = AddBandMemberRequest{}
-	mi := &file_proto_band_service_proto_msgTypes[2]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -139,7 +139,7 @@ func (x *AddBandMemberRequest) String() string {
 func (*AddBandMemberRequest) ProtoMessage() {}
 
 func (x *AddBandMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_band_service_proto_msgTypes[2]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -152,7 +152,7 @@ func (x *AddBandMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddBandMemberRequest.ProtoReflect.Descriptor instead.
 func (*AddBandMemberRequest) Descriptor() ([]byte, []int) {
-	return file_proto_band_service_proto_rawDescGZIP(), []int{2}
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *AddBandMemberRequest) GetBandId() uint32 {
@@ -178,7 +178,7 @@ type AddBandMemberResponse struct {
 
 func (x *AddBandMemberResponse) Reset() {
 	*x = AddBandMemberResponse{}
-	mi := &file_proto_band_service_proto_msgTypes[3]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -190,7 +190,7 @@ func (x *AddBandMemberResponse) String() string {
 func (*AddBandMemberResponse) ProtoMessage() {}
 
 func (x *AddBandMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_band_service_proto_msgTypes[3]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -203,7 +203,7 @@ func (x *AddBandMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddBandMemberResponse.ProtoReflect.Descriptor instead.
 func (*AddBandMemberResponse) Descriptor() ([]byte, []int) {
-	return file_proto_band_service_proto_rawDescGZIP(), []int{3}
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *AddBandMemberResponse) GetMessage() string {
@@ -222,7 +222,7 @@ type ListBandMembersRequest struct {
 
 func (x *ListBandMembersRequest) Reset() {
 	*x = ListBandMembersRequest{}
-	mi := &file_proto_band_service_proto_msgTypes[4]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -234,7 +234,7 @@ func (x *ListBandMembersRequest) String() string {
 func (*ListBandMembersRequest) ProtoMessage() {}
 
 func (x *ListBandMembersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_band_service_proto_msgTypes[4]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -247,7 +247,7 @@ func (x *ListBandMembersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBandMembersRequest.ProtoReflect.Descriptor instead.
 func (*ListBandMembersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_band_service_proto_rawDescGZIP(), []int{4}
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ListBandMembersRequest) GetBandId() uint32 {
@@ -266,7 +266,7 @@ type ListBandMembersResponse struct {
 
 func (x *ListBandMembersResponse) Reset() {
 	*x = ListBandMembersResponse{}
-	mi := &file_proto_band_service_proto_msgTypes[5]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -278,7 +278,7 @@ func (x *ListBandMembersResponse) String() string {
 func (*ListBandMembersResponse) ProtoMessage() {}
 
 func (x *ListBandMembersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_band_service_proto_msgTypes[5]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -291,7 +291,7 @@ func (x *ListBandMembersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBandMembersResponse.ProtoReflect.Descriptor instead.
 func (*ListBandMembersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_band_service_proto_rawDescGZIP(), []int{5}
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListBandMembersResponse) GetMembers() []*BandMember {
@@ -312,7 +312,7 @@ type BandMember struct {
 
 func (x *BandMember) Reset() {
 	*x = BandMember{}
-	mi := &file_proto_band_service_proto_msgTypes[6]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -324,7 +324,7 @@ func (x *BandMember) String() string {
 func (*BandMember) ProtoMessage() {}
 
 func (x *BandMember) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_band_service_proto_msgTypes[6]
+	mi := &file_contracts_proto_band_service_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -337,7 +337,7 @@ func (x *BandMember) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BandMember.ProtoReflect.Descriptor instead.
 func (*BandMember) Descriptor() ([]byte, []int) {
-	return file_proto_band_service_proto_rawDescGZIP(), []int{6}
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *BandMember) GetId() uint32 {
@@ -361,11 +361,11 @@ func (x *BandMember) GetSurname() string {
 	return ""
 }
 
-var File_proto_band_service_proto protoreflect.FileDescriptor
+var File_contracts_proto_band_service_proto protoreflect.FileDescriptor
 
-const file_proto_band_service_proto_rawDesc = "" +
+const file_contracts_proto_band_service_proto_rawDesc = "" +
 	"\n" +
-	"\x18proto/band_service.proto\x12\x18digital_music_stand.band\"9\n" +
+	"\"contracts/proto/band_service.proto\x12\x18digital_music_stand.band\"9\n" +
 	"\x11CreateBandRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04nameJ\x04\b\x02\x10\x03R\n" +
 	"manager_id\">\n" +
@@ -393,19 +393,19 @@ const file_proto_band_service_proto_rawDesc = "" +
 	"\x0fListBandMembers\x120.digital_music_stand.band.ListBandMembersRequest\x1a1.digital_music_stand.band.ListBandMembersResponseBFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpbb\x06proto3"
 
 var (
-	file_proto_band_service_proto_rawDescOnce sync.Once
-	file_proto_band_service_proto_rawDescData []byte
+	file_contracts_proto_band_service_proto_rawDescOnce sync.Once
+	file_contracts_proto_band_service_proto_rawDescData []byte
 )
 
-func file_proto_band_service_proto_rawDescGZIP() []byte {
-	file_proto_band_service_proto_rawDescOnce.Do(func() {
-		file_proto_band_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_band_service_proto_rawDesc), len(file_proto_band_service_proto_rawDesc)))
+func file_contracts_proto_band_service_proto_rawDescGZIP() []byte {
+	file_contracts_proto_band_service_proto_rawDescOnce.Do(func() {
+		file_contracts_proto_band_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_contracts_proto_band_service_proto_rawDesc), len(file_contracts_proto_band_service_proto_rawDesc)))
 	})
-	return file_proto_band_service_proto_rawDescData
+	return file_contracts_proto_band_service_proto_rawDescData
 }
 
-var file_proto_band_service_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
-var file_proto_band_service_proto_goTypes = []any{
+var file_contracts_proto_band_service_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_contracts_proto_band_service_proto_goTypes = []any{
 	(*CreateBandRequest)(nil),       // 0: digital_music_stand.band.CreateBandRequest
 	(*CreateBandResponse)(nil),      // 1: digital_music_stand.band.CreateBandResponse
 	(*AddBandMemberRequest)(nil),    // 2: digital_music_stand.band.AddBandMemberRequest
@@ -414,7 +414,7 @@ var file_proto_band_service_proto_goTypes = []any{
 	(*ListBandMembersResponse)(nil), // 5: digital_music_stand.band.ListBandMembersResponse
 	(*BandMember)(nil),              // 6: digital_music_stand.band.BandMember
 }
-var file_proto_band_service_proto_depIdxs = []int32{
+var file_contracts_proto_band_service_proto_depIdxs = []int32{
 	6, // 0: digital_music_stand.band.ListBandMembersResponse.members:type_name -> digital_music_stand.band.BandMember
 	0, // 1: digital_music_stand.band.BandService.CreateBand:input_type -> digital_music_stand.band.CreateBandRequest
 	2, // 2: digital_music_stand.band.BandService.AddBandMember:input_type -> digital_music_stand.band.AddBandMemberRequest
@@ -429,26 +429,26 @@ var file_proto_band_service_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_proto_band_service_proto_init() }
-func file_proto_band_service_proto_init() {
-	if File_proto_band_service_proto != nil {
+func init() { file_contracts_proto_band_service_proto_init() }
+func file_contracts_proto_band_service_proto_init() {
+	if File_contracts_proto_band_service_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_band_service_proto_rawDesc), len(file_proto_band_service_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_contracts_proto_band_service_proto_rawDesc), len(file_contracts_proto_band_service_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_band_service_proto_goTypes,
-		DependencyIndexes: file_proto_band_service_proto_depIdxs,
-		MessageInfos:      file_proto_band_service_proto_msgTypes,
+		GoTypes:           file_contracts_proto_band_service_proto_goTypes,
+		DependencyIndexes: file_contracts_proto_band_service_proto_depIdxs,
+		MessageInfos:      file_contracts_proto_band_service_proto_msgTypes,
 	}.Build()
-	File_proto_band_service_proto = out.File
-	file_proto_band_service_proto_goTypes = nil
-	file_proto_band_service_proto_depIdxs = nil
+	File_contracts_proto_band_service_proto = out.File
+	file_contracts_proto_band_service_proto_goTypes = nil
+	file_contracts_proto_band_service_proto_depIdxs = nil
 }

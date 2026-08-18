@@ -17,7 +17,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
 )
 
-func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyne.Container {
+func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, onScoresChanged func(), goBack func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	editMode := false
@@ -183,6 +183,7 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 					db.AddScore(entry.Text, filePath)
 					d.Hide()
 					showLibrary()
+					onScoresChanged()
 				}
 			}
 			entry.OnSubmitted = func(_ string) { submitAction() }
@@ -216,6 +217,7 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 			}
 			d.Hide()
 			showLibrary()
+			onScoresChanged()
 		}
 		entry.OnSubmitted = func(_ string) { submitAction() }
 
@@ -223,6 +225,7 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, goBack func()) *fyn
 			db.DeleteScore(score.ID)
 			d.Hide()
 			showLibrary()
+			onScoresChanged()
 		})
 		deleteBtn.Importance = widget.DangerImportance
 

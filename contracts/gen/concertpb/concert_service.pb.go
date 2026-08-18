@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v3.21.12
-// source: proto/concert_service.proto
+// source: contracts/proto/concert_service.proto
 
 package concertpb
 
@@ -23,15 +23,18 @@ const (
 
 type CreateConcertRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	BandId        *uint32                `protobuf:"varint,2,opt,name=band_id,json=bandId,proto3,oneof" json:"band_id,omitempty"`
+	Id            *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	BandId        *uint32                `protobuf:"varint,3,opt,name=band_id,json=bandId,proto3,oneof" json:"band_id,omitempty"`
+	Location      *string                `protobuf:"bytes,4,opt,name=location,proto3,oneof" json:"location,omitempty"`
+	StartTime     *string                `protobuf:"bytes,5,opt,name=start_time,json=startTime,proto3,oneof" json:"start_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateConcertRequest) Reset() {
 	*x = CreateConcertRequest{}
-	mi := &file_proto_concert_service_proto_msgTypes[0]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -43,7 +46,7 @@ func (x *CreateConcertRequest) String() string {
 func (*CreateConcertRequest) ProtoMessage() {}
 
 func (x *CreateConcertRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_concert_service_proto_msgTypes[0]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -56,7 +59,14 @@ func (x *CreateConcertRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateConcertRequest.ProtoReflect.Descriptor instead.
 func (*CreateConcertRequest) Descriptor() ([]byte, []int) {
-	return file_proto_concert_service_proto_rawDescGZIP(), []int{0}
+	return file_contracts_proto_concert_service_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *CreateConcertRequest) GetId() string {
+	if x != nil && x.Id != nil {
+		return *x.Id
+	}
+	return ""
 }
 
 func (x *CreateConcertRequest) GetName() string {
@@ -73,9 +83,23 @@ func (x *CreateConcertRequest) GetBandId() uint32 {
 	return 0
 }
 
+func (x *CreateConcertRequest) GetLocation() string {
+	if x != nil && x.Location != nil {
+		return *x.Location
+	}
+	return ""
+}
+
+func (x *CreateConcertRequest) GetStartTime() string {
+	if x != nil && x.StartTime != nil {
+		return *x.StartTime
+	}
+	return ""
+}
+
 type CreateConcertResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -83,7 +107,7 @@ type CreateConcertResponse struct {
 
 func (x *CreateConcertResponse) Reset() {
 	*x = CreateConcertResponse{}
-	mi := &file_proto_concert_service_proto_msgTypes[1]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -95,7 +119,7 @@ func (x *CreateConcertResponse) String() string {
 func (*CreateConcertResponse) ProtoMessage() {}
 
 func (x *CreateConcertResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_concert_service_proto_msgTypes[1]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -108,14 +132,14 @@ func (x *CreateConcertResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateConcertResponse.ProtoReflect.Descriptor instead.
 func (*CreateConcertResponse) Descriptor() ([]byte, []int) {
-	return file_proto_concert_service_proto_rawDescGZIP(), []int{1}
+	return file_contracts_proto_concert_service_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *CreateConcertResponse) GetId() uint32 {
+func (x *CreateConcertResponse) GetId() string {
 	if x != nil {
 		return x.Id
 	}
-	return 0
+	return ""
 }
 
 func (x *CreateConcertResponse) GetMessage() string {
@@ -127,8 +151,8 @@ func (x *CreateConcertResponse) GetMessage() string {
 
 type AddConcertItemRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ConcertId     uint32                 `protobuf:"varint,1,opt,name=concert_id,json=concertId,proto3" json:"concert_id,omitempty"`
-	ScoreId       *uint32                `protobuf:"varint,2,opt,name=score_id,json=scoreId,proto3,oneof" json:"score_id,omitempty"`
+	ConcertId     string                 `protobuf:"bytes,1,opt,name=concert_id,json=concertId,proto3" json:"concert_id,omitempty"`
+	ScoreId       *string                `protobuf:"bytes,2,opt,name=score_id,json=scoreId,proto3,oneof" json:"score_id,omitempty"`
 	BreakMin      *uint32                `protobuf:"varint,3,opt,name=break_min,json=breakMin,proto3,oneof" json:"break_min,omitempty"`
 	Order         uint32                 `protobuf:"varint,4,opt,name=order,proto3" json:"order,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -137,7 +161,7 @@ type AddConcertItemRequest struct {
 
 func (x *AddConcertItemRequest) Reset() {
 	*x = AddConcertItemRequest{}
-	mi := &file_proto_concert_service_proto_msgTypes[2]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -149,7 +173,7 @@ func (x *AddConcertItemRequest) String() string {
 func (*AddConcertItemRequest) ProtoMessage() {}
 
 func (x *AddConcertItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_concert_service_proto_msgTypes[2]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -162,21 +186,21 @@ func (x *AddConcertItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddConcertItemRequest.ProtoReflect.Descriptor instead.
 func (*AddConcertItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_concert_service_proto_rawDescGZIP(), []int{2}
+	return file_contracts_proto_concert_service_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *AddConcertItemRequest) GetConcertId() uint32 {
+func (x *AddConcertItemRequest) GetConcertId() string {
 	if x != nil {
 		return x.ConcertId
 	}
-	return 0
+	return ""
 }
 
-func (x *AddConcertItemRequest) GetScoreId() uint32 {
+func (x *AddConcertItemRequest) GetScoreId() string {
 	if x != nil && x.ScoreId != nil {
 		return *x.ScoreId
 	}
-	return 0
+	return ""
 }
 
 func (x *AddConcertItemRequest) GetBreakMin() uint32 {
@@ -195,7 +219,7 @@ func (x *AddConcertItemRequest) GetOrder() uint32 {
 
 type AddConcertItemResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -203,7 +227,7 @@ type AddConcertItemResponse struct {
 
 func (x *AddConcertItemResponse) Reset() {
 	*x = AddConcertItemResponse{}
-	mi := &file_proto_concert_service_proto_msgTypes[3]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -215,7 +239,7 @@ func (x *AddConcertItemResponse) String() string {
 func (*AddConcertItemResponse) ProtoMessage() {}
 
 func (x *AddConcertItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_concert_service_proto_msgTypes[3]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -228,14 +252,14 @@ func (x *AddConcertItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddConcertItemResponse.ProtoReflect.Descriptor instead.
 func (*AddConcertItemResponse) Descriptor() ([]byte, []int) {
-	return file_proto_concert_service_proto_rawDescGZIP(), []int{3}
+	return file_contracts_proto_concert_service_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *AddConcertItemResponse) GetId() uint32 {
+func (x *AddConcertItemResponse) GetId() string {
 	if x != nil {
 		return x.Id
 	}
-	return 0
+	return ""
 }
 
 func (x *AddConcertItemResponse) GetMessage() string {
@@ -247,14 +271,14 @@ func (x *AddConcertItemResponse) GetMessage() string {
 
 type GetConcertSetlistRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ConcertId     uint32                 `protobuf:"varint,1,opt,name=concert_id,json=concertId,proto3" json:"concert_id,omitempty"`
+	ConcertId     string                 `protobuf:"bytes,1,opt,name=concert_id,json=concertId,proto3" json:"concert_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetConcertSetlistRequest) Reset() {
 	*x = GetConcertSetlistRequest{}
-	mi := &file_proto_concert_service_proto_msgTypes[4]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -266,7 +290,7 @@ func (x *GetConcertSetlistRequest) String() string {
 func (*GetConcertSetlistRequest) ProtoMessage() {}
 
 func (x *GetConcertSetlistRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_concert_service_proto_msgTypes[4]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -279,14 +303,14 @@ func (x *GetConcertSetlistRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetConcertSetlistRequest.ProtoReflect.Descriptor instead.
 func (*GetConcertSetlistRequest) Descriptor() ([]byte, []int) {
-	return file_proto_concert_service_proto_rawDescGZIP(), []int{4}
+	return file_contracts_proto_concert_service_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *GetConcertSetlistRequest) GetConcertId() uint32 {
+func (x *GetConcertSetlistRequest) GetConcertId() string {
 	if x != nil {
 		return x.ConcertId
 	}
-	return 0
+	return ""
 }
 
 type GetConcertSetlistResponse struct {
@@ -298,7 +322,7 @@ type GetConcertSetlistResponse struct {
 
 func (x *GetConcertSetlistResponse) Reset() {
 	*x = GetConcertSetlistResponse{}
-	mi := &file_proto_concert_service_proto_msgTypes[5]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -310,7 +334,7 @@ func (x *GetConcertSetlistResponse) String() string {
 func (*GetConcertSetlistResponse) ProtoMessage() {}
 
 func (x *GetConcertSetlistResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_concert_service_proto_msgTypes[5]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -323,7 +347,7 @@ func (x *GetConcertSetlistResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetConcertSetlistResponse.ProtoReflect.Descriptor instead.
 func (*GetConcertSetlistResponse) Descriptor() ([]byte, []int) {
-	return file_proto_concert_service_proto_rawDescGZIP(), []int{5}
+	return file_contracts_proto_concert_service_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetConcertSetlistResponse) GetItems() []*ConcertItem {
@@ -333,11 +357,175 @@ func (x *GetConcertSetlistResponse) GetItems() []*ConcertItem {
 	return nil
 }
 
+type ListConcertsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BandId        *uint32                `protobuf:"varint,1,opt,name=band_id,json=bandId,proto3,oneof" json:"band_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListConcertsRequest) Reset() {
+	*x = ListConcertsRequest{}
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListConcertsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListConcertsRequest) ProtoMessage() {}
+
+func (x *ListConcertsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListConcertsRequest.ProtoReflect.Descriptor instead.
+func (*ListConcertsRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_concert_service_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ListConcertsRequest) GetBandId() uint32 {
+	if x != nil && x.BandId != nil {
+		return *x.BandId
+	}
+	return 0
+}
+
+type ConcertSummary struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Checksum      string                 `protobuf:"bytes,3,opt,name=checksum,proto3" json:"checksum,omitempty"`
+	Location      *string                `protobuf:"bytes,4,opt,name=location,proto3,oneof" json:"location,omitempty"`
+	StartTime     *string                `protobuf:"bytes,5,opt,name=start_time,json=startTime,proto3,oneof" json:"start_time,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConcertSummary) Reset() {
+	*x = ConcertSummary{}
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConcertSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConcertSummary) ProtoMessage() {}
+
+func (x *ConcertSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConcertSummary.ProtoReflect.Descriptor instead.
+func (*ConcertSummary) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_concert_service_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ConcertSummary) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ConcertSummary) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ConcertSummary) GetChecksum() string {
+	if x != nil {
+		return x.Checksum
+	}
+	return ""
+}
+
+func (x *ConcertSummary) GetLocation() string {
+	if x != nil && x.Location != nil {
+		return *x.Location
+	}
+	return ""
+}
+
+func (x *ConcertSummary) GetStartTime() string {
+	if x != nil && x.StartTime != nil {
+		return *x.StartTime
+	}
+	return ""
+}
+
+type ListConcertsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Concerts      []*ConcertSummary      `protobuf:"bytes,1,rep,name=concerts,proto3" json:"concerts,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListConcertsResponse) Reset() {
+	*x = ListConcertsResponse{}
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListConcertsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListConcertsResponse) ProtoMessage() {}
+
+func (x *ListConcertsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListConcertsResponse.ProtoReflect.Descriptor instead.
+func (*ListConcertsResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_concert_service_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ListConcertsResponse) GetConcerts() []*ConcertSummary {
+	if x != nil {
+		return x.Concerts
+	}
+	return nil
+}
+
 type ConcertItem struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Order         uint32                 `protobuf:"varint,2,opt,name=order,proto3" json:"order,omitempty"`
-	ScoreId       *uint32                `protobuf:"varint,3,opt,name=score_id,json=scoreId,proto3,oneof" json:"score_id,omitempty"`
+	ScoreId       *string                `protobuf:"bytes,3,opt,name=score_id,json=scoreId,proto3,oneof" json:"score_id,omitempty"`
 	ScoreName     *string                `protobuf:"bytes,4,opt,name=score_name,json=scoreName,proto3,oneof" json:"score_name,omitempty"`
 	FilePath      *string                `protobuf:"bytes,5,opt,name=file_path,json=filePath,proto3,oneof" json:"file_path,omitempty"`
 	BreakMin      *uint32                `protobuf:"varint,6,opt,name=break_min,json=breakMin,proto3,oneof" json:"break_min,omitempty"`
@@ -347,7 +535,7 @@ type ConcertItem struct {
 
 func (x *ConcertItem) Reset() {
 	*x = ConcertItem{}
-	mi := &file_proto_concert_service_proto_msgTypes[6]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -359,7 +547,7 @@ func (x *ConcertItem) String() string {
 func (*ConcertItem) ProtoMessage() {}
 
 func (x *ConcertItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_concert_service_proto_msgTypes[6]
+	mi := &file_contracts_proto_concert_service_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -372,14 +560,14 @@ func (x *ConcertItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConcertItem.ProtoReflect.Descriptor instead.
 func (*ConcertItem) Descriptor() ([]byte, []int) {
-	return file_proto_concert_service_proto_rawDescGZIP(), []int{6}
+	return file_contracts_proto_concert_service_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *ConcertItem) GetId() uint32 {
+func (x *ConcertItem) GetId() string {
 	if x != nil {
 		return x.Id
 	}
-	return 0
+	return ""
 }
 
 func (x *ConcertItem) GetOrder() uint32 {
@@ -389,11 +577,11 @@ func (x *ConcertItem) GetOrder() uint32 {
 	return 0
 }
 
-func (x *ConcertItem) GetScoreId() uint32 {
+func (x *ConcertItem) GetScoreId() string {
 	if x != nil && x.ScoreId != nil {
 		return *x.ScoreId
 	}
-	return 0
+	return ""
 }
 
 func (x *ConcertItem) GetScoreName() string {
@@ -417,40 +605,62 @@ func (x *ConcertItem) GetBreakMin() uint32 {
 	return 0
 }
 
-var File_proto_concert_service_proto protoreflect.FileDescriptor
+var File_contracts_proto_concert_service_proto protoreflect.FileDescriptor
 
-const file_proto_concert_service_proto_rawDesc = "" +
+const file_contracts_proto_concert_service_proto_rawDesc = "" +
 	"\n" +
-	"\x1bproto/concert_service.proto\x12\x1bdigital_music_stand.concert\"c\n" +
-	"\x14CreateConcertRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
-	"\aband_id\x18\x02 \x01(\rH\x00R\x06bandId\x88\x01\x01B\n" +
+	"%contracts/proto/concert_service.proto\x12\x1bdigital_music_stand.concert\"\xd1\x01\n" +
+	"\x14CreateConcertRequest\x12\x13\n" +
+	"\x02id\x18\x01 \x01(\tH\x00R\x02id\x88\x01\x01\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1c\n" +
+	"\aband_id\x18\x03 \x01(\rH\x01R\x06bandId\x88\x01\x01\x12\x1f\n" +
+	"\blocation\x18\x04 \x01(\tH\x02R\blocation\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"\b_band_idJ\x04\b\x03\x10\x04R\auser_id\"A\n" +
+	"start_time\x18\x05 \x01(\tH\x03R\tstartTime\x88\x01\x01B\x05\n" +
+	"\x03_idB\n" +
+	"\n" +
+	"\b_band_idB\v\n" +
+	"\t_locationB\r\n" +
+	"\v_start_time\"A\n" +
 	"\x15CreateConcertResponse\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\rR\x02id\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"\xa9\x01\n" +
 	"\x15AddConcertItemRequest\x12\x1d\n" +
 	"\n" +
-	"concert_id\x18\x01 \x01(\rR\tconcertId\x12\x1e\n" +
-	"\bscore_id\x18\x02 \x01(\rH\x00R\ascoreId\x88\x01\x01\x12 \n" +
+	"concert_id\x18\x01 \x01(\tR\tconcertId\x12\x1e\n" +
+	"\bscore_id\x18\x02 \x01(\tH\x00R\ascoreId\x88\x01\x01\x12 \n" +
 	"\tbreak_min\x18\x03 \x01(\rH\x01R\bbreakMin\x88\x01\x01\x12\x14\n" +
 	"\x05order\x18\x04 \x01(\rR\x05orderB\v\n" +
 	"\t_score_idB\f\n" +
 	"\n" +
 	"_break_min\"B\n" +
 	"\x16AddConcertItemResponse\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\rR\x02id\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"9\n" +
 	"\x18GetConcertSetlistRequest\x12\x1d\n" +
 	"\n" +
-	"concert_id\x18\x01 \x01(\rR\tconcertId\"[\n" +
+	"concert_id\x18\x01 \x01(\tR\tconcertId\"[\n" +
 	"\x19GetConcertSetlistResponse\x12>\n" +
-	"\x05items\x18\x01 \x03(\v2(.digital_music_stand.concert.ConcertItemR\x05items\"\xf3\x01\n" +
+	"\x05items\x18\x01 \x03(\v2(.digital_music_stand.concert.ConcertItemR\x05items\"?\n" +
+	"\x13ListConcertsRequest\x12\x1c\n" +
+	"\aband_id\x18\x01 \x01(\rH\x00R\x06bandId\x88\x01\x01B\n" +
+	"\n" +
+	"\b_band_id\"\xb1\x01\n" +
+	"\x0eConcertSummary\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\bchecksum\x18\x03 \x01(\tR\bchecksum\x12\x1f\n" +
+	"\blocation\x18\x04 \x01(\tH\x00R\blocation\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"start_time\x18\x05 \x01(\tH\x01R\tstartTime\x88\x01\x01B\v\n" +
+	"\t_locationB\r\n" +
+	"\v_start_time\"_\n" +
+	"\x14ListConcertsResponse\x12G\n" +
+	"\bconcerts\x18\x01 \x03(\v2+.digital_music_stand.concert.ConcertSummaryR\bconcerts\"\xf3\x01\n" +
 	"\vConcertItem\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05order\x18\x02 \x01(\rR\x05order\x12\x1e\n" +
-	"\bscore_id\x18\x03 \x01(\rH\x00R\ascoreId\x88\x01\x01\x12\"\n" +
+	"\bscore_id\x18\x03 \x01(\tH\x00R\ascoreId\x88\x01\x01\x12\"\n" +
 	"\n" +
 	"score_name\x18\x04 \x01(\tH\x01R\tscoreName\x88\x01\x01\x12 \n" +
 	"\tfile_path\x18\x05 \x01(\tH\x02R\bfilePath\x88\x01\x01\x12 \n" +
@@ -460,72 +670,81 @@ const file_proto_concert_service_proto_rawDesc = "" +
 	"\n" +
 	"_file_pathB\f\n" +
 	"\n" +
-	"_break_min2\x88\x03\n" +
+	"_break_min2\xfd\x03\n" +
 	"\x0eConcertService\x12v\n" +
 	"\rCreateConcert\x121.digital_music_stand.concert.CreateConcertRequest\x1a2.digital_music_stand.concert.CreateConcertResponse\x12y\n" +
 	"\x0eAddConcertItem\x122.digital_music_stand.concert.AddConcertItemRequest\x1a3.digital_music_stand.concert.AddConcertItemResponse\x12\x82\x01\n" +
-	"\x11GetConcertSetlist\x125.digital_music_stand.concert.GetConcertSetlistRequest\x1a6.digital_music_stand.concert.GetConcertSetlistResponseBIZGgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpbb\x06proto3"
+	"\x11GetConcertSetlist\x125.digital_music_stand.concert.GetConcertSetlistRequest\x1a6.digital_music_stand.concert.GetConcertSetlistResponse\x12s\n" +
+	"\fListConcerts\x120.digital_music_stand.concert.ListConcertsRequest\x1a1.digital_music_stand.concert.ListConcertsResponseBIZGgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpbb\x06proto3"
 
 var (
-	file_proto_concert_service_proto_rawDescOnce sync.Once
-	file_proto_concert_service_proto_rawDescData []byte
+	file_contracts_proto_concert_service_proto_rawDescOnce sync.Once
+	file_contracts_proto_concert_service_proto_rawDescData []byte
 )
 
-func file_proto_concert_service_proto_rawDescGZIP() []byte {
-	file_proto_concert_service_proto_rawDescOnce.Do(func() {
-		file_proto_concert_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_concert_service_proto_rawDesc), len(file_proto_concert_service_proto_rawDesc)))
+func file_contracts_proto_concert_service_proto_rawDescGZIP() []byte {
+	file_contracts_proto_concert_service_proto_rawDescOnce.Do(func() {
+		file_contracts_proto_concert_service_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_contracts_proto_concert_service_proto_rawDesc), len(file_contracts_proto_concert_service_proto_rawDesc)))
 	})
-	return file_proto_concert_service_proto_rawDescData
+	return file_contracts_proto_concert_service_proto_rawDescData
 }
 
-var file_proto_concert_service_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
-var file_proto_concert_service_proto_goTypes = []any{
+var file_contracts_proto_concert_service_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_contracts_proto_concert_service_proto_goTypes = []any{
 	(*CreateConcertRequest)(nil),      // 0: digital_music_stand.concert.CreateConcertRequest
 	(*CreateConcertResponse)(nil),     // 1: digital_music_stand.concert.CreateConcertResponse
 	(*AddConcertItemRequest)(nil),     // 2: digital_music_stand.concert.AddConcertItemRequest
 	(*AddConcertItemResponse)(nil),    // 3: digital_music_stand.concert.AddConcertItemResponse
 	(*GetConcertSetlistRequest)(nil),  // 4: digital_music_stand.concert.GetConcertSetlistRequest
 	(*GetConcertSetlistResponse)(nil), // 5: digital_music_stand.concert.GetConcertSetlistResponse
-	(*ConcertItem)(nil),               // 6: digital_music_stand.concert.ConcertItem
+	(*ListConcertsRequest)(nil),       // 6: digital_music_stand.concert.ListConcertsRequest
+	(*ConcertSummary)(nil),            // 7: digital_music_stand.concert.ConcertSummary
+	(*ListConcertsResponse)(nil),      // 8: digital_music_stand.concert.ListConcertsResponse
+	(*ConcertItem)(nil),               // 9: digital_music_stand.concert.ConcertItem
 }
-var file_proto_concert_service_proto_depIdxs = []int32{
-	6, // 0: digital_music_stand.concert.GetConcertSetlistResponse.items:type_name -> digital_music_stand.concert.ConcertItem
-	0, // 1: digital_music_stand.concert.ConcertService.CreateConcert:input_type -> digital_music_stand.concert.CreateConcertRequest
-	2, // 2: digital_music_stand.concert.ConcertService.AddConcertItem:input_type -> digital_music_stand.concert.AddConcertItemRequest
-	4, // 3: digital_music_stand.concert.ConcertService.GetConcertSetlist:input_type -> digital_music_stand.concert.GetConcertSetlistRequest
-	1, // 4: digital_music_stand.concert.ConcertService.CreateConcert:output_type -> digital_music_stand.concert.CreateConcertResponse
-	3, // 5: digital_music_stand.concert.ConcertService.AddConcertItem:output_type -> digital_music_stand.concert.AddConcertItemResponse
-	5, // 6: digital_music_stand.concert.ConcertService.GetConcertSetlist:output_type -> digital_music_stand.concert.GetConcertSetlistResponse
-	4, // [4:7] is the sub-list for method output_type
-	1, // [1:4] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+var file_contracts_proto_concert_service_proto_depIdxs = []int32{
+	9, // 0: digital_music_stand.concert.GetConcertSetlistResponse.items:type_name -> digital_music_stand.concert.ConcertItem
+	7, // 1: digital_music_stand.concert.ListConcertsResponse.concerts:type_name -> digital_music_stand.concert.ConcertSummary
+	0, // 2: digital_music_stand.concert.ConcertService.CreateConcert:input_type -> digital_music_stand.concert.CreateConcertRequest
+	2, // 3: digital_music_stand.concert.ConcertService.AddConcertItem:input_type -> digital_music_stand.concert.AddConcertItemRequest
+	4, // 4: digital_music_stand.concert.ConcertService.GetConcertSetlist:input_type -> digital_music_stand.concert.GetConcertSetlistRequest
+	6, // 5: digital_music_stand.concert.ConcertService.ListConcerts:input_type -> digital_music_stand.concert.ListConcertsRequest
+	1, // 6: digital_music_stand.concert.ConcertService.CreateConcert:output_type -> digital_music_stand.concert.CreateConcertResponse
+	3, // 7: digital_music_stand.concert.ConcertService.AddConcertItem:output_type -> digital_music_stand.concert.AddConcertItemResponse
+	5, // 8: digital_music_stand.concert.ConcertService.GetConcertSetlist:output_type -> digital_music_stand.concert.GetConcertSetlistResponse
+	8, // 9: digital_music_stand.concert.ConcertService.ListConcerts:output_type -> digital_music_stand.concert.ListConcertsResponse
+	6, // [6:10] is the sub-list for method output_type
+	2, // [2:6] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
-func init() { file_proto_concert_service_proto_init() }
-func file_proto_concert_service_proto_init() {
-	if File_proto_concert_service_proto != nil {
+func init() { file_contracts_proto_concert_service_proto_init() }
+func file_contracts_proto_concert_service_proto_init() {
+	if File_contracts_proto_concert_service_proto != nil {
 		return
 	}
-	file_proto_concert_service_proto_msgTypes[0].OneofWrappers = []any{}
-	file_proto_concert_service_proto_msgTypes[2].OneofWrappers = []any{}
-	file_proto_concert_service_proto_msgTypes[6].OneofWrappers = []any{}
+	file_contracts_proto_concert_service_proto_msgTypes[0].OneofWrappers = []any{}
+	file_contracts_proto_concert_service_proto_msgTypes[2].OneofWrappers = []any{}
+	file_contracts_proto_concert_service_proto_msgTypes[6].OneofWrappers = []any{}
+	file_contracts_proto_concert_service_proto_msgTypes[7].OneofWrappers = []any{}
+	file_contracts_proto_concert_service_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_concert_service_proto_rawDesc), len(file_proto_concert_service_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_contracts_proto_concert_service_proto_rawDesc), len(file_contracts_proto_concert_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_concert_service_proto_goTypes,
-		DependencyIndexes: file_proto_concert_service_proto_depIdxs,
-		MessageInfos:      file_proto_concert_service_proto_msgTypes,
+		GoTypes:           file_contracts_proto_concert_service_proto_goTypes,
+		DependencyIndexes: file_contracts_proto_concert_service_proto_depIdxs,
+		MessageInfos:      file_contracts_proto_concert_service_proto_msgTypes,
 	}.Build()
-	File_proto_concert_service_proto = out.File
-	file_proto_concert_service_proto_goTypes = nil
-	file_proto_concert_service_proto_depIdxs = nil
+	File_contracts_proto_concert_service_proto = out.File
+	file_contracts_proto_concert_service_proto_goTypes = nil
+	file_contracts_proto_concert_service_proto_depIdxs = nil
 }

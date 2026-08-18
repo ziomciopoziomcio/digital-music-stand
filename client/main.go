@@ -1,16 +1,23 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"log"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system/sysmock"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/ui"
-	"github.com/ziomciopoziomcio/digital-music-stand/client/webserver" // Import naszego nowego modułu!
+	"github.com/ziomciopoziomcio/digital-music-stand/client/webserver"
 )
 
 func main() {
@@ -57,16 +64,60 @@ func main() {
 			token, err := network.Authenticate(server, email, password)
 			if err == nil {
 				myApp.Preferences().SetString("jwt_token", token)
+				myApp.Preferences().SetString("server_addr", server)
+
+				go func() {
+					fmt.Println("Starting sync processes...")
+					conn, err := network.NewGRPCClient(server, token)
+					if err != nil {
+						fmt.Println("Error while connecting to gRPC:", err)
+						return
+					}
+					defer conn.Close()
+
+					scoreClient := scorepb.NewScoreServiceClient(conn)
+					err = network.SynchronizeScores(context.Background(), scoreClient, dbMgr)
+					if err != nil {
+						fmt.Println("Score sync error:", err)
+					} else {
+						fmt.Println("Scores synchronised successfully")
+					}
+
+					concertClient := concertpb.NewConcertServiceClient(conn)
+					err = network.SynchronizeConcerts(context.Background(), concertClient, dbMgr)
+					if err != nil {
+						fmt.Println("Concert sync error:", err)
+					} else {
+						fmt.Println("Concert synchronised successfully")
+					}
+				}()
+
 				showDashboard()
 			}
 			return err
 		}, showDashboard)
+
 		mainWrapper.Objects = []fyne.CanvasObject{loginView}
 		mainWrapper.Refresh()
 	}
 
 	showPractice = func() {
-		practiceView := ui.BuildPracticeMode(myWindow, dbMgr, showDashboard)
+		practiceView := ui.BuildPracticeMode(myWindow, dbMgr, func() {
+			token := myApp.Preferences().String("jwt_token")
+			server := myApp.Preferences().String("server_addr")
+			if token != "" && server != "" {
+				go func() {
+					conn, err := network.NewGRPCClient(server, token)
+					if err == nil {
+						defer conn.Close()
+						scoreClient := scorepb.NewScoreServiceClient(conn)
+						if syncErr := network.SynchronizeScores(context.Background(), scoreClient, dbMgr); syncErr != nil {
+							log.Printf("Background score sync error: %v", syncErr)
+						}
+					}
+				}()
+			}
+		}, showDashboard)
 		mainWrapper.Objects = []fyne.CanvasObject{practiceView}
 		mainWrapper.Refresh()
 	}
@@ -78,7 +129,22 @@ func main() {
 	}
 
 	showConcertSetup = func() {
-		setupView := ui.BuildConcertSetup(myWindow, dbMgr, showConcert)
+		setupView := ui.BuildConcertSetup(myWindow, dbMgr, func(name, location, startTime string, setlist []localdb.Score) error {
+			_, err := dbMgr.AddConcert(name, location, startTime, setlist)
+			if err != nil {
+				return err
+			}
+
+			token := myApp.Preferences().String("jwt_token")
+			server := myApp.Preferences().String("server_addr")
+			go func() {
+				if err := network.CreateAndSyncConcert(server, token, name, location, startTime, setlist, dbMgr); err != nil {
+					log.Printf("Background cloud sync error: %v", err)
+				}
+			}()
+
+			return nil
+		}, showConcert)
 		mainWrapper.Objects = []fyne.CanvasObject{setupView}
 		mainWrapper.Refresh()
 	}

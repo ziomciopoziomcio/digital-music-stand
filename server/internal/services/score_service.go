@@ -2,8 +2,10 @@ package services
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -35,72 +37,89 @@ func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScore
 		return nil, fmt.Errorf("missing required fields")
 	}
 
-	fileID := uuid.New().String()
+	scoreID := uuid.New().String()
+	if req.Id != nil && *req.Id != "" {
+		scoreID = *req.Id
+	}
+
 	ext := req.GetFileExtension()
 	if ext == "" {
-		ext = ".pdf" // default to PDF if no extension is provided
+		ext = ".pdf"
 	}
-	fileName := fileID + ext
 
-	storageDir := "./storage/scores"
+	storageDir := "./uploads/scores"
 	if err := os.MkdirAll(storageDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %v", err)
 	}
 
-	fullPath := filepath.Join(storageDir, fileName)
-
-	if err := os.WriteFile(fullPath, req.GetFileData(), 0644); err != nil {
+	filePath := filepath.Join(storageDir, scoreID+ext)
+	if err := os.WriteFile(filePath, req.GetFileData(), 0644); err != nil {
 		return nil, fmt.Errorf("failed to save file: %v", err)
 	}
 
+	hash := sha256.Sum256(req.GetFileData())
+	checksum := hex.EncodeToString(hash[:])
+
 	var composer *string
 	if req.GetComposer() != "" {
-		composer = &req.Composer
+		comp := req.GetComposer()
+		composer = &comp
 	}
 
 	newScore := models.Score{
-		Name:     req.GetName(),
-		Composer: composer,
-		FilePath: fileName,
-		OwnerID:  userID,
+		ID:            scoreID,
+		OwnerID:       userID,
+		Name:          req.GetName(),
+		Composer:      composer,
+		FilePath:      filePath,
+		FileExtension: ext,
+		Checksum:      checksum,
 	}
 
 	if err := s.db.Create(&newScore).Error; err != nil {
-		err := os.Remove(fullPath)
-		if err != nil {
-			log.Printf("failed to remove file after DB error: %v", err)
-		}
-		return nil, fmt.Errorf("failed to create score: %v", err)
+		os.Remove(filePath)
+		return nil, fmt.Errorf("failed to save score to database: %v", err)
 	}
 
 	return &scorepb.CreateScoreResponse{
-		Id:      uint32(newScore.ID),
-		Message: "Score created successfully",
+		Id:       newScore.ID,
+		Message:  "Score uploaded successfully",
+		Checksum: checksum,
 	}, nil
 }
 
 func (s *ScoreService) ListMyScores(ctx context.Context, req *scorepb.ListMyScoresRequest) (*scorepb.ListMyScoresResponse, error) {
 	userID, err := auth.GetUserIDFromContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user id from context: %v", err)
+		return nil, fmt.Errorf("failed to get user id: %v", err)
 	}
 
 	var scores []models.Score
-	if err := s.db.Where("owner_id = ?", userID).Find(&scores).Error; err != nil {
-		return nil, fmt.Errorf("failed to list scores: %v", err)
+	subQueryDirect := s.db.Model(&models.SharedUserScore{}).Select("score_id").Where("user_id = ?", userID)
+	subQueryBand := s.db.Model(&models.SharedBandScore{}).Select("score_id").Where("band_id IN (?)", s.db.Model(&models.BandMember{}).Select("band_id").Where("user_id = ?", userID))
+
+	err = s.db.Where("owner_id = ? OR id IN (?) OR id IN (?)", userID, subQueryDirect, subQueryBand).
+		Distinct().
+		Find(&scores).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch scores: %v", err)
 	}
 
 	var scoreList []*scorepb.Score
 	for _, score := range scores {
-		var composer string
+		composer := ""
 		if score.Composer != nil {
 			composer = *score.Composer
 		}
+
 		scoreList = append(scoreList, &scorepb.Score{
-			Id:       uint32(score.ID),
-			Name:     score.Name,
-			Composer: composer,
-			FilePath: score.FilePath,
+			Id:            score.ID,
+			Name:          score.Name,
+			Composer:      composer,
+			FilePath:      score.FilePath,
+			Checksum:      score.Checksum,
+			FileExtension: score.FileExtension,
 		})
 	}
 
@@ -109,8 +128,49 @@ func (s *ScoreService) ListMyScores(ctx context.Context, req *scorepb.ListMyScor
 	}, nil
 }
 
+func (s *ScoreService) DownloadScore(req *scorepb.DownloadScoreRequest, stream scorepb.ScoreService_DownloadScoreServer) error {
+	if req.GetScoreId() == "" {
+		return fmt.Errorf("missing score_id")
+	}
+
+	var score models.Score
+	if err := s.db.First(&score, "id = ?", req.GetScoreId()).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("score not found")
+		}
+		return fmt.Errorf("failed to query score: %v", err)
+	}
+
+	file, err := os.Open(score.FilePath)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %v", err)
+	}
+	defer file.Close()
+
+	buffer := make([]byte, 64*1024)
+	for {
+		n, err := file.Read(buffer)
+		if n > 0 {
+			sendErr := stream.Send(&scorepb.DownloadScoreResponse{
+				ChunkData: buffer[:n],
+			})
+			if sendErr != nil {
+				return fmt.Errorf("failed to send chunk: %v", sendErr)
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read file: %v", err)
+		}
+	}
+
+	return nil
+}
+
 func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRequest) (*scorepb.ShareScoreResponse, error) {
-	if req.GetScoreId() == 0 {
+	if req.GetScoreId() == "" {
 		return nil, fmt.Errorf("missing required fields")
 	}
 	if req.UserId == nil && req.BandId == nil {
@@ -121,7 +181,7 @@ func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRe
 	}
 
 	var score models.Score
-	if err := s.db.First(&score, req.GetScoreId()).Error; err != nil {
+	if err := s.db.First(&score, "id = ?", req.GetScoreId()).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("score not found")
 		}
@@ -130,15 +190,17 @@ func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRe
 
 	if req.UserId != nil {
 		newShare := models.SharedUserScore{
-			ScoreID: uint(req.GetScoreId()),
+			ScoreID: req.GetScoreId(),
 			UserID:  uint(*req.UserId),
 		}
 		if err := s.db.Create(&newShare).Error; err != nil {
 			return nil, fmt.Errorf("failed to share score with user: %v", err)
 		}
-	} else if req.BandId != nil {
+	}
+
+	if req.BandId != nil {
 		newShare := models.SharedBandScore{
-			ScoreID: uint(req.GetScoreId()),
+			ScoreID: req.GetScoreId(),
 			BandID:  uint(*req.BandId),
 		}
 		if err := s.db.Create(&newShare).Error; err != nil {
