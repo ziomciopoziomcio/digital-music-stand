@@ -222,7 +222,7 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, onScoresChanged fun
 		entry.OnSubmitted = func(_ string) { submitAction() }
 
 		deleteBtn := widget.NewButtonWithIcon("Delete", theme.DeleteIcon(), func() {
-			db.DeleteScore(score.ID)
+			db.MarkScoreDeleted(score.ID)
 			d.Hide()
 			showLibrary()
 			onScoresChanged()
