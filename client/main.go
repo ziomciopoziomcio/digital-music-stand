@@ -137,11 +137,18 @@ func main() {
 
 			token := myApp.Preferences().String("jwt_token")
 			server := myApp.Preferences().String("server_addr")
-			go func() {
-				if err := network.CreateAndSyncConcert(server, token, name, location, startTime, setlist, dbMgr); err != nil {
-					log.Printf("Background cloud sync error: %v", err)
-				}
-			}()
+			if token != "" && server != "" {
+				go func() {
+					conn, err := network.NewGRPCClient(server, token)
+					if err == nil {
+						defer conn.Close()
+						concertClient := concertpb.NewConcertServiceClient(conn)
+						if syncErr := network.SynchronizeConcerts(context.Background(), concertClient, dbMgr); syncErr != nil {
+							log.Printf("Background concert sync error: %v", syncErr)
+						}
+					}
+				}()
+			}
 
 			return nil
 		}, showConcert)
