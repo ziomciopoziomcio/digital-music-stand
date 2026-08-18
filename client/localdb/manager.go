@@ -3,6 +3,8 @@ package localdb
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
@@ -103,9 +105,33 @@ func (m *DBManager) DeleteScore(id string) error {
 	return err
 }
 
-func (m *DBManager) AddScore(title, filePath string) (string, error) {
+func (m *DBManager) AddScore(title, originalFilePath string) (string, error) {
+	if err := os.MkdirAll("./scores", 0755); err != nil {
+		return "", fmt.Errorf("failed to create scores directory: %w", err)
+	}
+
 	newID := uuid.New().String()
-	_, err := m.db.Exec("INSERT INTO scores (id, title, file_path, checksum) VALUES (?, ?, ?, '')", newID, title, filePath)
+	ext := filepath.Ext(originalFilePath)
+	if ext == "" {
+		ext = ".pdf"
+	}
+
+	destPath := filepath.Join("./scores", newID+ext)
+	absPath, err := filepath.Abs(destPath)
+	if err != nil {
+		absPath = destPath
+	}
+
+	input, err := os.ReadFile(originalFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read source score file: %w", err)
+	}
+
+	if err := os.WriteFile(absPath, input, 0644); err != nil {
+		return "", fmt.Errorf("failed to copy score file locally: %w", err)
+	}
+
+	_, err = m.db.Exec("INSERT INTO scores (id, title, file_path, checksum) VALUES (?, ?, ?, '')", newID, title, absPath)
 	return newID, err
 }
 
