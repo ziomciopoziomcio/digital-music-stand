@@ -145,7 +145,7 @@ func main() {
 	}
 
 	showConcertSetup = func(editingConcert *localdb.Concert) {
-		setupView := ui.BuildConcertSetup(myWindow, dbMgr, editingConcert, func(id, name, location, startTime string, setlist []localdb.Score) error {
+		setupView := ui.BuildConcertSetup(myWindow, dbMgr, editingConcert, func(id, name, location, startTime string, setlist []localdb.SetlistItem) error {
 			if id == "" {
 				_, err := dbMgr.AddConcert(name, location, startTime, setlist)
 				if err != nil {
