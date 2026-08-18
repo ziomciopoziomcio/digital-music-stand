@@ -42,6 +42,15 @@ type Concert struct {
 	Items     []ConcertItem
 }
 
+type Notification struct {
+	ID          string
+	Type        string
+	ReferenceID string
+	Title       string
+	Body        string
+	Status      string
+}
+
 type DBManager struct {
 	db *sql.DB
 }
@@ -78,6 +87,15 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 	    break_min INTEGER,
 	    FOREIGN KEY(concert_id) REFERENCES concerts(id) ON DELETE CASCADE,
 	    FOREIGN KEY(score_id) REFERENCES scores(id) ON DELETE CASCADE
+	);
+
+	CREATE TABLE IF NOT EXISTS notifications (
+	    id TEXT PRIMARY KEY,
+	    type TEXT NOT NULL,
+	    reference_id TEXT NOT NULL,
+	    title TEXT NOT NULL,
+	    body TEXT NOT NULL,
+	    status TEXT NOT NULL DEFAULT 'pending'
 	);`
 
 	if _, err := db.Exec(query); err != nil {
@@ -352,4 +370,37 @@ func (m *DBManager) GetDeletedConcertIDs() ([]string, error) {
 		ids = append(ids, id)
 	}
 	return ids, nil
+}
+
+func (m *DBManager) GetPendingNotifications() ([]Notification, error) {
+	rows, err := m.db.Query("SELECT id, type, reference_id, title, body, status FROM notifications WHERE status = 'pending' ORDER BY rowid DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var notifs []Notification
+	for rows.Next() {
+		var n Notification
+		if err := rows.Scan(&n.ID, &n.Type, &n.ReferenceID, &n.Title, &n.Body, &n.Status); err != nil {
+			return nil, err
+		}
+		notifs = append(notifs, n)
+	}
+	return notifs, nil
+}
+
+func (m *DBManager) SyncNotificationFromServer(id, notifType, refID, title, body string) error {
+	_, err := m.db.Exec(`
+		INSERT INTO notifications (id, type, reference_id, title, body, status) 
+		VALUES (?, ?, ?, ?, ?, 'pending')
+		ON CONFLICT(id) DO NOTHING`,
+		id, notifType, refID, title, body,
+	)
+	return err
+}
+
+func (m *DBManager) ResolveNotification(id, newStatus string) error {
+	_, err := m.db.Exec("UPDATE notifications SET status = ? WHERE id = ?", newStatus, id)
+	return err
 }
