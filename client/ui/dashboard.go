@@ -10,7 +10,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func(), openPractice func(), openConcert func(), openPairing func(), openInbox func()) *fyne.Container {
+func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func(), openPractice func(), openConcert func(), openPairing func(), openInbox func(), openProfile func()) *fyne.Container {
 	clock := widget.NewLabel(time.Now().Format("15:04"))
 	clock.TextStyle = fyne.TextStyle{Bold: true}
 
@@ -29,12 +29,14 @@ func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin 
 	}
 
 	inboxBtn := widget.NewButtonWithIcon("Inbox", theme.InfoIcon(), openInbox)
+	profileBtn := widget.NewButtonWithIcon("Profile", theme.AccountIcon(), openProfile)
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), openSettings)
 
 	topBar := container.NewHBox(
 		clock,
 		layout.NewSpacer(),
 		inboxBtn,
+		profileBtn,
 		cloudStatusBtn,
 		settingsBtn,
 	)

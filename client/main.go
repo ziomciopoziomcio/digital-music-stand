@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 
@@ -48,6 +49,7 @@ func main() {
 	var showPairing func()
 	var showLockScreen func()
 	var showInbox func()
+	var showProfile func()
 
 	startBackgroundSync := func(server, token string) {
 		go func() {
@@ -83,7 +85,7 @@ func main() {
 	}
 
 	showDashboard = func() {
-		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice, showConcert, showPairing, showInbox)
+		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice, showConcert, showPairing, showInbox, showProfile)
 		mainWrapper.Objects = []fyne.CanvasObject{dash}
 		mainWrapper.Refresh()
 	}
@@ -217,6 +219,87 @@ func main() {
 			}
 		})
 		mainWrapper.Objects = []fyne.CanvasObject{inboxView}
+		mainWrapper.Refresh()
+	}
+
+	showProfile = func() {
+		profileView := ui.BuildProfile(
+			myWindow,
+			myApp,
+			showDashboard,
+			func() {
+				myApp.Preferences().SetString("jwt_token", "")
+				myApp.Preferences().SetString("server_addr", "")
+				showDashboard()
+			},
+			func() ([]ui.BandInfo, error) {
+				token := myApp.Preferences().String("jwt_token")
+				server := myApp.Preferences().String("server_addr")
+				if token == "" || server == "" {
+					return nil, fmt.Errorf("not logged in")
+				}
+
+				conn, err := network.NewGRPCClient(server, token)
+				if err != nil {
+					return nil, err
+				}
+				defer conn.Close()
+
+				bandClient := bandpb.NewBandServiceClient(conn)
+				resp, err := bandClient.ListMyBands(context.Background(), &bandpb.ListMyBandsRequest{})
+				if err != nil {
+					return nil, err
+				}
+
+				var bands []ui.BandInfo
+				for _, b := range resp.GetBands() {
+					bands = append(bands, ui.BandInfo{
+						ID:        b.Id,
+						Name:      b.Name,
+						IsManager: b.IsManager,
+					})
+				}
+				return bands, nil
+			},
+			func(name string) error {
+				token := myApp.Preferences().String("jwt_token")
+				server := myApp.Preferences().String("server_addr")
+				if token == "" || server == "" {
+					return fmt.Errorf("not logged in")
+				}
+
+				conn, err := network.NewGRPCClient(server, token)
+				if err != nil {
+					return err
+				}
+				defer conn.Close()
+
+				bandClient := bandpb.NewBandServiceClient(conn)
+				_, err = bandClient.CreateBand(context.Background(), &bandpb.CreateBandRequest{Name: name})
+				return err
+			},
+			func(bandID uint32, email string) error {
+				token := myApp.Preferences().String("jwt_token")
+				server := myApp.Preferences().String("server_addr")
+				if token == "" || server == "" {
+					return fmt.Errorf("not logged in")
+				}
+
+				conn, err := network.NewGRPCClient(server, token)
+				if err != nil {
+					return err
+				}
+				defer conn.Close()
+
+				bandClient := bandpb.NewBandServiceClient(conn)
+				_, err = bandClient.InviteMember(context.Background(), &bandpb.InviteMemberRequest{
+					BandId:       bandID,
+					InviteeEmail: email,
+				})
+				return err
+			},
+		)
+		mainWrapper.Objects = []fyne.CanvasObject{profileView}
 		mainWrapper.Refresh()
 	}
 
