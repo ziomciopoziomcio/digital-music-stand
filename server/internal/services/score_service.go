@@ -236,29 +236,56 @@ func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRe
 		return nil, fmt.Errorf("score not found or permission denied")
 	}
 
+	// Udostępnianie ZESPOŁOWI
 	if req.TargetBandId != nil {
 		var member models.BandMember
 		if err := s.db.Where("band_id = ? AND user_id = ?", *req.TargetBandId, userID).First(&member).Error; err != nil {
 			return nil, fmt.Errorf("you are not a member of this band")
 		}
 
+		var existingShare models.SharedBandScore
+		if err := s.db.Where("score_id = ? AND band_id = ?", score.ID, *req.TargetBandId).First(&existingShare).Error; err == nil {
+			return nil, fmt.Errorf("score is already shared with this band")
+		}
+
 		sharedBand := models.SharedBandScore{
 			ScoreID: score.ID,
 			BandID:  uint(*req.TargetBandId),
 		}
-		if err := s.db.FirstOrCreate(&sharedBand, sharedBand).Error; err != nil {
+		if err := s.db.Create(&sharedBand).Error; err != nil {
 			return nil, fmt.Errorf("failed to share score with band: %v", err)
 		}
 		return &scorepb.ShareScoreResponse{Message: "Score shared with band successfully"}, nil
 	}
 
 	if req.TargetEmail != nil {
+		email := *req.TargetEmail
+
+		var targetUser models.User
+		if err := s.db.Where("email = ?", email).First(&targetUser).Error; err != nil {
+			return nil, fmt.Errorf("user with email %s does not exist", email)
+		}
+
+		if targetUser.ID == userID {
+			return nil, fmt.Errorf("you cannot share a score with yourself")
+		}
+
+		var existingShare models.SharedUserScore
+		if err := s.db.Where("score_id = ? AND user_id = ?", score.ID, targetUser.ID).First(&existingShare).Error; err == nil {
+			return nil, fmt.Errorf("this user already has access to this score")
+		}
+
+		var existingInvite models.ShareScoreInvitation
+		if err := s.db.Where("score_id = ? AND invitee_email = ? AND status = ?", score.ID, email, "pending").First(&existingInvite).Error; err == nil {
+			return nil, fmt.Errorf("an invitation is already pending for this user")
+		}
+
 		invite := models.ShareScoreInvitation{
 			ScoreID:      score.ID,
-			InviteeEmail: *req.TargetEmail,
+			InviteeEmail: email,
 			Status:       "pending",
 		}
-		if err := s.db.FirstOrCreate(&invite, models.ShareScoreInvitation{ScoreID: invite.ScoreID, InviteeEmail: invite.InviteeEmail}).Error; err != nil {
+		if err := s.db.Create(&invite).Error; err != nil {
 			return nil, fmt.Errorf("failed to create score invitation: %v", err)
 		}
 		return &scorepb.ShareScoreResponse{Message: "Score sharing invitation sent to user"}, nil
@@ -279,20 +306,32 @@ func (s *ScoreService) RevokeScoreAccess(ctx context.Context, req *scorepb.Revok
 	}
 
 	if req.TargetBandId != nil {
-		if err := s.db.Where("score_id = ? AND band_id = ?", score.ID, *req.TargetBandId).Delete(&models.SharedBandScore{}).Error; err != nil {
-			return nil, fmt.Errorf("failed to revoke band access: %v", err)
+		res := s.db.Where("score_id = ? AND band_id = ?", score.ID, *req.TargetBandId).Delete(&models.SharedBandScore{})
+		if res.RowsAffected == 0 {
+			return nil, fmt.Errorf("this band does not have access to this score")
 		}
 		return &scorepb.RevokeScoreAccessResponse{Message: "Access revoked for band"}, nil
 	}
 
 	if req.TargetEmail != nil {
-		var targetUser models.User
-		if err := s.db.Where("email = ?", *req.TargetEmail).First(&targetUser).Error; err == nil {
-			_ = s.db.Where("score_id = ? AND user_id = ?", score.ID, targetUser.ID).Delete(&models.SharedUserScore{})
-		}
-		_ = s.db.Where("score_id = ? AND invitee_email = ?", score.ID, *req.TargetEmail).Delete(&models.ShareScoreInvitation{})
+		email := *req.TargetEmail
+		var deletedShares int64
+		var deletedInvites int64
 
-		return &scorepb.RevokeScoreAccessResponse{Message: "Access revoked for user"}, nil
+		var targetUser models.User
+		if err := s.db.Where("email = ?", email).First(&targetUser).Error; err == nil {
+			res := s.db.Where("score_id = ? AND user_id = ?", score.ID, targetUser.ID).Delete(&models.SharedUserScore{})
+			deletedShares = res.RowsAffected
+		}
+
+		res := s.db.Where("score_id = ? AND invitee_email = ? AND status = 'pending'", score.ID, email).Delete(&models.ShareScoreInvitation{})
+		deletedInvites = res.RowsAffected
+
+		if deletedShares == 0 && deletedInvites == 0 {
+			return nil, fmt.Errorf("no active access or pending invitation found for %s", email)
+		}
+
+		return &scorepb.RevokeScoreAccessResponse{Message: "Access revoked successfully"}, nil
 	}
 
 	return nil, fmt.Errorf("target_email or target_band_id must be provided")

@@ -348,15 +348,19 @@ func (s *ConcertService) ShareConcert(ctx context.Context, req *concertpb.ShareC
 			return nil, fmt.Errorf("you are not a member of this band")
 		}
 
+		var existingShare models.SharedBandConcert
+		if err := s.db.Where("concert_id = ? AND band_id = ?", concert.ID, *req.TargetBandId).First(&existingShare).Error; err == nil {
+			return nil, fmt.Errorf("concert is already shared with this band")
+		}
+
 		sharedBand := models.SharedBandConcert{
 			ConcertID: concert.ID,
 			BandID:    uint(*req.TargetBandId),
 		}
-		if err := s.db.FirstOrCreate(&sharedBand, sharedBand).Error; err != nil {
+		if err := s.db.Create(&sharedBand).Error; err != nil {
 			return nil, fmt.Errorf("failed to share concert with band: %v", err)
 		}
 
-		// Automatycznie przyznajemy dostęp do utworów z koncertu dla całego zespołu
 		var items []models.ConcertItem
 		s.db.Where("concert_id = ? AND score_id IS NOT NULL", concert.ID).Find(&items)
 		for _, item := range items {
@@ -373,12 +377,33 @@ func (s *ConcertService) ShareConcert(ctx context.Context, req *concertpb.ShareC
 	}
 
 	if req.TargetEmail != nil {
+		email := *req.TargetEmail
+
+		var targetUser models.User
+		if err := s.db.Where("email = ?", email).First(&targetUser).Error; err != nil {
+			return nil, fmt.Errorf("user with email %s does not exist", email)
+		}
+
+		if targetUser.ID == userID {
+			return nil, fmt.Errorf("you cannot share a concert with yourself")
+		}
+
+		var existingShare models.SharedUserConcert
+		if err := s.db.Where("concert_id = ? AND user_id = ?", concert.ID, targetUser.ID).First(&existingShare).Error; err == nil {
+			return nil, fmt.Errorf("this user already has access to this concert")
+		}
+
+		var existingInvite models.ShareConcertInvitation
+		if err := s.db.Where("concert_id = ? AND invitee_email = ? AND status = ?", concert.ID, email, "pending").First(&existingInvite).Error; err == nil {
+			return nil, fmt.Errorf("an invitation is already pending for this user")
+		}
+
 		invite := models.ShareConcertInvitation{
 			ConcertID:    concert.ID,
-			InviteeEmail: *req.TargetEmail,
+			InviteeEmail: email,
 			Status:       "pending",
 		}
-		if err := s.db.FirstOrCreate(&invite, models.ShareConcertInvitation{ConcertID: invite.ConcertID, InviteeEmail: invite.InviteeEmail}).Error; err != nil {
+		if err := s.db.Create(&invite).Error; err != nil {
 			return nil, fmt.Errorf("failed to create concert invitation: %v", err)
 		}
 		return &concertpb.ShareConcertResponse{Message: "Concert invitation sent to user"}, nil
@@ -399,20 +424,32 @@ func (s *ConcertService) RevokeConcertAccess(ctx context.Context, req *concertpb
 	}
 
 	if req.TargetBandId != nil {
-		if err := s.db.Where("concert_id = ? AND band_id = ?", concert.ID, *req.TargetBandId).Delete(&models.SharedBandConcert{}).Error; err != nil {
-			return nil, fmt.Errorf("failed to revoke band access: %v", err)
+		res := s.db.Where("concert_id = ? AND band_id = ?", concert.ID, *req.TargetBandId).Delete(&models.SharedBandConcert{})
+		if res.RowsAffected == 0 {
+			return nil, fmt.Errorf("this band does not have access to this concert")
 		}
 		return &concertpb.RevokeConcertAccessResponse{Message: "Concert access revoked for band"}, nil
 	}
 
 	if req.TargetEmail != nil {
-		var targetUser models.User
-		if err := s.db.Where("email = ?", *req.TargetEmail).First(&targetUser).Error; err == nil {
-			_ = s.db.Where("concert_id = ? AND user_id = ?", concert.ID, targetUser.ID).Delete(&models.SharedUserConcert{})
-		}
-		_ = s.db.Where("concert_id = ? AND invitee_email = ?", concert.ID, *req.TargetEmail).Delete(&models.ShareConcertInvitation{})
+		email := *req.TargetEmail
+		var deletedShares int64
+		var deletedInvites int64
 
-		return &concertpb.RevokeConcertAccessResponse{Message: "Concert access revoked for user"}, nil
+		var targetUser models.User
+		if err := s.db.Where("email = ?", email).First(&targetUser).Error; err == nil {
+			res := s.db.Where("concert_id = ? AND user_id = ?", concert.ID, targetUser.ID).Delete(&models.SharedUserConcert{})
+			deletedShares = res.RowsAffected
+		}
+
+		res := s.db.Where("concert_id = ? AND invitee_email = ? AND status = 'pending'", concert.ID, email).Delete(&models.ShareConcertInvitation{})
+		deletedInvites = res.RowsAffected
+
+		if deletedShares == 0 && deletedInvites == 0 {
+			return nil, fmt.Errorf("no active access or pending invitation found for %s", email)
+		}
+
+		return &concertpb.RevokeConcertAccessResponse{Message: "Concert access revoked successfully"}, nil
 	}
 
 	return nil, fmt.Errorf("target_email or target_band_id must be provided")
