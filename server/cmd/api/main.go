@@ -84,7 +84,7 @@ func main() {
 	}
 	fmt.Println("Migrated database")
 
-	adminSv := admin.NewAdminServer(db, 8081, "admin", "admin") // todo: use normal login
+	adminSv := admin.NewAdminServer(db, 8081)
 	go func() {
 		if err := adminSv.Start(); err != nil {
 			log.Printf("Admin HTTP Server error: %v", err)

@@ -7,37 +7,60 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+
+	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
 )
 
 //go:embed web/admin.html
 var adminHTML embed.FS
 
 type AdminServer struct {
-	db       *gorm.DB
-	port     int
-	username string
-	password string
+	db   *gorm.DB
+	port int
 }
 
-func NewAdminServer(db *gorm.DB, port int, username, password string) *AdminServer {
+func NewAdminServer(db *gorm.DB, port int) *AdminServer {
 	return &AdminServer{
-		db:       db,
-		port:     port,
-		username: username,
-		password: password,
+		db:   db,
+		port: port,
 	}
+}
+
+func (s *AdminServer) requestAuth(w http.ResponseWriter) {
+	w.Header().Set("WWW-Authenticate", `Basic realm="Admin Panel restricted access"`)
+	http.Error(w, "Unauthorized access", http.StatusUnauthorized)
 }
 
 func (s *AdminServer) basicAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user, pass, ok := r.BasicAuth()
-		if !ok || user != s.username || pass != s.password {
-			w.Header().Set("WWW-Authenticate", `Basic realm="Admin Panel restricted access"`)
-			http.Error(w, "Unauthorized access", http.StatusUnauthorized)
+		email, password, ok := r.BasicAuth()
+		if !ok {
+			s.requestAuth(w)
 			return
 		}
+
+		var user models.User
+		if err := s.db.Where("email = ?", email).First(&user).Error; err != nil {
+			s.requestAuth(w)
+			return
+		}
+
+		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+			s.requestAuth(w)
+			return
+		}
+
+		if user.Role != "admin" {
+			http.Error(w, "Forbidden: Administrator privileges required", http.StatusForbidden)
+			return
+		}
+		if user.Status != "active" {
+			http.Error(w, "Forbidden: Admin account is not active", http.StatusForbidden)
+			return
+		}
+
 		next(w, r)
 	}
 }
