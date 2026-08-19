@@ -10,6 +10,22 @@ service ConcertService {
   rpc AddConcertItem(AddConcertItemRequest) returns (AddConcertItemResponse);
   rpc GetConcertSetlist(GetConcertSetlistRequest) returns (GetConcertSetlistResponse);
   rpc ListConcerts(ListConcertsRequest) returns (ListConcertsResponse);
+
+  rpc ListMyConcerts(ListMyConcertsRequest) returns (ListMyConcertsResponse);
+  rpc ShareConcert(ShareConcertRequest) returns (ShareConcertResponse);
+  rpc RevokeConcertAccess(RevokeConcertAccessRequest) returns (RevokeConcertAccessResponse);
+  rpc ListConcertInvitations(ListConcertInvitationsRequest) returns (ListConcertInvitationsResponse);
+  rpc RespondToConcertInvitation(RespondToConcertInvitationRequest) returns (RespondToConcertInvitationResponse);
+}
+
+
+message ConcertItem {
+  string id = 1;
+  uint32 order = 2;
+  optional string score_id = 3;
+  optional string score_name = 4;
+  optional string file_path = 5;
+  optional uint32 break_min = 6;
 }
 
 message CreateConcertRequest {
@@ -18,11 +34,13 @@ message CreateConcertRequest {
   optional uint32 band_id = 3;
   optional string location = 4;
   optional string start_time = 5;
+  repeated ConcertItem items = 6;
 }
 
 message CreateConcertResponse {
   string id = 1;
   string message = 2;
+  string checksum = 3;
 }
 
 message UpdateConcertRequest {
@@ -30,10 +48,12 @@ message UpdateConcertRequest {
   string name = 2;
   optional string location = 3;
   optional string start_time = 4;
+  repeated ConcertItem items = 5;
 }
 
 message UpdateConcertResponse {
   string message = 1;
+  string checksum = 2;
 }
 
 message DeleteConcertRequest {
@@ -80,11 +100,61 @@ message ListConcertsResponse {
   repeated ConcertSummary concerts = 1;
 }
 
-message ConcertItem {
+
+message ListMyConcertsRequest {}
+
+message Concert {
   string id = 1;
-  uint32 order = 2;
-  optional string score_id = 3;
-  optional string score_name = 4;
-  optional string file_path = 5;
-  optional uint32 break_min = 6;
+  string name = 2;
+  string location = 3;
+  string start_time = 4;
+  string checksum = 5;
+  optional uint32 band_id = 6;
+  repeated ConcertItem items = 7;
+}
+
+message ListMyConcertsResponse {
+  repeated Concert concerts = 1;
+}
+
+message ShareConcertRequest {
+  string concert_id = 1;
+  optional string target_email = 2;
+  optional uint32 target_band_id = 3;
+}
+
+message ShareConcertResponse {
+  string message = 1;
+}
+
+message RevokeConcertAccessRequest {
+  string concert_id = 1;
+  optional string target_email = 2;
+  optional uint32 target_band_id = 3;
+}
+
+message RevokeConcertAccessResponse {
+  string message = 1;
+}
+
+message ListConcertInvitationsRequest {}
+
+message ConcertInvitation {
+  uint32 id = 1;
+  string concert_id = 2;
+  string concert_name = 3;
+  string owner_email = 4;
+}
+
+message ListConcertInvitationsResponse {
+  repeated ConcertInvitation invitations = 1;
+}
+
+message RespondToConcertInvitationRequest {
+  uint32 invitation_id = 1;
+  bool accept = 2;
+}
+
+message RespondToConcertInvitationResponse {
+  string message = 1;
 }

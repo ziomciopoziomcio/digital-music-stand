@@ -19,12 +19,17 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ConcertService_CreateConcert_FullMethodName     = "/digital_music_stand.concert.ConcertService/CreateConcert"
-	ConcertService_UpdateConcert_FullMethodName     = "/digital_music_stand.concert.ConcertService/UpdateConcert"
-	ConcertService_DeleteConcert_FullMethodName     = "/digital_music_stand.concert.ConcertService/DeleteConcert"
-	ConcertService_AddConcertItem_FullMethodName    = "/digital_music_stand.concert.ConcertService/AddConcertItem"
-	ConcertService_GetConcertSetlist_FullMethodName = "/digital_music_stand.concert.ConcertService/GetConcertSetlist"
-	ConcertService_ListConcerts_FullMethodName      = "/digital_music_stand.concert.ConcertService/ListConcerts"
+	ConcertService_CreateConcert_FullMethodName              = "/digital_music_stand.concert.ConcertService/CreateConcert"
+	ConcertService_UpdateConcert_FullMethodName              = "/digital_music_stand.concert.ConcertService/UpdateConcert"
+	ConcertService_DeleteConcert_FullMethodName              = "/digital_music_stand.concert.ConcertService/DeleteConcert"
+	ConcertService_AddConcertItem_FullMethodName             = "/digital_music_stand.concert.ConcertService/AddConcertItem"
+	ConcertService_GetConcertSetlist_FullMethodName          = "/digital_music_stand.concert.ConcertService/GetConcertSetlist"
+	ConcertService_ListConcerts_FullMethodName               = "/digital_music_stand.concert.ConcertService/ListConcerts"
+	ConcertService_ListMyConcerts_FullMethodName             = "/digital_music_stand.concert.ConcertService/ListMyConcerts"
+	ConcertService_ShareConcert_FullMethodName               = "/digital_music_stand.concert.ConcertService/ShareConcert"
+	ConcertService_RevokeConcertAccess_FullMethodName        = "/digital_music_stand.concert.ConcertService/RevokeConcertAccess"
+	ConcertService_ListConcertInvitations_FullMethodName     = "/digital_music_stand.concert.ConcertService/ListConcertInvitations"
+	ConcertService_RespondToConcertInvitation_FullMethodName = "/digital_music_stand.concert.ConcertService/RespondToConcertInvitation"
 )
 
 // ConcertServiceClient is the client API for ConcertService service.
@@ -37,6 +42,11 @@ type ConcertServiceClient interface {
 	AddConcertItem(ctx context.Context, in *AddConcertItemRequest, opts ...grpc.CallOption) (*AddConcertItemResponse, error)
 	GetConcertSetlist(ctx context.Context, in *GetConcertSetlistRequest, opts ...grpc.CallOption) (*GetConcertSetlistResponse, error)
 	ListConcerts(ctx context.Context, in *ListConcertsRequest, opts ...grpc.CallOption) (*ListConcertsResponse, error)
+	ListMyConcerts(ctx context.Context, in *ListMyConcertsRequest, opts ...grpc.CallOption) (*ListMyConcertsResponse, error)
+	ShareConcert(ctx context.Context, in *ShareConcertRequest, opts ...grpc.CallOption) (*ShareConcertResponse, error)
+	RevokeConcertAccess(ctx context.Context, in *RevokeConcertAccessRequest, opts ...grpc.CallOption) (*RevokeConcertAccessResponse, error)
+	ListConcertInvitations(ctx context.Context, in *ListConcertInvitationsRequest, opts ...grpc.CallOption) (*ListConcertInvitationsResponse, error)
+	RespondToConcertInvitation(ctx context.Context, in *RespondToConcertInvitationRequest, opts ...grpc.CallOption) (*RespondToConcertInvitationResponse, error)
 }
 
 type concertServiceClient struct {
@@ -107,6 +117,56 @@ func (c *concertServiceClient) ListConcerts(ctx context.Context, in *ListConcert
 	return out, nil
 }
 
+func (c *concertServiceClient) ListMyConcerts(ctx context.Context, in *ListMyConcertsRequest, opts ...grpc.CallOption) (*ListMyConcertsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMyConcertsResponse)
+	err := c.cc.Invoke(ctx, ConcertService_ListMyConcerts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *concertServiceClient) ShareConcert(ctx context.Context, in *ShareConcertRequest, opts ...grpc.CallOption) (*ShareConcertResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ShareConcertResponse)
+	err := c.cc.Invoke(ctx, ConcertService_ShareConcert_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *concertServiceClient) RevokeConcertAccess(ctx context.Context, in *RevokeConcertAccessRequest, opts ...grpc.CallOption) (*RevokeConcertAccessResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeConcertAccessResponse)
+	err := c.cc.Invoke(ctx, ConcertService_RevokeConcertAccess_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *concertServiceClient) ListConcertInvitations(ctx context.Context, in *ListConcertInvitationsRequest, opts ...grpc.CallOption) (*ListConcertInvitationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListConcertInvitationsResponse)
+	err := c.cc.Invoke(ctx, ConcertService_ListConcertInvitations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *concertServiceClient) RespondToConcertInvitation(ctx context.Context, in *RespondToConcertInvitationRequest, opts ...grpc.CallOption) (*RespondToConcertInvitationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RespondToConcertInvitationResponse)
+	err := c.cc.Invoke(ctx, ConcertService_RespondToConcertInvitation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ConcertServiceServer is the server API for ConcertService service.
 // All implementations must embed UnimplementedConcertServiceServer
 // for forward compatibility.
@@ -117,6 +177,11 @@ type ConcertServiceServer interface {
 	AddConcertItem(context.Context, *AddConcertItemRequest) (*AddConcertItemResponse, error)
 	GetConcertSetlist(context.Context, *GetConcertSetlistRequest) (*GetConcertSetlistResponse, error)
 	ListConcerts(context.Context, *ListConcertsRequest) (*ListConcertsResponse, error)
+	ListMyConcerts(context.Context, *ListMyConcertsRequest) (*ListMyConcertsResponse, error)
+	ShareConcert(context.Context, *ShareConcertRequest) (*ShareConcertResponse, error)
+	RevokeConcertAccess(context.Context, *RevokeConcertAccessRequest) (*RevokeConcertAccessResponse, error)
+	ListConcertInvitations(context.Context, *ListConcertInvitationsRequest) (*ListConcertInvitationsResponse, error)
+	RespondToConcertInvitation(context.Context, *RespondToConcertInvitationRequest) (*RespondToConcertInvitationResponse, error)
 	mustEmbedUnimplementedConcertServiceServer()
 }
 
@@ -144,6 +209,21 @@ func (UnimplementedConcertServiceServer) GetConcertSetlist(context.Context, *Get
 }
 func (UnimplementedConcertServiceServer) ListConcerts(context.Context, *ListConcertsRequest) (*ListConcertsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListConcerts not implemented")
+}
+func (UnimplementedConcertServiceServer) ListMyConcerts(context.Context, *ListMyConcertsRequest) (*ListMyConcertsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMyConcerts not implemented")
+}
+func (UnimplementedConcertServiceServer) ShareConcert(context.Context, *ShareConcertRequest) (*ShareConcertResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ShareConcert not implemented")
+}
+func (UnimplementedConcertServiceServer) RevokeConcertAccess(context.Context, *RevokeConcertAccessRequest) (*RevokeConcertAccessResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeConcertAccess not implemented")
+}
+func (UnimplementedConcertServiceServer) ListConcertInvitations(context.Context, *ListConcertInvitationsRequest) (*ListConcertInvitationsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListConcertInvitations not implemented")
+}
+func (UnimplementedConcertServiceServer) RespondToConcertInvitation(context.Context, *RespondToConcertInvitationRequest) (*RespondToConcertInvitationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RespondToConcertInvitation not implemented")
 }
 func (UnimplementedConcertServiceServer) mustEmbedUnimplementedConcertServiceServer() {}
 func (UnimplementedConcertServiceServer) testEmbeddedByValue()                        {}
@@ -274,6 +354,96 @@ func _ConcertService_ListConcerts_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ConcertService_ListMyConcerts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMyConcertsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConcertServiceServer).ListMyConcerts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ConcertService_ListMyConcerts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConcertServiceServer).ListMyConcerts(ctx, req.(*ListMyConcertsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ConcertService_ShareConcert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ShareConcertRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConcertServiceServer).ShareConcert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ConcertService_ShareConcert_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConcertServiceServer).ShareConcert(ctx, req.(*ShareConcertRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ConcertService_RevokeConcertAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeConcertAccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConcertServiceServer).RevokeConcertAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ConcertService_RevokeConcertAccess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConcertServiceServer).RevokeConcertAccess(ctx, req.(*RevokeConcertAccessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ConcertService_ListConcertInvitations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListConcertInvitationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConcertServiceServer).ListConcertInvitations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ConcertService_ListConcertInvitations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConcertServiceServer).ListConcertInvitations(ctx, req.(*ListConcertInvitationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ConcertService_RespondToConcertInvitation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RespondToConcertInvitationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConcertServiceServer).RespondToConcertInvitation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ConcertService_RespondToConcertInvitation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConcertServiceServer).RespondToConcertInvitation(ctx, req.(*RespondToConcertInvitationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ConcertService_ServiceDesc is the grpc.ServiceDesc for ConcertService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -304,6 +474,26 @@ var ConcertService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListConcerts",
 			Handler:    _ConcertService_ListConcerts_Handler,
+		},
+		{
+			MethodName: "ListMyConcerts",
+			Handler:    _ConcertService_ListMyConcerts_Handler,
+		},
+		{
+			MethodName: "ShareConcert",
+			Handler:    _ConcertService_ShareConcert_Handler,
+		},
+		{
+			MethodName: "RevokeConcertAccess",
+			Handler:    _ConcertService_RevokeConcertAccess_Handler,
+		},
+		{
+			MethodName: "ListConcertInvitations",
+			Handler:    _ConcertService_ListConcertInvitations_Handler,
+		},
+		{
+			MethodName: "RespondToConcertInvitation",
+			Handler:    _ConcertService_RespondToConcertInvitation_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

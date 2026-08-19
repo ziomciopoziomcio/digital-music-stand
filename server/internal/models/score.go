@@ -13,7 +13,7 @@ type Score struct {
 	Name          string `gorm:"not null"`
 	Composer      *string
 	FilePath      string `gorm:"not null"`
-	FileExtension string `gorm:"not null"`
+	FileExtension string `gorm:"not null;default:'.pdf'"`
 	Checksum      string `gorm:"not null"`
 
 	CreatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
@@ -33,21 +33,31 @@ func (s *Score) BeforeCreate(tx *gorm.DB) error {
 }
 
 type SharedUserScore struct {
-	ID        uint   `gorm:"primaryKey"`
-	ScoreID   string `gorm:"not null;type:varchar(36);index:idx_user_score,unique"`
-	UserID    uint   `gorm:"not null;index:idx_user_score,unique"`
-	CreatedAt time.Time
+	ID        uint      `gorm:"primaryKey"`
+	ScoreID   string    `gorm:"not null;type:varchar(36);uniqueIndex:idx_shared_user_score"`
+	UserID    uint      `gorm:"not null;uniqueIndex:idx_shared_user_score"`
+	CreatedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP"`
 
 	Score Score `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	User  User  `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 type SharedBandScore struct {
-	ID        uint   `gorm:"primaryKey"`
-	ScoreID   string `gorm:"not null;type:varchar(36);index:idx_band_score,unique"`
-	BandID    uint   `gorm:"not null;index:idx_band_score,unique"`
-	CreatedAt time.Time
+	ID        uint      `gorm:"primaryKey"`
+	ScoreID   string    `gorm:"not null;type:varchar(36);uniqueIndex:idx_shared_band_score"`
+	BandID    uint      `gorm:"not null;uniqueIndex:idx_shared_band_score"`
+	CreatedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP"`
 
 	Score Score `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	Band  Band  `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+type ShareScoreInvitation struct {
+	ID           uint      `gorm:"primaryKey"`
+	ScoreID      string    `gorm:"not null;type:varchar(36);uniqueIndex:idx_score_invite"`
+	InviteeEmail string    `gorm:"not null;uniqueIndex:idx_score_invite"`
+	Status       string    `gorm:"not null;default:'pending'"`
+	CreatedAt    time.Time `gorm:"not null;default:CURRENT_TIMESTAMP"`
+
+	Score Score `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }

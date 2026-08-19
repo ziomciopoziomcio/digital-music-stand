@@ -77,9 +77,21 @@ func main() {
 
 			bandClient := bandpb.NewBandServiceClient(conn)
 			if err := network.SynchronizeInvitations(context.Background(), bandClient, dbMgr); err != nil {
-				log.Printf("INVITATION SYNC ERROR: %v", err)
+				log.Printf("BAND INVITATION SYNC ERROR: %v", err)
 			} else {
-				log.Println("INVITATION SYNC SUCCESSFUL")
+				log.Println("BAND INVITATION SYNC SUCCESSFUL")
+			}
+
+			if err := network.SynchronizeConcertInvitations(context.Background(), concertClient, dbMgr); err != nil {
+				log.Printf("CONCERT INVITATION SYNC ERROR: %v", err)
+			} else {
+				log.Println("CONCERT INVITATION SYNC SUCCESSFUL")
+			}
+
+			if err := network.SynchronizeScoreInvitations(context.Background(), scoreClient, dbMgr); err != nil {
+				log.Printf("SCORE INVITATION SYNC ERROR: %v", err)
+			} else {
+				log.Println("SCORE INVITATION SYNC SUCCESSFUL")
 			}
 		}()
 	}
@@ -120,7 +132,7 @@ func main() {
 	}
 
 	showPractice = func() {
-		practiceView := ui.BuildPracticeMode(myWindow, dbMgr, func() {
+		practiceView := ui.BuildPracticeMode(myWindow, myApp, dbMgr, func() {
 			token := myApp.Preferences().String("jwt_token")
 			server := myApp.Preferences().String("server_addr")
 			if token != "" && server != "" {
@@ -129,9 +141,7 @@ func main() {
 					if err == nil {
 						defer conn.Close()
 						scoreClient := scorepb.NewScoreServiceClient(conn)
-						if syncErr := network.SynchronizeScores(context.Background(), scoreClient, dbMgr); syncErr != nil {
-							log.Printf("Background score sync error: %v", syncErr)
-						}
+						_ = network.SynchronizeScores(context.Background(), scoreClient, dbMgr)
 					}
 				}()
 			}
@@ -158,7 +168,7 @@ func main() {
 	}
 
 	showConcert = func() {
-		concertView := ui.BuildConcertMode(myWindow, dbMgr, showDashboard, showConcertSetup, triggerConcertSync)
+		concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, triggerConcertSync)
 		mainWrapper.Objects = []fyne.CanvasObject{concertView}
 		mainWrapper.Refresh()
 	}
@@ -201,19 +211,33 @@ func main() {
 					}
 					defer conn.Close()
 
-					if notif.Type == "band_invite" {
-						bandClient := bandpb.NewBandServiceClient(conn)
-						invID, _ := strconv.ParseUint(notif.ReferenceID, 10, 32)
+					invID, _ := strconv.ParseUint(notif.ReferenceID, 10, 32)
 
-						_, err := bandClient.RespondToInvitation(context.Background(), &bandpb.RespondToInvitationRequest{
+					switch notif.Type {
+					case "band_invite":
+						bandClient := bandpb.NewBandServiceClient(conn)
+						_, _ = bandClient.RespondToInvitation(context.Background(), &bandpb.RespondToInvitationRequest{
 							InvitationId: uint32(invID),
 							Accept:       accept,
 						})
-						if err != nil {
-							log.Printf("Failed to respond to invitation: %v", err)
-						} else {
-							log.Printf("Successfully responded to invitation %d (Accepted: %v)", invID, accept)
-						}
+
+					case "concert_invite":
+						concertClient := concertpb.NewConcertServiceClient(conn)
+						_, _ = concertClient.RespondToConcertInvitation(context.Background(), &concertpb.RespondToConcertInvitationRequest{
+							InvitationId: uint32(invID),
+							Accept:       accept,
+						})
+
+					case "score_invite":
+						scoreClient := scorepb.NewScoreServiceClient(conn)
+						_, _ = scoreClient.RespondToScoreInvitation(context.Background(), &scorepb.RespondToScoreInvitationRequest{
+							InvitationId: uint32(invID),
+							Accept:       accept,
+						})
+					}
+
+					if accept {
+						startBackgroundSync(server, token)
 					}
 				}()
 			}

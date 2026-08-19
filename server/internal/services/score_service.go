@@ -169,50 +169,6 @@ func (s *ScoreService) DownloadScore(req *scorepb.DownloadScoreRequest, stream s
 	return nil
 }
 
-func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRequest) (*scorepb.ShareScoreResponse, error) {
-	if req.GetScoreId() == "" {
-		return nil, fmt.Errorf("missing required fields")
-	}
-	if req.UserId == nil && req.BandId == nil {
-		return nil, fmt.Errorf("either user_id or band_id must be provided")
-	}
-	if req.UserId != nil && req.BandId != nil {
-		return nil, fmt.Errorf("only one of user_id or band_id can be provided")
-	}
-
-	var score models.Score
-	if err := s.db.First(&score, "id = ?", req.GetScoreId()).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("score not found")
-		}
-		return nil, fmt.Errorf("failed to query score: %v", err)
-	}
-
-	if req.UserId != nil {
-		newShare := models.SharedUserScore{
-			ScoreID: req.GetScoreId(),
-			UserID:  uint(*req.UserId),
-		}
-		if err := s.db.Create(&newShare).Error; err != nil {
-			return nil, fmt.Errorf("failed to share score with user: %v", err)
-		}
-	}
-
-	if req.BandId != nil {
-		newShare := models.SharedBandScore{
-			ScoreID: req.GetScoreId(),
-			BandID:  uint(*req.BandId),
-		}
-		if err := s.db.Create(&newShare).Error; err != nil {
-			return nil, fmt.Errorf("failed to share score with band: %v", err)
-		}
-	}
-
-	return &scorepb.ShareScoreResponse{
-		Message: "Score shared successfully",
-	}, nil
-}
-
 func (s *ScoreService) UpdateScore(ctx context.Context, req *scorepb.UpdateScoreRequest) (*scorepb.UpdateScoreResponse, error) {
 	userID, err := auth.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -267,4 +223,151 @@ func (s *ScoreService) DeleteScore(ctx context.Context, req *scorepb.DeleteScore
 	return &scorepb.DeleteScoreResponse{
 		Message: "Score deleted successfully",
 	}, nil
+}
+
+func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRequest) (*scorepb.ShareScoreResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
+	}
+
+	var score models.Score
+	if err := s.db.Where("id = ? AND owner_id = ?", req.GetScoreId(), userID).First(&score).Error; err != nil {
+		return nil, fmt.Errorf("score not found or permission denied")
+	}
+
+	if req.TargetBandId != nil {
+		var member models.BandMember
+		if err := s.db.Where("band_id = ? AND user_id = ?", *req.TargetBandId, userID).First(&member).Error; err != nil {
+			return nil, fmt.Errorf("you are not a member of this band")
+		}
+
+		sharedBand := models.SharedBandScore{
+			ScoreID: score.ID,
+			BandID:  uint(*req.TargetBandId),
+		}
+		if err := s.db.FirstOrCreate(&sharedBand, sharedBand).Error; err != nil {
+			return nil, fmt.Errorf("failed to share score with band: %v", err)
+		}
+		return &scorepb.ShareScoreResponse{Message: "Score shared with band successfully"}, nil
+	}
+
+	if req.TargetEmail != nil {
+		invite := models.ShareScoreInvitation{
+			ScoreID:      score.ID,
+			InviteeEmail: *req.TargetEmail,
+			Status:       "pending",
+		}
+		if err := s.db.FirstOrCreate(&invite, models.ShareScoreInvitation{ScoreID: invite.ScoreID, InviteeEmail: invite.InviteeEmail}).Error; err != nil {
+			return nil, fmt.Errorf("failed to create score invitation: %v", err)
+		}
+		return &scorepb.ShareScoreResponse{Message: "Score sharing invitation sent to user"}, nil
+	}
+
+	return nil, fmt.Errorf("target_email or target_band_id must be provided")
+}
+
+func (s *ScoreService) RevokeScoreAccess(ctx context.Context, req *scorepb.RevokeScoreAccessRequest) (*scorepb.RevokeScoreAccessResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
+	}
+
+	var score models.Score
+	if err := s.db.Where("id = ? AND owner_id = ?", req.GetScoreId(), userID).First(&score).Error; err != nil {
+		return nil, fmt.Errorf("score not found or permission denied")
+	}
+
+	if req.TargetBandId != nil {
+		if err := s.db.Where("score_id = ? AND band_id = ?", score.ID, *req.TargetBandId).Delete(&models.SharedBandScore{}).Error; err != nil {
+			return nil, fmt.Errorf("failed to revoke band access: %v", err)
+		}
+		return &scorepb.RevokeScoreAccessResponse{Message: "Access revoked for band"}, nil
+	}
+
+	if req.TargetEmail != nil {
+		var targetUser models.User
+		if err := s.db.Where("email = ?", *req.TargetEmail).First(&targetUser).Error; err == nil {
+			_ = s.db.Where("score_id = ? AND user_id = ?", score.ID, targetUser.ID).Delete(&models.SharedUserScore{})
+		}
+		_ = s.db.Where("score_id = ? AND invitee_email = ?", score.ID, *req.TargetEmail).Delete(&models.ShareScoreInvitation{})
+
+		return &scorepb.RevokeScoreAccessResponse{Message: "Access revoked for user"}, nil
+	}
+
+	return nil, fmt.Errorf("target_email or target_band_id must be provided")
+}
+
+func (s *ScoreService) ListScoreInvitations(ctx context.Context, req *scorepb.ListScoreInvitationsRequest) (*scorepb.ListScoreInvitationsResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
+	}
+
+	var user models.User
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	var invites []models.ShareScoreInvitation
+	if err := s.db.Preload("Score.Owner").Where("invitee_email = ? AND status = ?", user.Email, "pending").Find(&invites).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch score invitations: %v", err)
+	}
+
+	var response []*scorepb.ScoreInvitation
+	for _, inv := range invites {
+		response = append(response, &scorepb.ScoreInvitation{
+			Id:         uint32(inv.ID),
+			ScoreId:    fmt.Sprintf("%s", inv.ScoreID),
+			ScoreName:  inv.Score.Name,
+			OwnerEmail: inv.Score.Owner.Email,
+		})
+	}
+
+	return &scorepb.ListScoreInvitationsResponse{Invitations: response}, nil
+}
+
+func (s *ScoreService) RespondToScoreInvitation(ctx context.Context, req *scorepb.RespondToScoreInvitationRequest) (*scorepb.RespondToScoreInvitationResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
+	}
+
+	var user models.User
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	var invite models.ShareScoreInvitation
+	if err := s.db.Where("id = ? AND invitee_email = ? AND status = ?", req.GetInvitationId(), user.Email, "pending").First(&invite).Error; err != nil {
+		return nil, fmt.Errorf("invitation not found or already processed")
+	}
+
+	status := "declined"
+	if req.GetAccept() {
+		status = "accepted"
+	}
+
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&invite).Update("status", status).Error; err != nil {
+			return err
+		}
+
+		if req.GetAccept() {
+			sharedScore := models.SharedUserScore{
+				ScoreID: invite.ScoreID,
+				UserID:  userID,
+			}
+			if err := tx.FirstOrCreate(&sharedScore, sharedScore).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to process score invitation: %v", err)
+	}
+
+	return &scorepb.RespondToScoreInvitationResponse{Message: "Score invitation processed successfully"}, nil
 }

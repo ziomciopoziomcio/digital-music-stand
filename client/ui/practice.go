@@ -1,8 +1,8 @@
 package ui
 
 import (
+	"context"
 	"fmt"
-	"image/color"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -12,12 +12,15 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 )
 
-func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, onScoresChanged func(), goBack func()) *fyne.Container {
+func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onScoresChanged func(), goBack func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	editMode := false
@@ -40,241 +43,412 @@ func BuildPracticeMode(w fyne.Window, db *localdb.DBManager, onScoresChanged fun
 			if size.Height == 0 {
 				return 1
 			}
-			aspect := size.Width / size.Height
-			pages := int(aspect / 0.7)
-			if pages < 1 {
-				return 1
+			aspectRatio := size.Width / size.Height
+			if aspectRatio > 1.2 && totalPages >= 2 {
+				return 2
 			}
-			if pages > 3 {
-				return 3
-			}
-			return pages
+			return 1
 		}
 
-		var scoreDisplay *responsiveViewer
-		var updatePage func(size fyne.Size)
+		pdfContainer := container.NewMax()
 
-		scoreDisplay = newResponsiveViewer(func(s fyne.Size) {
-			if updatePage != nil {
-				newPts := getPagesToShow(s)
-				if newPts != currentPagesToShow {
-					updatePage(s)
-				}
-			}
-		})
-
-		updatePage = func(size fyne.Size) {
-			if pdfMgr == nil {
+		renderPages := func(pagesToShow int) {
+			if pdfMgr == nil || totalPages == 0 {
+				pdfContainer.Objects = []fyne.CanvasObject{widget.NewLabel("Failed to load PDF")}
+				pdfContainer.Refresh()
 				return
 			}
 
-			pagesToShow := getPagesToShow(size)
-			currentPagesToShow = pagesToShow
+			if pagesToShow == 2 && currentPage+1 < totalPages {
+				img1, err1 := pdfMgr.GetPageImage(currentPage)
+				img2, err2 := pdfMgr.GetPageImage(currentPage + 1)
 
-			var pageImages []fyne.CanvasObject
-			for i := 0; i < pagesToShow; i++ {
-				pageIdx := currentPage + i
-				if pageIdx < totalPages {
-					img, imgErr := pdfMgr.GetPageImage(pageIdx)
-					if imgErr == nil {
-						imgCanvas := canvas.NewImageFromImage(img)
-						imgCanvas.FillMode = canvas.ImageFillContain
-						pageImages = append(pageImages, imgCanvas)
-					} else {
-						pageImages = append(pageImages, layout.NewSpacer())
-					}
-				} else {
-					pageImages = append(pageImages, layout.NewSpacer())
+				if err1 == nil && err2 == nil {
+					canvasImg1 := canvas.NewImageFromImage(img1)
+					canvasImg1.FillMode = canvas.ImageFillContain
+
+					canvasImg2 := canvas.NewImageFromImage(img2)
+					canvasImg2.FillMode = canvas.ImageFillContain
+
+					grid := container.NewGridWithColumns(2, canvasImg1, canvasImg2)
+					pdfContainer.Objects = []fyne.CanvasObject{grid}
+					pdfContainer.Refresh()
+
+					pageLabel.SetText(fmt.Sprintf("Pages %d-%d / %d", currentPage+1, currentPage+2, totalPages))
+					return
 				}
 			}
 
-			grid := container.NewGridWithRows(1, pageImages...)
-			scoreDisplay.content.Objects = []fyne.CanvasObject{grid}
-			scoreDisplay.content.Refresh()
-
-			endPage := currentPage + pagesToShow
-			if endPage > totalPages {
-				endPage = totalPages
+			img, err := pdfMgr.GetPageImage(currentPage)
+			if err != nil {
+				pdfContainer.Objects = []fyne.CanvasObject{widget.NewLabel("Error rendering page")}
+				pdfContainer.Refresh()
+				return
 			}
 
-			if pagesToShow == 1 || currentPage == endPage-1 {
-				pageLabel.SetText(fmt.Sprintf("%s\n\nPage %d / %d", score.Title, currentPage+1, totalPages))
-			} else {
-				pageLabel.SetText(fmt.Sprintf("%s\n\nPages %d-%d / %d", score.Title, currentPage+1, endPage, totalPages))
-			}
+			canvasImg := canvas.NewImageFromImage(img)
+			canvasImg.FillMode = canvas.ImageFillContain
+
+			pdfContainer.Objects = []fyne.CanvasObject{canvasImg}
+			pdfContainer.Refresh()
+
+			pageLabel.SetText(fmt.Sprintf("Page %d / %d", currentPage+1, totalPages))
 		}
 
-		if err == nil {
-			initSize := w.Canvas().Size()
-			initSize.Width -= 180
-			updatePage(initSize)
-		} else {
-			scoreDisplay.content.Objects = []fyne.CanvasObject{
-				container.NewCenter(widget.NewLabelWithStyle("Could not load PDF file:\n"+score.FilePath, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})),
+		prevBtn := widget.NewButtonWithIcon("PREV\nPAGE", theme.NavigateBackIcon(), func() {
+			if currentPage > 0 {
+				currentPage -= currentPagesToShow
+				if currentPage < 0 {
+					currentPage = 0
+				}
+				renderPages(currentPagesToShow)
 			}
-			scoreDisplay.content.Refresh()
-		}
+		})
+		prevBtn.Importance = widget.HighImportance
 
-		nextBtn := widget.NewButtonWithIcon("Next", theme.MenuDropUpIcon(), func() {
-			pts := getPagesToShow(scoreDisplay.Size())
-			if currentPage+pts < totalPages {
-				currentPage += pts
-				updatePage(scoreDisplay.Size())
+		nextBtn := widget.NewButtonWithIcon("NEXT\nPAGE", theme.NavigateNextIcon(), func() {
+			if currentPage+currentPagesToShow < totalPages {
+				currentPage += currentPagesToShow
+				renderPages(currentPagesToShow)
 			}
 		})
 		nextBtn.Importance = widget.HighImportance
 
-		prevBtn := widget.NewButtonWithIcon("Prev", theme.MenuDropDownIcon(), func() {
-			pts := getPagesToShow(scoreDisplay.Size())
-			currentPage -= pts
-			if currentPage < 0 {
-				currentPage = 0
-			}
-			updatePage(scoreDisplay.Size())
-		})
-		prevBtn.Importance = widget.HighImportance
-
-		utilitiesBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
-			ShowToolsMenu(w)
-		})
-		utilitiesBtn.Importance = widget.HighImportance
-
-		backBtn := widget.NewButtonWithIcon("Library", theme.NavigateBackIcon(), func() {
+		exitBtn := widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
 			if pdfMgr != nil {
 				pdfMgr.Close()
 			}
 			showLibrary()
 		})
-		backBtn.Importance = widget.WarningImportance
+		exitBtn.Importance = widget.DangerImportance
 
-		controlsPanel := container.NewVBox(
-			backBtn,
-			widget.NewSeparator(),
-			pageLabel,
-			widget.NewLabel(""),
-			prevBtn,
-			widget.NewLabel(""),
-			nextBtn,
-			layout.NewSpacer(),
-			utilitiesBtn,
+		titleLabel := widget.NewLabelWithStyle(score.Title, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+		topBar := container.NewBorder(nil, nil, exitBtn, nil, titleLabel)
+
+		toolsBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
+			ShowToolsMenu(w)
+		})
+
+		rightSidebar := container.NewBorder(
+			container.NewVBox(pageLabel, widget.NewSeparator(), toolsBtn, widget.NewSeparator()),
+			nil, nil, nil,
+			container.NewGridWithRows(2, prevBtn, nextBtn),
 		)
 
-		view := container.NewBorder(nil, nil, nil, container.NewPadded(controlsPanel), scoreDisplay)
-
-		contentWrapper.Objects = []fyne.CanvasObject{view}
-		contentWrapper.Refresh()
-	}
-
-	openAddDialog := func() {
-		fd := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
-			if err != nil || reader == nil {
-				return
+		viewer := newResponsiveViewer(func(size fyne.Size) {
+			newPagesToShow := getPagesToShow(size)
+			if newPagesToShow != currentPagesToShow {
+				currentPagesToShow = newPagesToShow
+				renderPages(currentPagesToShow)
 			}
-			filePath := reader.URI().Path()
-			defaultName := reader.URI().Name()
-			reader.Close()
-
-			entry := widget.NewEntry()
-			entry.SetText(defaultName)
-
-			var d dialog.Dialog
-			submitAction := func() {
-				if entry.Text != "" {
-					db.AddScore(entry.Text, filePath)
-					d.Hide()
-					showLibrary()
-					onScoresChanged()
-				}
-			}
-			entry.OnSubmitted = func(_ string) { submitAction() }
-
-			addBtn := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), submitAction)
-			addBtn.Importance = widget.HighImportance
-
-			cancelBtn := widget.NewButton("Cancel", func() { d.Hide() })
-
-			controls := container.NewHBox(layout.NewSpacer(), addBtn, cancelBtn)
-			content := container.NewVBox(widget.NewLabel("Enter score title:"), entry, widget.NewLabel(""), controls)
-
-			d = dialog.NewCustomWithoutButtons("Save Score", content, w)
-			d.Show()
-			w.Canvas().Focus(entry)
-
-		}, w)
-
-		fd.SetFilter(storage.NewExtensionFileFilter([]string{".pdf"}))
-		fd.Show()
-	}
-
-	openEditDialog := func(score localdb.Score) {
-		entry := widget.NewEntry()
-		entry.SetText(score.Title)
-
-		var d dialog.Dialog
-		submitAction := func() {
-			if entry.Text != "" {
-				db.UpdateScore(score.ID, entry.Text)
-			}
-			d.Hide()
-			showLibrary()
-			onScoresChanged()
-		}
-		entry.OnSubmitted = func(_ string) { submitAction() }
-
-		deleteBtn := widget.NewButtonWithIcon("Delete", theme.DeleteIcon(), func() {
-			db.MarkScoreDeleted(score.ID)
-			d.Hide()
-			showLibrary()
-			onScoresChanged()
 		})
-		deleteBtn.Importance = widget.DangerImportance
+		viewer.content.Objects = []fyne.CanvasObject{pdfContainer}
 
-		saveBtn := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), submitAction)
-		saveBtn.Importance = widget.HighImportance
+		mainView := container.NewBorder(
+			container.NewPadded(topBar),
+			nil, nil,
+			container.NewPadded(rightSidebar),
+			viewer,
+		)
 
-		cancelBtn := widget.NewButton("Cancel", func() { d.Hide() })
+		contentWrapper.Objects = []fyne.CanvasObject{mainView}
+		contentWrapper.Refresh()
 
-		controls := container.NewHBox(layout.NewSpacer(), deleteBtn, saveBtn, cancelBtn)
-		content := container.NewVBox(widget.NewLabel("Rename score:"), entry, widget.NewLabel(""), controls)
-
-		d = dialog.NewCustomWithoutButtons("Manage Score", content, w)
-		d.Show()
-		w.Canvas().Focus(entry)
+		renderPages(currentPagesToShow)
 	}
 
 	showLibrary = func() {
-		scores, _ := db.GetScores()
-
-		grid := container.NewGridWithColumns(2)
-		for _, s := range scores {
-			score := s
-			icon := theme.DocumentIcon()
-			if editMode {
-				icon = theme.SettingsIcon()
-			}
-
-			btn := widget.NewButtonWithIcon(score.Title, icon, func() {
-				if editMode {
-					openEditDialog(score)
-				} else {
-					showScore(score)
-				}
-			})
-
-			if editMode {
-				btn.Importance = widget.WarningImportance
-			} else {
-				btn.Importance = widget.HighImportance
-			}
-
-			spacer := canvas.NewRectangle(color.Transparent)
-			spacer.SetMinSize(fyne.NewSize(0, 80))
-
-			tile := container.NewMax(spacer, btn)
-			grid.Add(tile)
+		scores, err := db.GetScores()
+		if err != nil {
+			dialog.ShowError(err, w)
+			scores = []localdb.Score{}
 		}
 
-		addBtn := widget.NewButtonWithIcon("Add Score", theme.ContentAddIcon(), openAddDialog)
+		grid := container.NewGridWrap(fyne.NewSize(200, 200))
+
+		for _, s := range scores {
+			score := s
+
+			cardContent := container.NewVBox(
+				widget.NewLabelWithStyle(score.Title, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+				layout.NewSpacer(),
+			)
+			card := widget.NewCard("", "", cardContent)
+
+			if editMode {
+				shareBtn := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
+					emailEntry := widget.NewEntry()
+					emailEntry.SetPlaceHolder("user@example.com")
+
+					bandSelect := widget.NewSelect([]string{"Loading bands..."}, nil)
+					var bandMap map[string]uint32
+
+					targetType := widget.NewRadioGroup([]string{"User (Email)", "Band"}, func(selected string) {
+						if selected == "User (Email)" {
+							emailEntry.Enable()
+							bandSelect.Disable()
+						} else {
+							emailEntry.Disable()
+							bandSelect.Enable()
+						}
+					})
+					targetType.SetSelected("User (Email)")
+
+					go func() {
+						token := app.Preferences().String("jwt_token")
+						server := app.Preferences().String("server_addr")
+						if token != "" && server != "" {
+							if conn, err := network.NewGRPCClient(server, token); err == nil {
+								defer conn.Close()
+								client := bandpb.NewBandServiceClient(conn)
+								resp, err := client.ListMyBands(context.Background(), &bandpb.ListMyBandsRequest{})
+								if err == nil {
+									bandMap = make(map[string]uint32)
+									var names []string
+									for _, b := range resp.GetBands() {
+										bandMap[b.Name] = b.Id
+										names = append(names, b.Name)
+									}
+									if len(names) > 0 {
+										bandSelect.Options = names
+										bandSelect.SetSelected(names[0])
+									} else {
+										bandSelect.Options = []string{"No bands available"}
+										bandSelect.SetSelected("No bands available")
+									}
+									bandSelect.Refresh()
+								}
+							}
+						}
+					}()
+
+					var d dialog.Dialog
+					shareForm := container.NewVBox(
+						widget.NewLabel(fmt.Sprintf("Share score '%s':", score.Title)),
+						targetType,
+						widget.NewLabel("Email address:"), emailEntry,
+						widget.NewLabel("Select Band:"), bandSelect,
+						container.NewHBox(
+							layout.NewSpacer(),
+							widget.NewButton("Share", func() {
+								isUser := targetType.Selected == "User (Email)"
+								if isUser && emailEntry.Text == "" {
+									return
+								}
+								if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
+									return
+								}
+
+								go func() {
+									token := app.Preferences().String("jwt_token")
+									server := app.Preferences().String("server_addr")
+									if conn, err := network.NewGRPCClient(server, token); err == nil {
+										defer conn.Close()
+										client := scorepb.NewScoreServiceClient(conn)
+										req := &scorepb.ShareScoreRequest{ScoreId: score.ID}
+
+										if isUser {
+											req.TargetEmail = &emailEntry.Text
+										} else {
+											bandID := bandMap[bandSelect.Selected]
+											req.TargetBandId = &bandID
+										}
+
+										_, err := client.ShareScore(context.Background(), req)
+										if err != nil {
+											dialog.ShowError(err, w)
+										} else {
+											msg := "Invitation sent to user!"
+											if !isUser {
+												msg = "Score shared with the band successfully!"
+											}
+											dialog.ShowInformation("Success", msg, w)
+										}
+									}
+								}()
+								d.Hide()
+							}),
+							widget.NewButton("Cancel", func() { d.Hide() }),
+						),
+					)
+
+					d = dialog.NewCustomWithoutButtons("Share Score", shareForm, w)
+					d.Show()
+				})
+
+				revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
+					emailEntry := widget.NewEntry()
+					emailEntry.SetPlaceHolder("user@example.com")
+
+					bandSelect := widget.NewSelect([]string{"Loading bands..."}, nil)
+					var bandMap map[string]uint32
+
+					targetType := widget.NewRadioGroup([]string{"User (Email)", "Band"}, func(selected string) {
+						if selected == "User (Email)" {
+							emailEntry.Enable()
+							bandSelect.Disable()
+						} else {
+							emailEntry.Disable()
+							bandSelect.Enable()
+						}
+					})
+					targetType.SetSelected("User (Email)")
+
+					// Pobieranie zespołów w tle
+					go func() {
+						token := app.Preferences().String("jwt_token")
+						server := app.Preferences().String("server_addr")
+						if token != "" && server != "" {
+							if conn, err := network.NewGRPCClient(server, token); err == nil {
+								defer conn.Close()
+								client := bandpb.NewBandServiceClient(conn)
+								resp, err := client.ListMyBands(context.Background(), &bandpb.ListMyBandsRequest{})
+								if err == nil {
+									bandMap = make(map[string]uint32)
+									var names []string
+									for _, b := range resp.GetBands() {
+										bandMap[b.Name] = b.Id
+										names = append(names, b.Name)
+									}
+									if len(names) > 0 {
+										bandSelect.Options = names
+										bandSelect.SetSelected(names[0])
+									} else {
+										bandSelect.Options = []string{"No bands available"}
+										bandSelect.SetSelected("No bands available")
+									}
+									bandSelect.Refresh()
+								}
+							}
+						}
+					}()
+
+					var d dialog.Dialog
+					revokeForm := container.NewVBox(
+						widget.NewLabel(fmt.Sprintf("Revoke access to '%s':", score.Title)),
+						targetType,
+						widget.NewLabel("Email address:"), emailEntry,
+						widget.NewLabel("Select Band:"), bandSelect,
+						container.NewHBox(
+							layout.NewSpacer(),
+							widget.NewButton("Revoke", func() {
+								isUser := targetType.Selected == "User (Email)"
+								if isUser && emailEntry.Text == "" {
+									return
+								}
+								if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
+									return
+								}
+
+								go func() {
+									token := app.Preferences().String("jwt_token")
+									server := app.Preferences().String("server_addr")
+									if conn, err := network.NewGRPCClient(server, token); err == nil {
+										defer conn.Close()
+										client := scorepb.NewScoreServiceClient(conn)
+										req := &scorepb.RevokeScoreAccessRequest{ScoreId: score.ID}
+
+										if isUser {
+											req.TargetEmail = &emailEntry.Text
+										} else {
+											bandID := bandMap[bandSelect.Selected]
+											req.TargetBandId = &bandID
+										}
+
+										_, err := client.RevokeScoreAccess(context.Background(), req)
+										if err != nil {
+											dialog.ShowError(err, w)
+										} else {
+											dialog.ShowInformation("Success", "Access revoked successfully!", w)
+										}
+									}
+								}()
+								d.Hide()
+							}),
+							widget.NewButton("Cancel", func() { d.Hide() }),
+						),
+					)
+
+					d = dialog.NewCustomWithoutButtons("Revoke Access", revokeForm, w)
+					d.Show()
+				})
+				revokeBtn.Importance = widget.DangerImportance
+
+				editTitleBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
+					entry := widget.NewEntry()
+					entry.SetText(score.Title)
+
+					var d dialog.Dialog
+					formContent := container.NewVBox(
+						widget.NewLabel("Edit Score Title:"),
+						entry,
+						container.NewHBox(
+							layout.NewSpacer(),
+							widget.NewButton("Save", func() {
+								if entry.Text != "" {
+									_ = db.UpdateScore(score.ID, entry.Text)
+									onScoresChanged()
+									showLibrary()
+									d.Hide()
+								}
+							}),
+							widget.NewButton("Cancel", func() { d.Hide() }),
+						),
+					)
+
+					d = dialog.NewCustomWithoutButtons("Edit Score", formContent, w)
+					d.Show()
+					w.Canvas().Focus(entry)
+				})
+
+				deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+					dialog.ShowConfirm("Delete Score", fmt.Sprintf("Are you sure you want to delete '%s'?", score.Title), func(confirmed bool) {
+						if confirmed {
+							_ = db.MarkScoreDeleted(score.ID)
+							onScoresChanged()
+							showLibrary()
+						}
+					}, w)
+				})
+				deleteBtn.Importance = widget.DangerImportance
+
+				editControls := container.NewHBox(shareBtn, revokeBtn, editTitleBtn, deleteBtn)
+				item := container.NewBorder(nil, editControls, nil, nil, card)
+				grid.Add(item)
+			} else {
+				openBtn := widget.NewButtonWithIcon("OPEN", theme.MediaPlayIcon(), func() {
+					showScore(score)
+				})
+				openBtn.Importance = widget.HighImportance
+
+				item := container.NewBorder(nil, openBtn, nil, nil, card)
+				grid.Add(item)
+			}
+		}
+
+		addBtn := widget.NewButtonWithIcon("Add Score", theme.ContentAddIcon(), func() {
+			fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
+				if err != nil || reader == nil {
+					return
+				}
+				defer reader.Close()
+
+				filePath := reader.URI().Path()
+				title := reader.URI().Name()
+
+				_, err = db.AddScore(title, filePath)
+				if err != nil {
+					dialog.ShowError(err, w)
+					return
+				}
+
+				onScoresChanged()
+				showLibrary()
+			}, w)
+
+			fileDialog.SetFilter(storage.NewExtensionFileFilter([]string{".pdf"}))
+			fileDialog.Show()
+		})
 		addBtn.Importance = widget.HighImportance
 
 		editToggleBtn := widget.NewButtonWithIcon("Manage", theme.SettingsIcon(), func() {
@@ -323,12 +497,12 @@ func (v *responsiveViewer) CreateRenderer() fyne.WidgetRenderer {
 	return widget.NewSimpleRenderer(v.content)
 }
 
-func (v *responsiveViewer) Resize(s fyne.Size) {
-	v.BaseWidget.Resize(s)
-	if s.Width != v.lastSize.Width || s.Height != v.lastSize.Height {
-		v.lastSize = s
-		if v.onResize != nil {
-			v.onResize(s)
-		}
+func (v *responsiveViewer) Resize(size fyne.Size) {
+	v.BaseWidget.Resize(size)
+	v.content.Resize(size)
+
+	if v.onResize != nil && (size.Width != v.lastSize.Width || size.Height != v.lastSize.Height) {
+		v.lastSize = size
+		v.onResize(size)
 	}
 }

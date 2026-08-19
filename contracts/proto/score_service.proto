@@ -8,8 +8,13 @@ service ScoreService {
   rpc UpdateScore(UpdateScoreRequest) returns (UpdateScoreResponse);
   rpc DeleteScore(DeleteScoreRequest) returns (DeleteScoreResponse);
   rpc ListMyScores(ListMyScoresRequest) returns (ListMyScoresResponse);
-  rpc ShareScore(ShareScoreRequest) returns (ShareScoreResponse);
   rpc DownloadScore(DownloadScoreRequest) returns (stream DownloadScoreResponse);
+
+  rpc ShareScore(ShareScoreRequest) returns (ShareScoreResponse);
+  rpc RevokeScoreAccess(RevokeScoreAccessRequest) returns (RevokeScoreAccessResponse);
+
+  rpc ListScoreInvitations(ListScoreInvitationsRequest) returns (ListScoreInvitationsResponse);
+  rpc RespondToScoreInvitation(RespondToScoreInvitationRequest) returns (RespondToScoreInvitationResponse);
 }
 
 message CreateScoreRequest {
@@ -18,11 +23,6 @@ message CreateScoreRequest {
   string composer = 2;
   bytes file_data = 5;
   string file_extension = 6;
-
-  reserved 3;
-  reserved "file_path";
-  reserved 4;
-  reserved "owner_id";
 }
 
 message CreateScoreResponse {
@@ -50,14 +50,7 @@ message DeleteScoreResponse {
   string message = 1;
 }
 
-message ListMyScoresRequest {
-  reserved 1;
-  reserved "user_id";
-}
-
-message ListMyScoresResponse {
-  repeated Score scores = 1;
-}
+message ListMyScoresRequest {}
 
 message Score {
   string id = 1;
@@ -68,14 +61,8 @@ message Score {
   string file_extension = 6;
 }
 
-message ShareScoreRequest {
-  string score_id = 1;
-  optional uint32 user_id = 2;
-  optional uint32 band_id = 3;
-}
-
-message ShareScoreResponse {
-  string message = 1;
+message ListMyScoresResponse {
+  repeated Score scores = 1;
 }
 
 message DownloadScoreRequest {
@@ -84,4 +71,46 @@ message DownloadScoreRequest {
 
 message DownloadScoreResponse {
   bytes chunk_data = 1;
+}
+
+message ShareScoreRequest {
+  string score_id = 1;
+  optional string target_email = 2;
+  optional uint32 target_band_id = 3;
+}
+
+message ShareScoreResponse {
+  string message = 1;
+}
+
+message RevokeScoreAccessRequest {
+  string score_id = 1;
+  optional string target_email = 2;
+  optional uint32 target_band_id = 3;
+}
+
+message RevokeScoreAccessResponse {
+  string message = 1;
+}
+
+message ListScoreInvitationsRequest {}
+
+message ScoreInvitation {
+  uint32 id = 1;
+  string score_id = 2;
+  string score_name = 3;
+  string owner_email = 4;
+}
+
+message ListScoreInvitationsResponse {
+  repeated ScoreInvitation invitations = 1;
+}
+
+message RespondToScoreInvitationRequest {
+  uint32 invitation_id = 1;
+  bool accept = 2;
+}
+
+message RespondToScoreInvitationResponse {
+  string message = 1;
 }

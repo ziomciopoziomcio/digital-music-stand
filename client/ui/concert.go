@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -11,12 +12,15 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
 )
 
-func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func()) *fyne.Container {
+func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var showConcertList func()
@@ -54,6 +58,203 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			})
 			openBtn.Importance = widget.HighImportance
 
+			shareBtn := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
+				emailEntry := widget.NewEntry()
+				emailEntry.SetPlaceHolder("user@example.com")
+
+				bandSelect := widget.NewSelect([]string{"Loading bands..."}, nil)
+				var bandMap map[string]uint32
+
+				targetType := widget.NewRadioGroup([]string{"User (Email)", "Band"}, func(selected string) {
+					if selected == "User (Email)" {
+						emailEntry.Enable()
+						bandSelect.Disable()
+					} else {
+						emailEntry.Disable()
+						bandSelect.Enable()
+					}
+				})
+				targetType.SetSelected("User (Email)")
+
+				go func() {
+					token := app.Preferences().String("jwt_token")
+					server := app.Preferences().String("server_addr")
+					if token != "" && server != "" {
+						if conn, err := network.NewGRPCClient(server, token); err == nil {
+							defer conn.Close()
+							client := bandpb.NewBandServiceClient(conn)
+							resp, err := client.ListMyBands(context.Background(), &bandpb.ListMyBandsRequest{})
+							if err == nil {
+								bandMap = make(map[string]uint32)
+								var names []string
+								for _, b := range resp.GetBands() {
+									bandMap[b.Name] = b.Id
+									names = append(names, b.Name)
+								}
+								if len(names) > 0 {
+									bandSelect.Options = names
+									bandSelect.SetSelected(names[0])
+								} else {
+									bandSelect.Options = []string{"No bands available"}
+									bandSelect.SetSelected("No bands available")
+								}
+								bandSelect.Refresh()
+							}
+						}
+					}
+				}()
+
+				var d dialog.Dialog
+				shareForm := container.NewVBox(
+					widget.NewLabel(fmt.Sprintf("Share concert '%s':", concert.Name)),
+					targetType,
+					widget.NewLabel("Email address:"), emailEntry,
+					widget.NewLabel("Select Band:"), bandSelect,
+					container.NewHBox(
+						layout.NewSpacer(),
+						widget.NewButton("Share", func() {
+							isUser := targetType.Selected == "User (Email)"
+							if isUser && emailEntry.Text == "" {
+								return
+							}
+							if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
+								return
+							}
+
+							go func() {
+								token := app.Preferences().String("jwt_token")
+								server := app.Preferences().String("server_addr")
+								if conn, err := network.NewGRPCClient(server, token); err == nil {
+									defer conn.Close()
+									client := concertpb.NewConcertServiceClient(conn)
+									req := &concertpb.ShareConcertRequest{ConcertId: concert.ID}
+
+									if isUser {
+										req.TargetEmail = &emailEntry.Text
+									} else {
+										bandID := bandMap[bandSelect.Selected]
+										req.TargetBandId = &bandID
+									}
+
+									_, err := client.ShareConcert(context.Background(), req)
+									if err != nil {
+										dialog.ShowError(err, w)
+									} else {
+										msg := "Concert invitation sent to user!"
+										if !isUser {
+											msg = "Concert shared with the band successfully!"
+										}
+										dialog.ShowInformation("Success", msg, w)
+									}
+								}
+							}()
+							d.Hide()
+						}),
+						widget.NewButton("Cancel", func() { d.Hide() }),
+					),
+				)
+
+				d = dialog.NewCustomWithoutButtons("Share Concert", shareForm, w)
+				d.Show()
+			})
+
+			revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
+				emailEntry := widget.NewEntry()
+				emailEntry.SetPlaceHolder("user@example.com")
+
+				bandSelect := widget.NewSelect([]string{"Loading bands..."}, nil)
+				var bandMap map[string]uint32
+
+				targetType := widget.NewRadioGroup([]string{"User (Email)", "Band"}, func(selected string) {
+					if selected == "User (Email)" {
+						emailEntry.Enable()
+						bandSelect.Disable()
+					} else {
+						emailEntry.Disable()
+						bandSelect.Enable()
+					}
+				})
+				targetType.SetSelected("User (Email)")
+
+				go func() {
+					token := app.Preferences().String("jwt_token")
+					server := app.Preferences().String("server_addr")
+					if token != "" && server != "" {
+						if conn, err := network.NewGRPCClient(server, token); err == nil {
+							defer conn.Close()
+							client := bandpb.NewBandServiceClient(conn)
+							resp, err := client.ListMyBands(context.Background(), &bandpb.ListMyBandsRequest{})
+							if err == nil {
+								bandMap = make(map[string]uint32)
+								var names []string
+								for _, b := range resp.GetBands() {
+									bandMap[b.Name] = b.Id
+									names = append(names, b.Name)
+								}
+								if len(names) > 0 {
+									bandSelect.Options = names
+									bandSelect.SetSelected(names[0])
+								} else {
+									bandSelect.Options = []string{"No bands available"}
+									bandSelect.SetSelected("No bands available")
+								}
+								bandSelect.Refresh()
+							}
+						}
+					}
+				}()
+
+				var d dialog.Dialog
+				revokeForm := container.NewVBox(
+					widget.NewLabel(fmt.Sprintf("Revoke access to '%s':", concert.Name)),
+					targetType,
+					widget.NewLabel("Email address:"), emailEntry,
+					widget.NewLabel("Select Band:"), bandSelect,
+					container.NewHBox(
+						layout.NewSpacer(),
+						widget.NewButton("Revoke", func() {
+							isUser := targetType.Selected == "User (Email)"
+							if isUser && emailEntry.Text == "" {
+								return
+							}
+							if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
+								return
+							}
+
+							go func() {
+								token := app.Preferences().String("jwt_token")
+								server := app.Preferences().String("server_addr")
+								if conn, err := network.NewGRPCClient(server, token); err == nil {
+									defer conn.Close()
+									client := concertpb.NewConcertServiceClient(conn)
+									req := &concertpb.RevokeConcertAccessRequest{ConcertId: concert.ID}
+
+									if isUser {
+										req.TargetEmail = &emailEntry.Text
+									} else {
+										bandID := bandMap[bandSelect.Selected]
+										req.TargetBandId = &bandID
+									}
+
+									_, err := client.RevokeConcertAccess(context.Background(), req)
+									if err != nil {
+										dialog.ShowError(err, w)
+									} else {
+										dialog.ShowInformation("Success", "Concert access revoked!", w)
+									}
+								}
+							}()
+							d.Hide()
+						}),
+						widget.NewButton("Cancel", func() { d.Hide() }),
+					),
+				)
+
+				d = dialog.NewCustomWithoutButtons("Revoke Access", revokeForm, w)
+				d.Show()
+			})
+			revokeBtn.Importance = widget.DangerImportance
+
 			editBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
 				openSetup(&concert)
 			})
@@ -69,7 +270,7 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			})
 			deleteBtn.Importance = widget.DangerImportance
 
-			actionButtons := container.NewHBox(editBtn, deleteBtn, openBtn)
+			actionButtons := container.NewHBox(shareBtn, revokeBtn, editBtn, deleteBtn, openBtn)
 			cardContent := container.NewVBox(nameLabel, detailsLabel, layout.NewSpacer())
 			card := widget.NewCard("", "", cardContent)
 
