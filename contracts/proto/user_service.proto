@@ -7,6 +7,9 @@ service UserService {
   rpc RegisterUser(RegisterUserRequest) returns (RegisterUserResponse);
   rpc LoginUser(LoginUserRequest) returns (LoginUserResponse);
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc ApproveUser(ApproveUserRequest) returns (ApproveUserResponse);
+  rpc RejectUser(RejectUserRequest) returns (RejectUserResponse);
 }
 
 message RegisterUserRequest {
@@ -17,7 +20,7 @@ message RegisterUserRequest {
 }
 
 message RegisterUserResponse {
-  uint32  id = 1;
+  uint32 id = 1;
   string message = 2;
 }
 
@@ -40,4 +43,39 @@ message GetProfileResponse {
   string email = 2;
   string name = 3;
   string surname = 4;
+  string status = 5;
+  string role = 6;
+}
+
+message UserInfo {
+  uint32 id = 1;
+  string email = 2;
+  string name = 3;
+  string surname = 4;
+  string status = 5;
+  string role = 6;
+}
+
+message ListUsersRequest {
+  string status_filter = 1;
+}
+
+message ListUsersResponse {
+  repeated UserInfo users = 1;
+}
+
+message ApproveUserRequest {
+  uint32 user_id = 1;
+}
+
+message ApproveUserResponse {
+  string message = 1;
+}
+
+message RejectUserRequest {
+  uint32 user_id = 1;
+}
+
+message RejectUserResponse {
+  string message = 1;
 }

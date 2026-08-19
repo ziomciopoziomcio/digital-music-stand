@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpb"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
@@ -331,8 +334,62 @@ func main() {
 	savedServer := myApp.Preferences().String("server_addr")
 
 	if savedToken != "" && savedServer != "" {
-		log.Println("Saved login data detected. Auto-login and background sync initiated...")
-		startBackgroundSync(savedServer, savedToken)
+		log.Println("Saved login data detected. Initiating background sync...")
+
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+
+			for {
+				serverAddr := myApp.Preferences().String("server_addr")
+				token := myApp.Preferences().String("jwt_token")
+
+				if serverAddr == "" || token == "" {
+					<-ticker.C
+					continue
+				}
+
+				conn, err := network.NewGRPCClient(serverAddr, token)
+				if err != nil {
+					log.Printf("[Sync] Server unreachable: %v", err)
+					<-ticker.C
+					continue
+				}
+
+				userClient := userpb.NewUserServiceClient(conn)
+				ctx := context.Background()
+
+				_, profileErr := userClient.GetProfile(ctx, &userpb.GetProfileRequest{})
+				if profileErr != nil {
+					conn.Close()
+					log.Printf("[Sync] Authorization failed: %v", profileErr)
+					myApp.Preferences().RemoveValue("jwt_token")
+
+					dialog.ShowInformation(
+						"Access Pending",
+						"Your account is awaiting administrator approval or has been suspended.",
+						myWindow,
+					)
+					log.Println("[Sync] Background sync stopped due to authorization failure.")
+					return
+				}
+
+				scoreClient := scorepb.NewScoreServiceClient(conn)
+				concertClient := concertpb.NewConcertServiceClient(conn)
+
+				syncScoreErr := network.SynchronizeScores(ctx, scoreClient, dbMgr)
+				syncConcertErr := network.SynchronizeConcerts(ctx, concertClient, dbMgr)
+				conn.Close()
+
+				if syncScoreErr != nil || syncConcertErr != nil {
+					log.Printf("[Sync] Sync errors - Scores: %v, Concerts: %v", syncScoreErr, syncConcertErr)
+				} else {
+					log.Println("[Sync] Synchronization successful.")
+				}
+
+				<-ticker.C
+			}
+		}()
 	}
 
 	savedPin := myApp.Preferences().String("app_pin")

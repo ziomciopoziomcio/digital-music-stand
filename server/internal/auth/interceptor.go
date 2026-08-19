@@ -6,10 +6,12 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 )
 
 var unprotectedMethods = map[string]bool{
@@ -17,7 +19,7 @@ var unprotectedMethods = map[string]bool{
 	"/digital_music_stand.user.UserService/LoginUser":    true,
 }
 
-func NewAuthInterceptor(secret string) grpc.UnaryServerInterceptor {
+func NewAuthInterceptor(secret string, db *gorm.DB) grpc.UnaryServerInterceptor {
 	jwtSecretKey := []byte(secret)
 
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
@@ -45,14 +47,30 @@ func NewAuthInterceptor(secret string) grpc.UnaryServerInterceptor {
 		})
 
 		if err != nil || !token.Valid {
-			return nil, status.Errorf(codes.Unauthenticated, "invalid token")
+			return nil, status.Errorf(codes.Unauthenticated, "invalid or expired token: %v", err)
 		}
 
-		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			if sub, ok := claims["sub"].(float64); ok {
-				ctx = context.WithValue(ctx, userIDKey, uint(sub))
-			}
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			return nil, status.Errorf(codes.Unauthenticated, "invalid token claims")
 		}
+
+		userIDFloat, ok := claims["sub"].(float64)
+		if !ok {
+			return nil, status.Errorf(codes.Unauthenticated, "missing or invalid sub claim")
+		}
+		userID := uint(userIDFloat)
+
+		var user models.User
+		if err := db.Select("id", "status").First(&user, userID).Error; err != nil {
+			return nil, status.Errorf(codes.Unauthenticated, "user account no longer exists")
+		}
+
+		if user.Status != "active" {
+			return nil, status.Errorf(codes.PermissionDenied, "account status is '%s' - access denied", user.Status)
+		}
+		ctx = context.WithValue(ctx, userIDKey, userID)
+
 		return handler(ctx, req)
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/admin"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/auth"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/services"
@@ -83,14 +84,19 @@ func main() {
 	}
 	fmt.Println("Migrated database")
 
+	adminSv := admin.NewAdminServer(db, 8081, "admin", "admin") // todo: use normal login
+	go func() {
+		if err := adminSv.Start(); err != nil {
+			log.Printf("Admin HTTP Server error: %v", err)
+		}
+	}()
+
 	lis, err := net.Listen("tcp4", "0.0.0.0:50051")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(auth.NewAuthInterceptor(jwtSecret)),
-	)
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(auth.NewAuthInterceptor(jwtSecret, db)))
 
 	userpb.RegisterUserServiceServer(grpcServer, services.NewUserService(db, jwtSecret, jwtExpHours))
 	scorepb.RegisterScoreServiceServer(grpcServer, services.NewScoreService(db))

@@ -22,6 +22,9 @@ const (
 	UserService_RegisterUser_FullMethodName = "/digital_music_stand.user.UserService/RegisterUser"
 	UserService_LoginUser_FullMethodName    = "/digital_music_stand.user.UserService/LoginUser"
 	UserService_GetProfile_FullMethodName   = "/digital_music_stand.user.UserService/GetProfile"
+	UserService_ListUsers_FullMethodName    = "/digital_music_stand.user.UserService/ListUsers"
+	UserService_ApproveUser_FullMethodName  = "/digital_music_stand.user.UserService/ApproveUser"
+	UserService_RejectUser_FullMethodName   = "/digital_music_stand.user.UserService/RejectUser"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -31,6 +34,9 @@ type UserServiceClient interface {
 	RegisterUser(ctx context.Context, in *RegisterUserRequest, opts ...grpc.CallOption) (*RegisterUserResponse, error)
 	LoginUser(ctx context.Context, in *LoginUserRequest, opts ...grpc.CallOption) (*LoginUserResponse, error)
 	GetProfile(ctx context.Context, in *GetProfileRequest, opts ...grpc.CallOption) (*GetProfileResponse, error)
+	ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error)
+	ApproveUser(ctx context.Context, in *ApproveUserRequest, opts ...grpc.CallOption) (*ApproveUserResponse, error)
+	RejectUser(ctx context.Context, in *RejectUserRequest, opts ...grpc.CallOption) (*RejectUserResponse, error)
 }
 
 type userServiceClient struct {
@@ -71,6 +77,36 @@ func (c *userServiceClient) GetProfile(ctx context.Context, in *GetProfileReques
 	return out, nil
 }
 
+func (c *userServiceClient) ListUsers(ctx context.Context, in *ListUsersRequest, opts ...grpc.CallOption) (*ListUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListUsersResponse)
+	err := c.cc.Invoke(ctx, UserService_ListUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) ApproveUser(ctx context.Context, in *ApproveUserRequest, opts ...grpc.CallOption) (*ApproveUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApproveUserResponse)
+	err := c.cc.Invoke(ctx, UserService_ApproveUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) RejectUser(ctx context.Context, in *RejectUserRequest, opts ...grpc.CallOption) (*RejectUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RejectUserResponse)
+	err := c.cc.Invoke(ctx, UserService_RejectUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
@@ -78,6 +114,9 @@ type UserServiceServer interface {
 	RegisterUser(context.Context, *RegisterUserRequest) (*RegisterUserResponse, error)
 	LoginUser(context.Context, *LoginUserRequest) (*LoginUserResponse, error)
 	GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error)
+	ListUsers(context.Context, *ListUsersRequest) (*ListUsersResponse, error)
+	ApproveUser(context.Context, *ApproveUserRequest) (*ApproveUserResponse, error)
+	RejectUser(context.Context, *RejectUserRequest) (*RejectUserResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -96,6 +135,15 @@ func (UnimplementedUserServiceServer) LoginUser(context.Context, *LoginUserReque
 }
 func (UnimplementedUserServiceServer) GetProfile(context.Context, *GetProfileRequest) (*GetProfileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetProfile not implemented")
+}
+func (UnimplementedUserServiceServer) ListUsers(context.Context, *ListUsersRequest) (*ListUsersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListUsers not implemented")
+}
+func (UnimplementedUserServiceServer) ApproveUser(context.Context, *ApproveUserRequest) (*ApproveUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ApproveUser not implemented")
+}
+func (UnimplementedUserServiceServer) RejectUser(context.Context, *RejectUserRequest) (*RejectUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RejectUser not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -172,6 +220,60 @@ func _UserService_GetProfile_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_ListUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).ListUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_ListUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).ListUsers(ctx, req.(*ListUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_ApproveUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApproveUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).ApproveUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_ApproveUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).ApproveUser(ctx, req.(*ApproveUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_RejectUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RejectUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).RejectUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_RejectUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).RejectUser(ctx, req.(*RejectUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +292,18 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetProfile",
 			Handler:    _UserService_GetProfile_Handler,
+		},
+		{
+			MethodName: "ListUsers",
+			Handler:    _UserService_ListUsers_Handler,
+		},
+		{
+			MethodName: "ApproveUser",
+			Handler:    _UserService_ApproveUser_Handler,
+		},
+		{
+			MethodName: "RejectUser",
+			Handler:    _UserService_RejectUser_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

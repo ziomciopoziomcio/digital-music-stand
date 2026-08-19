@@ -29,10 +29,11 @@ func NewUserService(db *gorm.DB, secret string, durationHours int) *UserService 
 	}
 }
 
-func (s *UserService) generateJWT(userID uint) (string, error) {
+func (s *UserService) generateJWT(userID uint, role string) (string, error) {
 	claims := jwt.MapClaims{
-		"sub": userID,
-		"exp": time.Now().Add(s.tokenDuration).Unix(),
+		"sub":  userID,
+		"role": role,
+		"exp":  time.Now().Add(s.tokenDuration).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -44,25 +45,47 @@ func (s *UserService) RegisterUser(ctx context.Context, req *userpb.RegisterUser
 		return nil, fmt.Errorf("missing required fields")
 	}
 
+	var existing models.User
+	if err := s.db.Where("email = ?", req.GetEmail()).First(&existing).Error; err == nil {
+		return nil, fmt.Errorf("user with this email already exists")
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.GetPassword()), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %v", err)
 	}
 
-	newUser := models.User{
-		PasswordHash: string(hashedPassword),
-		Email:        req.GetEmail(),
-		Name:         req.GetName(),
-		Surname:      req.GetSurname(),
+	var totalUsers int64
+	s.db.Model(&models.User{}).Count(&totalUsers)
+
+	status := "pending"
+	role := "user"
+	if totalUsers == 0 {
+		status = "active"
+		role = "admin"
 	}
 
-	if err := s.db.Create(&newUser).Error; err != nil {
+	user := models.User{
+		Email:        req.GetEmail(),
+		PasswordHash: string(hashedPassword),
+		Name:         req.GetName(),
+		Surname:      req.GetSurname(),
+		Status:       status,
+		Role:         role,
+	}
+
+	if err := s.db.Create(&user).Error; err != nil {
 		return nil, fmt.Errorf("failed to create user: %v", err)
 	}
 
+	msg := "Registration successful. Your account is awaiting administrator approval."
+	if role == "admin" {
+		msg = "First admin account created successfully."
+	}
+
 	return &userpb.RegisterUserResponse{
-		Id:      uint32(newUser.ID),
-		Message: "User registered successfully",
+		Id:      uint32(user.ID),
+		Message: msg,
 	}, nil
 }
 
@@ -74,16 +97,26 @@ func (s *UserService) LoginUser(ctx context.Context, req *userpb.LoginUserReques
 	var user models.User
 	if err := s.db.Where("email = ?", req.GetEmail()).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("user not found")
+			return nil, fmt.Errorf("invalid email or password")
 		}
 		return nil, fmt.Errorf("failed to query user: %v", err)
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.GetPassword())); err != nil {
-		return nil, fmt.Errorf("invalid password")
+		return nil, fmt.Errorf("invalid email or password")
 	}
 
-	tokenString, err := s.generateJWT(user.ID)
+	if user.Status == "pending" {
+		return nil, fmt.Errorf("account is awaiting administrator approval")
+	}
+	if user.Status == "banned" {
+		return nil, fmt.Errorf("account has been suspended")
+	}
+	if user.Status != "active" {
+		return nil, fmt.Errorf("account is inactive")
+	}
+
+	tokenString, err := s.generateJWT(user.ID, user.Role)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate JWT: %v", err)
 	}
@@ -101,16 +134,17 @@ func (s *UserService) GetProfile(ctx context.Context, req *userpb.GetProfileRequ
 
 	var user models.User
 	if err := s.db.First(&user, userID).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("user not found")
-		}
-		return nil, fmt.Errorf("failed to query user: %v", err)
+		return nil, fmt.Errorf("user not found")
 	}
 
 	return &userpb.GetProfileResponse{
 		Id:      uint32(user.ID),
+		Email:   user.Email,
 		Name:    user.Name,
 		Surname: user.Surname,
-		Email:   user.Email,
 	}, nil
+}
+
+func (s *UserService) GetDB() *gorm.DB {
+	return s.db
 }
