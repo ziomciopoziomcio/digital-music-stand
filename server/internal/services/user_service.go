@@ -222,7 +222,7 @@ func (s *UserService) ResetPassword(ctx context.Context, req *userpb.ResetPasswo
 		go func(recipient string, message []byte) {
 			err := smtp.SendMail(smtpHost+":"+smtpPort, auth, smtpUser, to, message)
 			if err != nil {
-				log.Printf("[SMTP ERROR] Fail to send mail %s: %v\n", recipient, err)
+				log.Printf("[SMTP ERROR] Fail to send mail to %s: %v\n", recipient, err)
 			} else {
 				log.Printf("[SMTP SUCCESS] Sent new password to %s\n", recipient)
 			}

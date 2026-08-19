@@ -26,7 +26,7 @@ const (
 	UserService_ApproveUser_FullMethodName    = "/digital_music_stand.user.UserService/ApproveUser"
 	UserService_RejectUser_FullMethodName     = "/digital_music_stand.user.UserService/RejectUser"
 	UserService_ChangePassword_FullMethodName = "/digital_music_stand.user.UserService/ChangePassword"
-	UserService_RestePassword_FullMethodName  = "/digital_music_stand.user.UserService/RestePassword"
+	UserService_ResetPassword_FullMethodName  = "/digital_music_stand.user.UserService/ResetPassword"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -40,7 +40,7 @@ type UserServiceClient interface {
 	ApproveUser(ctx context.Context, in *ApproveUserRequest, opts ...grpc.CallOption) (*ApproveUserResponse, error)
 	RejectUser(ctx context.Context, in *RejectUserRequest, opts ...grpc.CallOption) (*RejectUserResponse, error)
 	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*ChangePasswordResponse, error)
-	RestePassword(ctx context.Context, in *ResetPasswordRequest, opts ...grpc.CallOption) (*ResetPasswordResponse, error)
+	ResetPassword(ctx context.Context, in *ResetPasswordRequest, opts ...grpc.CallOption) (*ResetPasswordResponse, error)
 }
 
 type userServiceClient struct {
@@ -121,10 +121,10 @@ func (c *userServiceClient) ChangePassword(ctx context.Context, in *ChangePasswo
 	return out, nil
 }
 
-func (c *userServiceClient) RestePassword(ctx context.Context, in *ResetPasswordRequest, opts ...grpc.CallOption) (*ResetPasswordResponse, error) {
+func (c *userServiceClient) ResetPassword(ctx context.Context, in *ResetPasswordRequest, opts ...grpc.CallOption) (*ResetPasswordResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ResetPasswordResponse)
-	err := c.cc.Invoke(ctx, UserService_RestePassword_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, UserService_ResetPassword_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ type UserServiceServer interface {
 	ApproveUser(context.Context, *ApproveUserRequest) (*ApproveUserResponse, error)
 	RejectUser(context.Context, *RejectUserRequest) (*RejectUserResponse, error)
 	ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error)
-	RestePassword(context.Context, *ResetPasswordRequest) (*ResetPasswordResponse, error)
+	ResetPassword(context.Context, *ResetPasswordRequest) (*ResetPasswordResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -174,8 +174,8 @@ func (UnimplementedUserServiceServer) RejectUser(context.Context, *RejectUserReq
 func (UnimplementedUserServiceServer) ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ChangePassword not implemented")
 }
-func (UnimplementedUserServiceServer) RestePassword(context.Context, *ResetPasswordRequest) (*ResetPasswordResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method RestePassword not implemented")
+func (UnimplementedUserServiceServer) ResetPassword(context.Context, *ResetPasswordRequest) (*ResetPasswordResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResetPassword not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -324,20 +324,20 @@ func _UserService_ChangePassword_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _UserService_RestePassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _UserService_ResetPassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ResetPasswordRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(UserServiceServer).RestePassword(ctx, in)
+		return srv.(UserServiceServer).ResetPassword(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: UserService_RestePassword_FullMethodName,
+		FullMethod: UserService_ResetPassword_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(UserServiceServer).RestePassword(ctx, req.(*ResetPasswordRequest))
+		return srv.(UserServiceServer).ResetPassword(ctx, req.(*ResetPasswordRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -378,8 +378,8 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _UserService_ChangePassword_Handler,
 		},
 		{
-			MethodName: "RestePassword",
-			Handler:    _UserService_RestePassword_Handler,
+			MethodName: "ResetPassword",
+			Handler:    _UserService_ResetPassword_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

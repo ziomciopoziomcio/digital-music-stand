@@ -11,7 +11,7 @@ service UserService {
   rpc ApproveUser(ApproveUserRequest) returns (ApproveUserResponse);
   rpc RejectUser(RejectUserRequest) returns (RejectUserResponse);
   rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
-  rpc RestePassword(ResetPasswordRequest) returns (ResetPasswordResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
 }
 
 message RegisterUserRequest {

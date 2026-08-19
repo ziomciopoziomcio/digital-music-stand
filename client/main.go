@@ -158,7 +158,7 @@ func main() {
 				defer conn.Close()
 
 				client := userpb.NewUserServiceClient(conn)
-				resp, err := client.RestePassword(context.Background(), &userpb.ResetPasswordRequest{
+				resp, err := client.ResetPassword(context.Background(), &userpb.ResetPasswordRequest{
 					Email: email,
 				})
 				if err != nil {

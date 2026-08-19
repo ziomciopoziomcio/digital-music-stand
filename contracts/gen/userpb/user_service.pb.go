@@ -953,7 +953,7 @@ const file_contracts_proto_user_service_proto_rawDesc = "" +
 	"\n" +
 	"RejectUser\x12+.digital_music_stand.user.RejectUserRequest\x1a,.digital_music_stand.user.RejectUserResponse\x12s\n" +
 	"\x0eChangePassword\x12/.digital_music_stand.user.ChangePasswordRequest\x1a0.digital_music_stand.user.ChangePasswordResponse\x12p\n" +
-	"\rRestePassword\x12..digital_music_stand.user.ResetPasswordRequest\x1a/.digital_music_stand.user.ResetPasswordResponseBFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpbb\x06proto3"
+	"\rResetPassword\x12..digital_music_stand.user.ResetPasswordRequest\x1a/.digital_music_stand.user.ResetPasswordResponseBFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpbb\x06proto3"
 
 var (
 	file_contracts_proto_user_service_proto_rawDescOnce sync.Once
@@ -996,7 +996,7 @@ var file_contracts_proto_user_service_proto_depIdxs = []int32{
 	9,  // 5: digital_music_stand.user.UserService.ApproveUser:input_type -> digital_music_stand.user.ApproveUserRequest
 	11, // 6: digital_music_stand.user.UserService.RejectUser:input_type -> digital_music_stand.user.RejectUserRequest
 	13, // 7: digital_music_stand.user.UserService.ChangePassword:input_type -> digital_music_stand.user.ChangePasswordRequest
-	15, // 8: digital_music_stand.user.UserService.RestePassword:input_type -> digital_music_stand.user.ResetPasswordRequest
+	15, // 8: digital_music_stand.user.UserService.ResetPassword:input_type -> digital_music_stand.user.ResetPasswordRequest
 	1,  // 9: digital_music_stand.user.UserService.RegisterUser:output_type -> digital_music_stand.user.RegisterUserResponse
 	3,  // 10: digital_music_stand.user.UserService.LoginUser:output_type -> digital_music_stand.user.LoginUserResponse
 	5,  // 11: digital_music_stand.user.UserService.GetProfile:output_type -> digital_music_stand.user.GetProfileResponse
@@ -1004,7 +1004,7 @@ var file_contracts_proto_user_service_proto_depIdxs = []int32{
 	10, // 13: digital_music_stand.user.UserService.ApproveUser:output_type -> digital_music_stand.user.ApproveUserResponse
 	12, // 14: digital_music_stand.user.UserService.RejectUser:output_type -> digital_music_stand.user.RejectUserResponse
 	14, // 15: digital_music_stand.user.UserService.ChangePassword:output_type -> digital_music_stand.user.ChangePasswordResponse
-	16, // 16: digital_music_stand.user.UserService.RestePassword:output_type -> digital_music_stand.user.ResetPasswordResponse
+	16, // 16: digital_music_stand.user.UserService.ResetPassword:output_type -> digital_music_stand.user.ResetPasswordResponse
 	9,  // [9:17] is the sub-list for method output_type
 	1,  // [1:9] is the sub-list for method input_type
 	1,  // [1:1] is the sub-list for extension type_name
