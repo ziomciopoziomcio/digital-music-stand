@@ -318,7 +318,7 @@ func (s *ScoreService) ListScoreInvitations(ctx context.Context, req *scorepb.Li
 	for _, inv := range invites {
 		response = append(response, &scorepb.ScoreInvitation{
 			Id:         uint32(inv.ID),
-			ScoreId:    fmt.Sprintf("%d", inv.ScoreID),
+			ScoreId:    fmt.Sprintf("%s", inv.ScoreID),
 			ScoreName:  inv.Score.Name,
 			OwnerEmail: inv.Score.Owner.Email,
 		})
