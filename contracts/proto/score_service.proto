@@ -59,6 +59,7 @@ message Score {
   string file_path = 4;
   string checksum = 5;
   string file_extension = 6;
+  bool is_owner = 7;
 }
 
 message ListMyScoresResponse {

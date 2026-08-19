@@ -401,6 +401,7 @@ type Score struct {
 	FilePath      string                 `protobuf:"bytes,4,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	Checksum      string                 `protobuf:"bytes,5,opt,name=checksum,proto3" json:"checksum,omitempty"`
 	FileExtension string                 `protobuf:"bytes,6,opt,name=file_extension,json=fileExtension,proto3" json:"file_extension,omitempty"`
+	IsOwner       bool                   `protobuf:"varint,7,opt,name=is_owner,json=isOwner,proto3" json:"is_owner,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -475,6 +476,13 @@ func (x *Score) GetFileExtension() string {
 		return x.FileExtension
 	}
 	return ""
+}
+
+func (x *Score) GetIsOwner() bool {
+	if x != nil {
+		return x.IsOwner
+	}
+	return false
 }
 
 type ListMyScoresResponse struct {
@@ -1089,14 +1097,15 @@ const file_contracts_proto_score_service_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"/\n" +
 	"\x13DeleteScoreResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"\x15\n" +
-	"\x13ListMyScoresRequest\"\xa7\x01\n" +
+	"\x13ListMyScoresRequest\"\xc2\x01\n" +
 	"\x05Score\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
 	"\bcomposer\x18\x03 \x01(\tR\bcomposer\x12\x1b\n" +
 	"\tfile_path\x18\x04 \x01(\tR\bfilePath\x12\x1a\n" +
 	"\bchecksum\x18\x05 \x01(\tR\bchecksum\x12%\n" +
-	"\x0efile_extension\x18\x06 \x01(\tR\rfileExtension\"P\n" +
+	"\x0efile_extension\x18\x06 \x01(\tR\rfileExtension\x12\x19\n" +
+	"\bis_owner\x18\a \x01(\bR\aisOwner\"P\n" +
 	"\x14ListMyScoresResponse\x128\n" +
 	"\x06scores\x18\x01 \x03(\v2 .digital_music_stand.score.ScoreR\x06scores\"1\n" +
 	"\x14DownloadScoreRequest\x12\x19\n" +

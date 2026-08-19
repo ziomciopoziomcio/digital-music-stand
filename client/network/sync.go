@@ -23,12 +23,12 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 		}
 	}
 
-	remoteResp, err := concertClient.ListConcerts(ctx, &concertpb.ListConcertsRequest{})
+	remoteResp, err := concertClient.ListMyConcerts(ctx, &concertpb.ListMyConcertsRequest{})
 	if err != nil {
 		return fmt.Errorf("failed to list remote concerts: %w", err)
 	}
 
-	remoteMap := make(map[string]*concertpb.ConcertSummary)
+	remoteMap := make(map[string]*concertpb.Concert)
 	for _, rc := range remoteResp.GetConcerts() {
 		remoteMap[rc.Id] = rc
 	}
@@ -96,12 +96,12 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 		}
 	}
 
-	remoteResp, err = concertClient.ListConcerts(ctx, &concertpb.ListConcertsRequest{})
+	remoteResp, err = concertClient.ListMyConcerts(ctx, &concertpb.ListMyConcertsRequest{})
 	if err != nil {
 		return fmt.Errorf("failed to list remote concerts after push: %w", err)
 	}
 
-	remoteMap = make(map[string]*concertpb.ConcertSummary)
+	remoteMap = make(map[string]*concertpb.Concert)
 	for _, rc := range remoteResp.GetConcerts() {
 		remoteMap[rc.Id] = rc
 	}
@@ -118,18 +118,10 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 		if !exists || localConcert.Checksum != remoteConcert.Checksum {
 			log.Printf("Updating concert %s (%s) due to checksum mismatch", remoteConcert.Id, remoteConcert.Name)
 
-			setlistResp, err := concertClient.GetConcertSetlist(ctx, &concertpb.GetConcertSetlistRequest{
-				ConcertId: remoteConcert.Id,
-			})
-			if err != nil {
-				log.Printf("Failed to fetch setlist for concert %s: %v", remoteConcert.Id, err)
-				continue
-			}
-
 			var remoteItems []localdb.ConcertItem
-			for _, item := range setlistResp.GetItems() {
+			for _, item := range remoteConcert.GetItems() {
 				var scoreID *string
-				if item.ScoreId != nil {
+				if item.ScoreId != nil && *item.ScoreId != "" {
 					scoreID = item.ScoreId
 				}
 				var breakMin *int
@@ -146,16 +138,10 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 				})
 			}
 
-			loc := ""
-			if remoteConcert.Location != nil {
-				loc = *remoteConcert.Location
-			}
-			startTime := ""
-			if remoteConcert.StartTime != nil {
-				startTime = *remoteConcert.StartTime
-			}
+			loc := remoteConcert.GetLocation()
+			startTime := remoteConcert.GetStartTime()
 
-			err = dbMgr.SyncConcertFromServer(remoteConcert.Id, remoteConcert.Name, loc, startTime, remoteConcert.Checksum, remoteItems)
+			err = dbMgr.SyncConcertFromServer(remoteConcert.Id, remoteConcert.Name, loc, startTime, remoteConcert.Checksum, remoteItems, remoteConcert.IsOwner)
 			if err != nil {
 				log.Printf("Failed to save concert %s to local database: %v", remoteConcert.Id, err)
 			}
