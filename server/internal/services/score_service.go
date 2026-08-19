@@ -120,6 +120,7 @@ func (s *ScoreService) ListMyScores(ctx context.Context, req *scorepb.ListMyScor
 			FilePath:      score.FilePath,
 			Checksum:      score.Checksum,
 			FileExtension: score.FileExtension,
+			IsOwner:       score.OwnerID == userID,
 		})
 	}
 

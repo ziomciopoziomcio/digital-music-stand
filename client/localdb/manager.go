@@ -109,7 +109,7 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 }
 
 func (m *DBManager) GetScores() ([]Score, error) {
-	rows, err := m.db.Query("SELECT id, title, file_path, checksum FROM scores WHERE is_deleted = 0 ORDER BY title")
+	rows, err := m.db.Query("SELECT id, title, file_path, checksum, is_owner FROM scores WHERE is_deleted = 0 ORDER BY title")
 	if err != nil {
 		return nil, err
 	}
@@ -118,9 +118,11 @@ func (m *DBManager) GetScores() ([]Score, error) {
 	var scores []Score
 	for rows.Next() {
 		var s Score
-		if err := rows.Scan(&s.ID, &s.Title, &s.FilePath, &s.Checksum); err != nil {
+		var isOwner int
+		if err := rows.Scan(&s.ID, &s.Title, &s.FilePath, &s.Checksum, &isOwner); err != nil {
 			return nil, err
 		}
+		s.IsOwner = isOwner == 1
 		scores = append(scores, s)
 	}
 	return scores, nil
@@ -194,16 +196,21 @@ func (m *DBManager) GetDeletedScoreIDs() ([]string, error) {
 	return ids, nil
 }
 
-func (m *DBManager) SyncScoreFromServer(id, title, filePath, checksum string) error {
+func (m *DBManager) SyncScoreFromServer(id, title, filePath, checksum string, isOwner bool) error {
+	ownerVal := 0
+	if isOwner {
+		ownerVal = 1
+	}
 	_, err := m.db.Exec(`
-		INSERT INTO scores (id, title, file_path, checksum, is_deleted) 
-		VALUES (?, ?, ?, ?, 0)
+		INSERT INTO scores (id, title, file_path, checksum, is_owner, is_deleted) 
+		VALUES (?, ?, ?, ?, ?, 0)
 		ON CONFLICT(id) DO UPDATE SET 
 			title = excluded.title,
 			file_path = excluded.file_path,
 			checksum = excluded.checksum,
+			is_owner = excluded.is_owner,
 			is_deleted = 0`,
-		id, title, filePath, checksum,
+		id, title, filePath, checksum, ownerVal,
 	)
 	return err
 }
@@ -271,23 +278,29 @@ func (m *DBManager) HardDeleteConcert(id string) error {
 	return err
 }
 
-func (m *DBManager) SyncConcertFromServer(concertID string, name, location, startTime, checksum string, remoteItems []ConcertItem) error {
+func (m *DBManager) SyncConcertFromServer(concertID string, name, location, startTime, checksum string, remoteItems []ConcertItem, isOwner bool) error {
 	tx, err := m.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
+	ownerVal := 0
+	if isOwner {
+		ownerVal = 1
+	}
+
 	_, err = tx.Exec(`
-		INSERT INTO concerts (id, name, location, start_time, checksum, is_deleted) 
-		VALUES (?, ?, ?, ?, ?, 0)
+		INSERT INTO concerts (id, name, location, start_time, checksum, is_owner, is_deleted) 
+		VALUES (?, ?, ?, ?, ?, ?, 0)
 		ON CONFLICT(id) DO UPDATE SET 
 			name = excluded.name,
 			location = excluded.location,
 			start_time = excluded.start_time,
 			checksum = excluded.checksum,
+			is_owner = excluded.is_owner,
 			is_deleted = 0`,
-		concertID, name, location, startTime, checksum,
+		concertID, name, location, startTime, checksum, ownerVal,
 	)
 	if err != nil {
 		return err
@@ -313,7 +326,7 @@ func (m *DBManager) SyncConcertFromServer(concertID string, name, location, star
 }
 
 func (m *DBManager) GetConcerts() ([]Concert, error) {
-	rows, err := m.db.Query("SELECT id, name, COALESCE(location, ''), COALESCE(start_time, ''), checksum FROM concerts WHERE is_deleted = 0 ORDER BY rowid DESC")
+	rows, err := m.db.Query("SELECT id, name, COALESCE(location, ''), COALESCE(start_time, ''), checksum, is_owner FROM concerts WHERE is_deleted = 0 ORDER BY rowid DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -322,9 +335,11 @@ func (m *DBManager) GetConcerts() ([]Concert, error) {
 	var concerts []Concert
 	for rows.Next() {
 		var c Concert
-		if err := rows.Scan(&c.ID, &c.Name, &c.Location, &c.StartTime, &c.Checksum); err != nil {
+		var isOwner int
+		if err := rows.Scan(&c.ID, &c.Name, &c.Location, &c.StartTime, &c.Checksum, &isOwner); err != nil {
 			return nil, err
 		}
+		c.IsOwner = isOwner == 1
 
 		itemRows, err := m.db.Query(`
 			SELECT ci.id, ci.sort_order, ci.score_id, ci.break_min, s.title, s.file_path 

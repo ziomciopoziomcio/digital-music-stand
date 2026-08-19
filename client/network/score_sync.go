@@ -56,7 +56,7 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 				if err != nil {
 					log.Printf("Failed to update score %s on server: %v", ls.Title, err)
 				} else {
-					_ = dbMgr.SyncScoreFromServer(ls.ID, ls.Title, ls.FilePath, resp.Checksum)
+					_ = dbMgr.SyncScoreFromServer(ls.ID, ls.Title, ls.FilePath, resp.Checksum, true)
 				}
 			} else {
 				log.Printf("Pushing new score %s (%s) to cloud...", ls.Title, ls.ID)
@@ -81,7 +81,7 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 				if err != nil {
 					log.Printf("Failed to push score %s to cloud: %v", ls.Title, err)
 				} else {
-					_ = dbMgr.SyncScoreFromServer(resp.Id, ls.Title, ls.FilePath, resp.Checksum)
+					_ = dbMgr.SyncScoreFromServer(resp.Id, ls.Title, ls.FilePath, resp.Checksum, true)
 				}
 			}
 		}
@@ -147,7 +147,7 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 			}
 			file.Close()
 
-			err = dbMgr.SyncScoreFromServer(rs.Id, rs.Name, absFilePath, rs.Checksum)
+			err = dbMgr.SyncScoreFromServer(rs.Id, rs.Name, absFilePath, rs.Checksum, rs.IsOwner)
 			if err != nil {
 				log.Printf("Failed to save synced score to local db: %v", err)
 			}
