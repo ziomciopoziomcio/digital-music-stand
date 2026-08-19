@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -13,10 +14,12 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
 )
 
-func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func()) *fyne.Container {
+func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var showConcertList func()
@@ -54,6 +57,56 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			})
 			openBtn.Importance = widget.HighImportance
 
+			shareBtn := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
+				emailEntry := widget.NewEntry()
+				emailEntry.SetPlaceHolder("user@example.com")
+
+				var d dialog.Dialog
+				shareForm := container.NewVBox(
+					widget.NewLabel(fmt.Sprintf("Share concert '%s':", concert.Name)),
+					widget.NewLabel("Enter user email:"),
+					emailEntry,
+					container.NewHBox(
+						layout.NewSpacer(),
+						widget.NewButton("Share", func() {
+							if emailEntry.Text != "" {
+								go func() {
+									token := app.Preferences().String("jwt_token")
+									server := app.Preferences().String("server_addr")
+									if token == "" || server == "" {
+										dialog.ShowError(fmt.Errorf("not logged in"), w)
+										return
+									}
+									conn, err := network.NewGRPCClient(server, token)
+									if err != nil {
+										dialog.ShowError(err, w)
+										return
+									}
+									defer conn.Close()
+
+									client := concertpb.NewConcertServiceClient(conn)
+									targetEmail := emailEntry.Text
+									_, err = client.ShareConcert(context.Background(), &concertpb.ShareConcertRequest{
+										ConcertId:   concert.ID,
+										TargetEmail: &targetEmail,
+									})
+									if err != nil {
+										dialog.ShowError(err, w)
+									} else {
+										dialog.ShowInformation("Success", "Concert sharing invitation sent!", w)
+									}
+								}()
+								d.Hide()
+							}
+						}),
+						widget.NewButton("Cancel", func() { d.Hide() }),
+					),
+				)
+
+				d = dialog.NewCustomWithoutButtons("Share Concert", shareForm, w)
+				d.Show()
+			})
+
 			editBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
 				openSetup(&concert)
 			})
@@ -69,7 +122,7 @@ func BuildConcertMode(w fyne.Window, db *localdb.DBManager, goBack func(), openS
 			})
 			deleteBtn.Importance = widget.DangerImportance
 
-			actionButtons := container.NewHBox(editBtn, deleteBtn, openBtn)
+			actionButtons := container.NewHBox(shareBtn, editBtn, deleteBtn, openBtn)
 			cardContent := container.NewVBox(nameLabel, detailsLabel, layout.NewSpacer())
 			card := widget.NewCard("", "", cardContent)
 
