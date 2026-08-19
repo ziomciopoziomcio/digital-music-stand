@@ -10,7 +10,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpb"
 
@@ -118,17 +117,41 @@ func main() {
 	}
 
 	showLogin = func() {
-		loginView := ui.BuildLoginScreen(myApp, func(server, email, password string) error {
-			token, err := network.Authenticate(server, email, password)
-			if err == nil {
-				myApp.Preferences().SetString("jwt_token", token)
-				myApp.Preferences().SetString("server_addr", server)
+		loginView := ui.BuildLoginScreen(
+			myWindow,
+			myApp,
+			func(server, email, password string) error {
+				token, err := network.Authenticate(server, email, password)
+				if err == nil {
+					myApp.Preferences().SetString("jwt_token", token)
+					myApp.Preferences().SetString("server_addr", server)
 
-				startBackgroundSync(server, token)
-				showDashboard()
-			}
-			return err
-		}, showDashboard)
+					startBackgroundSync(server, token)
+					showDashboard()
+				}
+				return err
+			},
+			func(server, email, password, name, surname string) (string, error) {
+				conn, err := network.NewGRPCClient(server, "")
+				if err != nil {
+					return "", fmt.Errorf("connection failed: %w", err)
+				}
+				defer conn.Close()
+
+				client := userpb.NewUserServiceClient(conn)
+				resp, err := client.RegisterUser(context.Background(), &userpb.RegisterUserRequest{
+					Email:    email,
+					Password: password,
+					Name:     name,
+					Surname:  surname,
+				})
+				if err != nil {
+					return "", err
+				}
+				return resp.GetMessage(), nil
+			},
+			showDashboard,
+		)
 
 		mainWrapper.Objects = []fyne.CanvasObject{loginView}
 		mainWrapper.Refresh()
@@ -365,12 +388,7 @@ func main() {
 					log.Printf("[Sync] Authorization failed: %v", profileErr)
 					myApp.Preferences().RemoveValue("jwt_token")
 
-					dialog.ShowInformation(
-						"Access Pending",
-						"Your account is awaiting administrator approval or has been suspended.",
-						myWindow,
-					)
-					log.Println("[Sync] Background sync stopped due to authorization failure.")
+					log.Println("[Sync] Background sync stopped due to authorization failure. Running in pure offline mode.")
 					return
 				}
 
