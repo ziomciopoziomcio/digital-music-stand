@@ -272,57 +272,72 @@ func (s *ConcertService) checkConcertPermission(ctx context.Context, concertID s
 }
 
 func (s *ConcertService) UpdateConcert(ctx context.Context, req *concertpb.UpdateConcertRequest) (*concertpb.UpdateConcertResponse, error) {
-	if req.GetId() == "" {
-		return nil, fmt.Errorf("missing concert id")
-	}
-
-	if err := s.checkConcertPermission(ctx, req.GetId()); err != nil {
-		return nil, err
-	}
-
-	loc := ""
-	if req.Location != nil {
-		loc = *req.Location
-	}
-	startTime := ""
-	if req.StartTime != nil {
-		startTime = *req.StartTime
-	}
-
-	err := s.db.Model(&models.Concert{}).Where("id = ?", req.GetId()).Updates(map[string]interface{}{
-		"name":       req.GetName(),
-		"location":   loc,
-		"start_time": startTime,
-	}).Error
+	userID, err := auth.GetUserIDFromContext(ctx)
 	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
+	}
+
+	var concert models.Concert
+	if err := s.db.Where("id = ?", req.GetId()).First(&concert).Error; err != nil {
+		return nil, fmt.Errorf("concert not found")
+	}
+
+	isOwner := concert.UserID != nil && *concert.UserID == userID
+	isBandManager := false
+	if concert.BandID != nil {
+		var band models.Band
+		if err := s.db.Where("id = ? AND manager_id = ?", *concert.BandID, userID).First(&band).Error; err == nil {
+			isBandManager = true
+		}
+	}
+
+	if !isOwner && !isBandManager {
+		return nil, fmt.Errorf("permission denied: you cannot edit a concert owned by someone else")
+	}
+
+	concert.Name = req.GetName()
+	if req.Location != nil {
+		concert.Location = *req.Location
+	}
+	if req.StartTime != nil {
+		concert.StartTime = *req.StartTime
+	}
+
+	if err := s.db.Save(&concert).Error; err != nil {
 		return nil, fmt.Errorf("failed to update concert: %v", err)
 	}
 
-	if err := s.db.Where("concert_id = ?", req.GetId()).Delete(&models.ConcertItem{}).Error; err != nil {
-		return nil, fmt.Errorf("failed to clear old concert items: %v", err)
-	}
-
-	_ = s.updateConcertChecksum(req.GetId())
-
 	return &concertpb.UpdateConcertResponse{
-		Message: "Concert updated successfully",
+		Message:  "Concert updated successfully",
+		Checksum: concert.Checksum,
 	}, nil
 }
 
 func (s *ConcertService) DeleteConcert(ctx context.Context, req *concertpb.DeleteConcertRequest) (*concertpb.DeleteConcertResponse, error) {
-	if req.GetId() == "" {
-		return nil, fmt.Errorf("missing concert id")
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
 	}
 
-	if err := s.checkConcertPermission(ctx, req.GetId()); err != nil {
-		return nil, err
+	var concert models.Concert
+	if err := s.db.Where("id = ?", req.GetId()).First(&concert).Error; err != nil {
+		return nil, fmt.Errorf("concert not found")
 	}
 
-	if err := s.db.Where("concert_id = ?", req.GetId()).Delete(&models.ConcertItem{}).Error; err != nil {
-		return nil, fmt.Errorf("failed to delete concert items: %v", err)
+	isOwner := concert.UserID != nil && *concert.UserID == userID
+	isBandManager := false
+	if concert.BandID != nil {
+		var band models.Band
+		if err := s.db.Where("id = ? AND manager_id = ?", *concert.BandID, userID).First(&band).Error; err == nil {
+			isBandManager = true
+		}
 	}
 
-	if err := s.db.Delete(&models.Concert{}, "id = ?", req.GetId()).Error; err != nil {
+	if !isOwner && !isBandManager {
+		return nil, fmt.Errorf("permission denied: you cannot delete a concert owned by someone else")
+	}
+
+	if err := s.db.Delete(&concert).Error; err != nil {
 		return nil, fmt.Errorf("failed to delete concert: %v", err)
 	}
 
