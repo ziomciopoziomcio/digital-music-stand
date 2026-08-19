@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
+	"net/smtp"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -198,8 +201,36 @@ func (s *UserService) ResetPassword(ctx context.Context, req *userpb.ResetPasswo
 
 	s.db.Model(&user).Update("password_hash", string(hashedPassword))
 
-	// TODO: Implement mail service
-	fmt.Printf("[DEBUG] Password reset for %s. New temp password: %s\n", user.Email, tempPassword)
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+	smtpUser := os.Getenv("SMTP_USER")
+	smtpPass := os.Getenv("SMTP_PASS")
+
+	if smtpHost != "" && smtpUser != "" && smtpPass != "" {
+		auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
+
+		to := []string{user.Email}
+
+		msg := []byte("To: " + user.Email + "\r\n" +
+			"Subject: Digital Music Stand - Password Reset\r\n" +
+			"Content-Type: text/plain; charset=UTF-8\r\n\r\n" +
+			"Hello,\r\n\n" +
+			"A password reset was requested for your Digital Music Stand account.\r\n" +
+			"Your temporary password is: " + tempPassword + "\r\n\n" +
+			"Please log in to the application using this password and immediately change it in the Profile tab.\r\n")
+
+		go func(recipient string, message []byte) {
+			err := smtp.SendMail(smtpHost+":"+smtpPort, auth, smtpUser, to, message)
+			if err != nil {
+				log.Printf("[SMTP ERROR] Fail to send mail %s: %v\n", recipient, err)
+			} else {
+				log.Printf("[SMTP SUCCESS] Sent new password to %s\n", recipient)
+			}
+		}(user.Email, msg)
+	} else {
+		log.Println("[SMTP WARNING] No SMTP configuration found. Skipping email sending.")
+		log.Printf("[DEBUG] Password for %s is: %s\n", user.Email, tempPassword)
+	}
 
 	return &userpb.ResetPasswordResponse{Message: "If the email exists, a recovery password has been sent."}, nil
 }
