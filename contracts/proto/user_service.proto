@@ -10,6 +10,8 @@ service UserService {
   rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
   rpc ApproveUser(ApproveUserRequest) returns (ApproveUserResponse);
   rpc RejectUser(RejectUserRequest) returns (RejectUserResponse);
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+  rpc RestePassword(ResetPasswordRequest) returns (ResetPasswordResponse);
 }
 
 message RegisterUserRequest {
@@ -77,5 +79,22 @@ message RejectUserRequest {
 }
 
 message RejectUserResponse {
+  string message = 1;
+}
+
+message ChangePasswordRequest {
+  string old_password = 1;
+  string new_password = 2;
+}
+
+message ChangePasswordResponse {
+  string message = 1;
+}
+
+message ResetPasswordRequest {
+  string email = 1;
+}
+
+message ResetPasswordResponse {
   string message = 1;
 }
