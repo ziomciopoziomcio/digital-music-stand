@@ -111,6 +111,7 @@ message Concert {
   string checksum = 5;
   optional uint32 band_id = 6;
   repeated ConcertItem items = 7;
+  bool is_owner = 8;
 }
 
 message ListMyConcertsResponse {

@@ -882,6 +882,7 @@ type Concert struct {
 	Checksum      string                 `protobuf:"bytes,5,opt,name=checksum,proto3" json:"checksum,omitempty"`
 	BandId        *uint32                `protobuf:"varint,6,opt,name=band_id,json=bandId,proto3,oneof" json:"band_id,omitempty"`
 	Items         []*ConcertItem         `protobuf:"bytes,7,rep,name=items,proto3" json:"items,omitempty"`
+	IsOwner       bool                   `protobuf:"varint,8,opt,name=is_owner,json=isOwner,proto3" json:"is_owner,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -963,6 +964,13 @@ func (x *Concert) GetItems() []*ConcertItem {
 		return x.Items
 	}
 	return nil
+}
+
+func (x *Concert) GetIsOwner() bool {
+	if x != nil {
+		return x.IsOwner
+	}
+	return false
 }
 
 type ListMyConcertsResponse struct {
@@ -1545,7 +1553,7 @@ const file_contracts_proto_concert_service_proto_rawDesc = "" +
 	"\v_start_time\"_\n" +
 	"\x14ListConcertsResponse\x12G\n" +
 	"\bconcerts\x18\x01 \x03(\v2+.digital_music_stand.concert.ConcertSummaryR\bconcerts\"\x17\n" +
-	"\x15ListMyConcertsRequest\"\xee\x01\n" +
+	"\x15ListMyConcertsRequest\"\x89\x02\n" +
 	"\aConcert\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -1554,7 +1562,8 @@ const file_contracts_proto_concert_service_proto_rawDesc = "" +
 	"start_time\x18\x04 \x01(\tR\tstartTime\x12\x1a\n" +
 	"\bchecksum\x18\x05 \x01(\tR\bchecksum\x12\x1c\n" +
 	"\aband_id\x18\x06 \x01(\rH\x00R\x06bandId\x88\x01\x01\x12>\n" +
-	"\x05items\x18\a \x03(\v2(.digital_music_stand.concert.ConcertItemR\x05itemsB\n" +
+	"\x05items\x18\a \x03(\v2(.digital_music_stand.concert.ConcertItemR\x05items\x12\x19\n" +
+	"\bis_owner\x18\b \x01(\bR\aisOwnerB\n" +
 	"\n" +
 	"\b_band_id\"Z\n" +
 	"\x16ListMyConcertsResponse\x12@\n" +
