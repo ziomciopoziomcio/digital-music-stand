@@ -69,7 +69,7 @@ func NewAuthInterceptor(secret string, db *gorm.DB) grpc.UnaryServerInterceptor 
 		if user.Status != "active" {
 			return nil, status.Errorf(codes.PermissionDenied, "account status is '%s' - access denied", user.Status)
 		}
-		ctx = context.WithValue(ctx, "userID", userID)
+		ctx = context.WithValue(ctx, userIDKey, userID)
 
 		return handler(ctx, req)
 	}
