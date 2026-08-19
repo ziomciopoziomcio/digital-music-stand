@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -12,7 +13,6 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
@@ -25,6 +25,11 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 
 	editMode := false
 	var showLibrary func()
+	var updateGrid func()
+
+	gridWrapper := container.NewMax()
+	searchEntry := widget.NewEntry()
+	searchEntry.SetPlaceHolder("Search scores (min. 3 chars)...")
 
 	showScore := func(score localdb.Score) {
 		pdfMgr, err := pdf.NewManager(score.FilePath)
@@ -36,7 +41,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		}
 
 		pageLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-
 		currentPagesToShow := 1
 
 		getPagesToShow := func(size fyne.Size) int {
@@ -66,7 +70,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 				if err1 == nil && err2 == nil {
 					canvasImg1 := canvas.NewImageFromImage(img1)
 					canvasImg1.FillMode = canvas.ImageFillContain
-
 					canvasImg2 := canvas.NewImageFromImage(img2)
 					canvasImg2.FillMode = canvas.ImageFillContain
 
@@ -135,14 +138,14 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 			container.NewGridWithRows(2, prevBtn, nextBtn),
 		)
 
-		viewer := newResponsiveViewer(func(size fyne.Size) {
+		viewer := NewResponsiveViewer(func(size fyne.Size) {
 			newPagesToShow := getPagesToShow(size)
 			if newPagesToShow != currentPagesToShow {
 				currentPagesToShow = newPagesToShow
 				renderPages(currentPagesToShow)
 			}
 		})
-		viewer.content.Objects = []fyne.CanvasObject{pdfContainer}
+		viewer.Content.Objects = []fyne.CanvasObject{pdfContainer}
 
 		mainView := container.NewBorder(
 			container.NewPadded(topBar),
@@ -157,7 +160,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		renderPages(currentPagesToShow)
 	}
 
-	showLibrary = func() {
+	updateGrid = func() {
 		scores, err := db.GetScores()
 		if err != nil {
 			dialog.ShowError(err, w)
@@ -165,9 +168,14 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		}
 
 		grid := container.NewGridWrap(fyne.NewSize(200, 200))
+		query := strings.ToLower(searchEntry.Text)
 
 		for _, s := range scores {
 			score := s
+
+			if len(query) >= 3 && !strings.Contains(strings.ToLower(score.Title), query) {
+				continue
+			}
 
 			cardContent := container.NewVBox(
 				widget.NewLabelWithStyle(score.Title, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
@@ -179,6 +187,47 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 				var editControls *fyne.Container
 
 				if score.IsOwner {
+					shareBtn := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
+						ShowAccessDialog(w, app, "Share Score", score.Title, "Share", func(email *string, bandID *uint32) error {
+							token := app.Preferences().String("jwt_token")
+							server := app.Preferences().String("server_addr")
+							conn, err := network.NewGRPCClient(server, token)
+							if err != nil {
+								return err
+							}
+							defer conn.Close()
+
+							client := scorepb.NewScoreServiceClient(conn)
+							_, err = client.ShareScore(context.Background(), &scorepb.ShareScoreRequest{
+								ScoreId:      score.ID,
+								TargetEmail:  email,
+								TargetBandId: bandID,
+							})
+							return err
+						})
+					})
+
+					revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
+						ShowAccessDialog(w, app, "Revoke Score Access", score.Title, "Revoke", func(email *string, bandID *uint32) error {
+							token := app.Preferences().String("jwt_token")
+							server := app.Preferences().String("server_addr")
+							conn, err := network.NewGRPCClient(server, token)
+							if err != nil {
+								return err
+							}
+							defer conn.Close()
+
+							client := scorepb.NewScoreServiceClient(conn)
+							_, err = client.RevokeScoreAccess(context.Background(), &scorepb.RevokeScoreAccessRequest{
+								ScoreId:      score.ID,
+								TargetEmail:  email,
+								TargetBandId: bandID,
+							})
+							return err
+						})
+					})
+					revokeBtn.Importance = widget.DangerImportance
+
 					editTitleBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
 						entry := widget.NewEntry()
 						entry.SetText(score.Title)
@@ -193,7 +242,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 									if entry.Text != "" {
 										_ = db.UpdateScore(score.ID, entry.Text)
 										onScoresChanged()
-										showLibrary()
+										updateGrid()
 										d.Hide()
 									}
 								}),
@@ -211,211 +260,13 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 							if confirmed {
 								_ = db.MarkScoreDeleted(score.ID)
 								onScoresChanged()
-								showLibrary()
+								updateGrid()
 							}
 						}, w)
 					})
 					deleteBtn.Importance = widget.DangerImportance
 
-					shareBtn := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
-						emailEntry := widget.NewEntry()
-						emailEntry.SetPlaceHolder("user@example.com")
-
-						bandSelect := widget.NewSelect([]string{"Loading bands..."}, nil)
-						var bandMap map[string]uint32
-
-						targetType := widget.NewRadioGroup([]string{"User (Email)", "Band"}, func(selected string) {
-							if selected == "User (Email)" {
-								emailEntry.Enable()
-								bandSelect.Disable()
-							} else {
-								emailEntry.Disable()
-								bandSelect.Enable()
-							}
-						})
-						targetType.SetSelected("User (Email)")
-
-						go func() {
-							token := app.Preferences().String("jwt_token")
-							server := app.Preferences().String("server_addr")
-							if token != "" && server != "" {
-								if conn, err := network.NewGRPCClient(server, token); err == nil {
-									defer conn.Close()
-									client := bandpb.NewBandServiceClient(conn)
-									resp, err := client.ListMyBands(context.Background(), &bandpb.ListMyBandsRequest{})
-									if err == nil {
-										bandMap = make(map[string]uint32)
-										var names []string
-										for _, b := range resp.GetBands() {
-											bandMap[b.Name] = b.Id
-											names = append(names, b.Name)
-										}
-										if len(names) > 0 {
-											bandSelect.Options = names
-											bandSelect.SetSelected(names[0])
-										} else {
-											bandSelect.Options = []string{"No bands available"}
-											bandSelect.SetSelected("No bands available")
-										}
-										bandSelect.Refresh()
-									}
-								}
-							}
-						}()
-
-						var d dialog.Dialog
-						shareForm := container.NewVBox(
-							widget.NewLabel(fmt.Sprintf("Share score '%s':", score.Title)),
-							targetType,
-							widget.NewLabel("Email address:"), emailEntry,
-							widget.NewLabel("Select Band:"), bandSelect,
-							container.NewHBox(
-								layout.NewSpacer(),
-								widget.NewButton("Share", func() {
-									isUser := targetType.Selected == "User (Email)"
-									if isUser && emailEntry.Text == "" {
-										return
-									}
-									if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
-										return
-									}
-
-									go func() {
-										token := app.Preferences().String("jwt_token")
-										server := app.Preferences().String("server_addr")
-										if conn, err := network.NewGRPCClient(server, token); err == nil {
-											defer conn.Close()
-											client := scorepb.NewScoreServiceClient(conn)
-											req := &scorepb.ShareScoreRequest{ScoreId: score.ID}
-
-											if isUser {
-												req.TargetEmail = &emailEntry.Text
-											} else {
-												bandID := bandMap[bandSelect.Selected]
-												req.TargetBandId = &bandID
-											}
-
-											_, err := client.ShareScore(context.Background(), req)
-											if err != nil {
-												dialog.ShowError(err, w)
-											} else {
-												msg := "Invitation sent to user!"
-												if !isUser {
-													msg = "Score shared with the band successfully!"
-												}
-												dialog.ShowInformation("Success", msg, w)
-											}
-										}
-									}()
-									d.Hide()
-								}),
-								widget.NewButton("Cancel", func() { d.Hide() }),
-							),
-						)
-
-						d = dialog.NewCustomWithoutButtons("Share Score", shareForm, w)
-						d.Show()
-					})
-
-					revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
-						emailEntry := widget.NewEntry()
-						emailEntry.SetPlaceHolder("user@example.com")
-
-						bandSelect := widget.NewSelect([]string{"Loading bands..."}, nil)
-						var bandMap map[string]uint32
-
-						targetType := widget.NewRadioGroup([]string{"User (Email)", "Band"}, func(selected string) {
-							if selected == "User (Email)" {
-								emailEntry.Enable()
-								bandSelect.Disable()
-							} else {
-								emailEntry.Disable()
-								bandSelect.Enable()
-							}
-						})
-						targetType.SetSelected("User (Email)")
-
-						go func() {
-							token := app.Preferences().String("jwt_token")
-							server := app.Preferences().String("server_addr")
-							if token != "" && server != "" {
-								if conn, err := network.NewGRPCClient(server, token); err == nil {
-									defer conn.Close()
-									client := bandpb.NewBandServiceClient(conn)
-									resp, err := client.ListMyBands(context.Background(), &bandpb.ListMyBandsRequest{})
-									if err == nil {
-										bandMap = make(map[string]uint32)
-										var names []string
-										for _, b := range resp.GetBands() {
-											bandMap[b.Name] = b.Id
-											names = append(names, b.Name)
-										}
-										if len(names) > 0 {
-											bandSelect.Options = names
-											bandSelect.SetSelected(names[0])
-										} else {
-											bandSelect.Options = []string{"No bands available"}
-											bandSelect.SetSelected("No bands available")
-										}
-										bandSelect.Refresh()
-									}
-								}
-							}
-						}()
-
-						var d dialog.Dialog
-						revokeForm := container.NewVBox(
-							widget.NewLabel(fmt.Sprintf("Revoke access to '%s':", score.Title)),
-							targetType,
-							widget.NewLabel("Email address:"), emailEntry,
-							widget.NewLabel("Select Band:"), bandSelect,
-							container.NewHBox(
-								layout.NewSpacer(),
-								widget.NewButton("Revoke", func() {
-									isUser := targetType.Selected == "User (Email)"
-									if isUser && emailEntry.Text == "" {
-										return
-									}
-									if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
-										return
-									}
-
-									go func() {
-										token := app.Preferences().String("jwt_token")
-										server := app.Preferences().String("server_addr")
-										if conn, err := network.NewGRPCClient(server, token); err == nil {
-											defer conn.Close()
-											client := scorepb.NewScoreServiceClient(conn)
-											req := &scorepb.RevokeScoreAccessRequest{ScoreId: score.ID}
-
-											if isUser {
-												req.TargetEmail = &emailEntry.Text
-											} else {
-												bandID := bandMap[bandSelect.Selected]
-												req.TargetBandId = &bandID
-											}
-
-											_, err := client.RevokeScoreAccess(context.Background(), req)
-											if err != nil {
-												dialog.ShowError(err, w)
-											} else {
-												dialog.ShowInformation("Success", "Access revoked successfully!", w)
-											}
-										}
-									}()
-									d.Hide()
-								}),
-								widget.NewButton("Cancel", func() { d.Hide() }),
-							),
-						)
-
-						d = dialog.NewCustomWithoutButtons("Revoke Access", revokeForm, w)
-						d.Show()
-					})
-					revokeBtn.Importance = widget.DangerImportance
-
 					editControls = container.NewHBox(shareBtn, revokeBtn, editTitleBtn, deleteBtn)
-
 				} else {
 					readOnlyLabel := widget.NewLabelWithStyle("Shared with you", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 					editControls = container.NewHBox(readOnlyLabel)
@@ -434,6 +285,19 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 			}
 		}
 
+		gridWrapper.Objects = []fyne.CanvasObject{container.NewPadded(container.NewVScroll(grid))}
+		gridWrapper.Refresh()
+	}
+
+	searchEntry.OnChanged = func(s string) {
+		if len(s) >= 3 || len(s) == 0 {
+			updateGrid()
+		}
+	}
+
+	showLibrary = func() {
+		updateGrid()
+
 		addBtn := widget.NewButtonWithIcon("Add Score", theme.ContentAddIcon(), func() {
 			fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 				if err != nil || reader == nil {
@@ -451,7 +315,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 				}
 
 				onScoresChanged()
-				showLibrary()
+				updateGrid()
 			}, w)
 
 			fileDialog.SetFilter(storage.NewExtensionFileFilter([]string{".pdf"}))
@@ -474,43 +338,14 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		backToDashBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 		backToDashBtn.Importance = widget.WarningImportance
 
-		header := container.NewBorder(nil, nil, backToDashBtn, topControls, widget.NewLabelWithStyle("Practice Mode", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
-		view := container.NewBorder(header, nil, nil, nil, container.NewPadded(container.NewVScroll(grid)))
+		searchContainer := container.NewPadded(searchEntry)
+		header := container.NewBorder(nil, nil, backToDashBtn, topControls, searchContainer)
 
+		view := container.NewBorder(header, nil, nil, nil, gridWrapper)
 		contentWrapper.Objects = []fyne.CanvasObject{view}
 		contentWrapper.Refresh()
 	}
 
 	showLibrary()
 	return contentWrapper
-}
-
-type responsiveViewer struct {
-	widget.BaseWidget
-	content  *fyne.Container
-	onResize func(size fyne.Size)
-	lastSize fyne.Size
-}
-
-func newResponsiveViewer(onResize func(size fyne.Size)) *responsiveViewer {
-	v := &responsiveViewer{
-		onResize: onResize,
-		content:  container.NewMax(),
-	}
-	v.ExtendBaseWidget(v)
-	return v
-}
-
-func (v *responsiveViewer) CreateRenderer() fyne.WidgetRenderer {
-	return widget.NewSimpleRenderer(v.content)
-}
-
-func (v *responsiveViewer) Resize(size fyne.Size) {
-	v.BaseWidget.Resize(size)
-	v.content.Resize(size)
-
-	if v.onResize != nil && (size.Width != v.lastSize.Width || size.Height != v.lastSize.Height) {
-		v.lastSize = size
-		v.onResize(size)
-	}
 }

@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -12,7 +13,6 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
@@ -24,31 +24,29 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 	contentWrapper := container.NewMax()
 
 	var showConcertList func()
+	var updateGrid func()
 	var playConcert func(concert localdb.Concert)
 
-	showConcertList = func() {
-		backBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
-		backBtn.Importance = widget.WarningImportance
+	gridWrapper := container.NewMax()
+	searchEntry := widget.NewEntry()
+	searchEntry.SetPlaceHolder("Search concerts (min. 3 chars)...")
 
-		newConcertBtn := widget.NewButtonWithIcon("New Concert", theme.ContentAddIcon(), func() {
-			openSetup(nil)
-		})
-		newConcertBtn.Importance = widget.HighImportance
-
-		topControls := container.NewHBox(newConcertBtn)
-		header := container.NewBorder(nil, nil, backBtn, topControls,
-			widget.NewLabelWithStyle("Concert Mode", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
-
+	updateGrid = func() {
 		concerts, err := db.GetConcerts()
 		if err != nil {
 			dialog.ShowError(err, w)
 			concerts = []localdb.Concert{}
 		}
 
-		grid := container.NewGridWrap(fyne.NewSize(260, 220))
+		grid := container.NewGridWrap(fyne.NewSize(280, 220))
+		query := strings.ToLower(searchEntry.Text)
 
 		for _, c := range concerts {
 			concert := c
+
+			if len(query) >= 3 && !strings.Contains(strings.ToLower(concert.Name), query) {
+				continue
+			}
 
 			nameLabel := widget.NewLabelWithStyle(concert.Name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 			detailsLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s\n%s\nItems: %d", concert.Location, concert.StartTime, len(concert.Items)), fyne.TextAlignCenter, fyne.TextStyle{})
@@ -62,199 +60,43 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 			if concert.IsOwner {
 				shareBtn := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
-					emailEntry := widget.NewEntry()
-					emailEntry.SetPlaceHolder("user@example.com")
-
-					bandSelect := widget.NewSelect([]string{"Loading bands..."}, nil)
-					var bandMap map[string]uint32
-
-					targetType := widget.NewRadioGroup([]string{"User (Email)", "Band"}, func(selected string) {
-						if selected == "User (Email)" {
-							emailEntry.Enable()
-							bandSelect.Disable()
-						} else {
-							emailEntry.Disable()
-							bandSelect.Enable()
-						}
-					})
-					targetType.SetSelected("User (Email)")
-
-					go func() {
+					ShowAccessDialog(w, app, "Share Concert", concert.Name, "Share", func(email *string, bandID *uint32) error {
 						token := app.Preferences().String("jwt_token")
 						server := app.Preferences().String("server_addr")
-						if token != "" && server != "" {
-							if conn, err := network.NewGRPCClient(server, token); err == nil {
-								defer conn.Close()
-								client := bandpb.NewBandServiceClient(conn)
-								resp, err := client.ListMyBands(context.Background(), &bandpb.ListMyBandsRequest{})
-								if err == nil {
-									bandMap = make(map[string]uint32)
-									var names []string
-									for _, b := range resp.GetBands() {
-										bandMap[b.Name] = b.Id
-										names = append(names, b.Name)
-									}
-									if len(names) > 0 {
-										bandSelect.Options = names
-										bandSelect.SetSelected(names[0])
-									} else {
-										bandSelect.Options = []string{"No bands available"}
-										bandSelect.SetSelected("No bands available")
-									}
-									bandSelect.Refresh()
-								}
-							}
+						conn, err := network.NewGRPCClient(server, token)
+						if err != nil {
+							return err
 						}
-					}()
+						defer conn.Close()
 
-					var d dialog.Dialog
-					shareForm := container.NewVBox(
-						widget.NewLabel(fmt.Sprintf("Share concert '%s':", concert.Name)),
-						targetType,
-						widget.NewLabel("Email address:"), emailEntry,
-						widget.NewLabel("Select Band:"), bandSelect,
-						container.NewHBox(
-							layout.NewSpacer(),
-							widget.NewButton("Share", func() {
-								isUser := targetType.Selected == "User (Email)"
-								if isUser && emailEntry.Text == "" {
-									return
-								}
-								if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
-									return
-								}
-
-								go func() {
-									token := app.Preferences().String("jwt_token")
-									server := app.Preferences().String("server_addr")
-									if conn, err := network.NewGRPCClient(server, token); err == nil {
-										defer conn.Close()
-										client := concertpb.NewConcertServiceClient(conn)
-										req := &concertpb.ShareConcertRequest{ConcertId: concert.ID}
-
-										if isUser {
-											req.TargetEmail = &emailEntry.Text
-										} else {
-											bandID := bandMap[bandSelect.Selected]
-											req.TargetBandId = &bandID
-										}
-
-										_, err := client.ShareConcert(context.Background(), req)
-										if err != nil {
-											dialog.ShowError(err, w)
-										} else {
-											msg := "Concert invitation sent to user!"
-											if !isUser {
-												msg = "Concert shared with the band successfully!"
-											}
-											dialog.ShowInformation("Success", msg, w)
-										}
-									}
-								}()
-								d.Hide()
-							}),
-							widget.NewButton("Cancel", func() { d.Hide() }),
-						),
-					)
-
-					d = dialog.NewCustomWithoutButtons("Share Concert", shareForm, w)
-					d.Show()
+						client := concertpb.NewConcertServiceClient(conn)
+						_, err = client.ShareConcert(context.Background(), &concertpb.ShareConcertRequest{
+							ConcertId:    concert.ID,
+							TargetEmail:  email,
+							TargetBandId: bandID,
+						})
+						return err
+					})
 				})
 
 				revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
-					emailEntry := widget.NewEntry()
-					emailEntry.SetPlaceHolder("user@example.com")
-
-					bandSelect := widget.NewSelect([]string{"Loading bands..."}, nil)
-					var bandMap map[string]uint32
-
-					targetType := widget.NewRadioGroup([]string{"User (Email)", "Band"}, func(selected string) {
-						if selected == "User (Email)" {
-							emailEntry.Enable()
-							bandSelect.Disable()
-						} else {
-							emailEntry.Disable()
-							bandSelect.Enable()
-						}
-					})
-					targetType.SetSelected("User (Email)")
-
-					go func() {
+					ShowAccessDialog(w, app, "Revoke Concert Access", concert.Name, "Revoke", func(email *string, bandID *uint32) error {
 						token := app.Preferences().String("jwt_token")
 						server := app.Preferences().String("server_addr")
-						if token != "" && server != "" {
-							if conn, err := network.NewGRPCClient(server, token); err == nil {
-								defer conn.Close()
-								client := bandpb.NewBandServiceClient(conn)
-								resp, err := client.ListMyBands(context.Background(), &bandpb.ListMyBandsRequest{})
-								if err == nil {
-									bandMap = make(map[string]uint32)
-									var names []string
-									for _, b := range resp.GetBands() {
-										bandMap[b.Name] = b.Id
-										names = append(names, b.Name)
-									}
-									if len(names) > 0 {
-										bandSelect.Options = names
-										bandSelect.SetSelected(names[0])
-									} else {
-										bandSelect.Options = []string{"No bands available"}
-										bandSelect.SetSelected("No bands available")
-									}
-									bandSelect.Refresh()
-								}
-							}
+						conn, err := network.NewGRPCClient(server, token)
+						if err != nil {
+							return err
 						}
-					}()
+						defer conn.Close()
 
-					var d dialog.Dialog
-					revokeForm := container.NewVBox(
-						widget.NewLabel(fmt.Sprintf("Revoke access to '%s':", concert.Name)),
-						targetType,
-						widget.NewLabel("Email address:"), emailEntry,
-						widget.NewLabel("Select Band:"), bandSelect,
-						container.NewHBox(
-							layout.NewSpacer(),
-							widget.NewButton("Revoke", func() {
-								isUser := targetType.Selected == "User (Email)"
-								if isUser && emailEntry.Text == "" {
-									return
-								}
-								if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
-									return
-								}
-
-								go func() {
-									token := app.Preferences().String("jwt_token")
-									server := app.Preferences().String("server_addr")
-									if conn, err := network.NewGRPCClient(server, token); err == nil {
-										defer conn.Close()
-										client := concertpb.NewConcertServiceClient(conn)
-										req := &concertpb.RevokeConcertAccessRequest{ConcertId: concert.ID}
-
-										if isUser {
-											req.TargetEmail = &emailEntry.Text
-										} else {
-											bandID := bandMap[bandSelect.Selected]
-											req.TargetBandId = &bandID
-										}
-
-										_, err := client.RevokeConcertAccess(context.Background(), req)
-										if err != nil {
-											dialog.ShowError(err, w)
-										} else {
-											dialog.ShowInformation("Success", "Concert access revoked!", w)
-										}
-									}
-								}()
-								d.Hide()
-							}),
-							widget.NewButton("Cancel", func() { d.Hide() }),
-						),
-					)
-
-					d = dialog.NewCustomWithoutButtons("Revoke Access", revokeForm, w)
-					d.Show()
+						client := concertpb.NewConcertServiceClient(conn)
+						_, err = client.RevokeConcertAccess(context.Background(), &concertpb.RevokeConcertAccessRequest{
+							ConcertId:    concert.ID,
+							TargetEmail:  email,
+							TargetBandId: bandID,
+						})
+						return err
+					})
 				})
 				revokeBtn.Importance = widget.DangerImportance
 
@@ -267,7 +109,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 						if confirmed {
 							_ = db.MarkConcertDeleted(concert.ID)
 							onDeleteConcert()
-							showConcertList()
+							updateGrid()
 						}
 					}, w)
 				})
@@ -286,7 +128,33 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			grid.Add(item)
 		}
 
-		view := container.NewBorder(header, nil, nil, nil, container.NewPadded(container.NewVScroll(grid)))
+		gridWrapper.Objects = []fyne.CanvasObject{container.NewPadded(container.NewVScroll(grid))}
+		gridWrapper.Refresh()
+	}
+
+	searchEntry.OnChanged = func(s string) {
+		if len(s) >= 3 || len(s) == 0 {
+			updateGrid()
+		}
+	}
+
+	showConcertList = func() {
+		updateGrid()
+
+		backBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
+		backBtn.Importance = widget.WarningImportance
+
+		newConcertBtn := widget.NewButtonWithIcon("New Concert", theme.ContentAddIcon(), func() {
+			openSetup(nil)
+		})
+		newConcertBtn.Importance = widget.HighImportance
+
+		topControls := container.NewHBox(newConcertBtn)
+		searchContainer := container.NewPadded(searchEntry)
+
+		header := container.NewBorder(nil, nil, backBtn, topControls, searchContainer)
+
+		view := container.NewBorder(header, nil, nil, nil, gridWrapper)
 		contentWrapper.Objects = []fyne.CanvasObject{view}
 		contentWrapper.Refresh()
 	}
@@ -337,7 +205,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				if err1 == nil && err2 == nil {
 					canvasImg1 := canvas.NewImageFromImage(img1)
 					canvasImg1.FillMode = canvas.ImageFillContain
-
 					canvasImg2 := canvas.NewImageFromImage(img2)
 					canvasImg2.FillMode = canvas.ImageFillContain
 
@@ -405,7 +272,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				timerStatusLabel := widget.NewLabelWithStyle("PAUSED", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 
 				var startPauseBtn *widget.Button
-
 				startPauseBtn = widget.NewButtonWithIcon("Start", theme.MediaPlayIcon(), func() {
 					if isTimerRunning {
 						isTimerRunning = false
@@ -642,16 +508,15 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 		topBar := container.NewBorder(nil, nil, exitConcertBtn, container.NewHBox(prevSongBtn, nextSongBtn), songTitleLabel)
 
-		viewer := newResponsiveViewer(func(size fyne.Size) {
+		viewer := NewResponsiveViewer(func(size fyne.Size) {
 			viewerSize = size
 			renderPage()
 		})
-		viewer.content.Objects = []fyne.CanvasObject{pdfContainer}
+		viewer.Content.Objects = []fyne.CanvasObject{pdfContainer}
 
 		mainView := container.NewBorder(
 			container.NewPadded(topBar),
-			nil,
-			nil,
+			nil, nil,
 			container.NewPadded(rightSidebar),
 			viewer,
 		)
