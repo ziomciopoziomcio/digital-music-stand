@@ -176,243 +176,251 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 			card := widget.NewCard("", "", cardContent)
 
 			if editMode {
-				shareBtn := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
-					emailEntry := widget.NewEntry()
-					emailEntry.SetPlaceHolder("user@example.com")
+				var editControls *fyne.Container
 
-					bandSelect := widget.NewSelect([]string{"Loading bands..."}, nil)
-					var bandMap map[string]uint32
+				if score.IsOwner {
+					editTitleBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
+						entry := widget.NewEntry()
+						entry.SetText(score.Title)
 
-					targetType := widget.NewRadioGroup([]string{"User (Email)", "Band"}, func(selected string) {
-						if selected == "User (Email)" {
-							emailEntry.Enable()
-							bandSelect.Disable()
-						} else {
-							emailEntry.Disable()
-							bandSelect.Enable()
-						}
+						var d dialog.Dialog
+						formContent := container.NewVBox(
+							widget.NewLabel("Edit Score Title:"),
+							entry,
+							container.NewHBox(
+								layout.NewSpacer(),
+								widget.NewButton("Save", func() {
+									if entry.Text != "" {
+										_ = db.UpdateScore(score.ID, entry.Text)
+										onScoresChanged()
+										showLibrary()
+										d.Hide()
+									}
+								}),
+								widget.NewButton("Cancel", func() { d.Hide() }),
+							),
+						)
+
+						d = dialog.NewCustomWithoutButtons("Edit Score", formContent, w)
+						d.Show()
+						w.Canvas().Focus(entry)
 					})
-					targetType.SetSelected("User (Email)")
 
-					go func() {
-						token := app.Preferences().String("jwt_token")
-						server := app.Preferences().String("server_addr")
-						if token != "" && server != "" {
-							if conn, err := network.NewGRPCClient(server, token); err == nil {
-								defer conn.Close()
-								client := bandpb.NewBandServiceClient(conn)
-								resp, err := client.ListMyBands(context.Background(), &bandpb.ListMyBandsRequest{})
-								if err == nil {
-									bandMap = make(map[string]uint32)
-									var names []string
-									for _, b := range resp.GetBands() {
-										bandMap[b.Name] = b.Id
-										names = append(names, b.Name)
+					deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+						dialog.ShowConfirm("Delete Score", fmt.Sprintf("Are you sure you want to delete '%s'?", score.Title), func(confirmed bool) {
+							if confirmed {
+								_ = db.MarkScoreDeleted(score.ID)
+								onScoresChanged()
+								showLibrary()
+							}
+						}, w)
+					})
+					deleteBtn.Importance = widget.DangerImportance
+
+					shareBtn := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
+						emailEntry := widget.NewEntry()
+						emailEntry.SetPlaceHolder("user@example.com")
+
+						bandSelect := widget.NewSelect([]string{"Loading bands..."}, nil)
+						var bandMap map[string]uint32
+
+						targetType := widget.NewRadioGroup([]string{"User (Email)", "Band"}, func(selected string) {
+							if selected == "User (Email)" {
+								emailEntry.Enable()
+								bandSelect.Disable()
+							} else {
+								emailEntry.Disable()
+								bandSelect.Enable()
+							}
+						})
+						targetType.SetSelected("User (Email)")
+
+						go func() {
+							token := app.Preferences().String("jwt_token")
+							server := app.Preferences().String("server_addr")
+							if token != "" && server != "" {
+								if conn, err := network.NewGRPCClient(server, token); err == nil {
+									defer conn.Close()
+									client := bandpb.NewBandServiceClient(conn)
+									resp, err := client.ListMyBands(context.Background(), &bandpb.ListMyBandsRequest{})
+									if err == nil {
+										bandMap = make(map[string]uint32)
+										var names []string
+										for _, b := range resp.GetBands() {
+											bandMap[b.Name] = b.Id
+											names = append(names, b.Name)
+										}
+										if len(names) > 0 {
+											bandSelect.Options = names
+											bandSelect.SetSelected(names[0])
+										} else {
+											bandSelect.Options = []string{"No bands available"}
+											bandSelect.SetSelected("No bands available")
+										}
+										bandSelect.Refresh()
 									}
-									if len(names) > 0 {
-										bandSelect.Options = names
-										bandSelect.SetSelected(names[0])
-									} else {
-										bandSelect.Options = []string{"No bands available"}
-										bandSelect.SetSelected("No bands available")
-									}
-									bandSelect.Refresh()
 								}
 							}
-						}
-					}()
+						}()
 
-					var d dialog.Dialog
-					shareForm := container.NewVBox(
-						widget.NewLabel(fmt.Sprintf("Share score '%s':", score.Title)),
-						targetType,
-						widget.NewLabel("Email address:"), emailEntry,
-						widget.NewLabel("Select Band:"), bandSelect,
-						container.NewHBox(
-							layout.NewSpacer(),
-							widget.NewButton("Share", func() {
-								isUser := targetType.Selected == "User (Email)"
-								if isUser && emailEntry.Text == "" {
-									return
-								}
-								if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
-									return
-								}
+						var d dialog.Dialog
+						shareForm := container.NewVBox(
+							widget.NewLabel(fmt.Sprintf("Share score '%s':", score.Title)),
+							targetType,
+							widget.NewLabel("Email address:"), emailEntry,
+							widget.NewLabel("Select Band:"), bandSelect,
+							container.NewHBox(
+								layout.NewSpacer(),
+								widget.NewButton("Share", func() {
+									isUser := targetType.Selected == "User (Email)"
+									if isUser && emailEntry.Text == "" {
+										return
+									}
+									if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
+										return
+									}
 
-								go func() {
-									token := app.Preferences().String("jwt_token")
-									server := app.Preferences().String("server_addr")
-									if conn, err := network.NewGRPCClient(server, token); err == nil {
-										defer conn.Close()
-										client := scorepb.NewScoreServiceClient(conn)
-										req := &scorepb.ShareScoreRequest{ScoreId: score.ID}
+									go func() {
+										token := app.Preferences().String("jwt_token")
+										server := app.Preferences().String("server_addr")
+										if conn, err := network.NewGRPCClient(server, token); err == nil {
+											defer conn.Close()
+											client := scorepb.NewScoreServiceClient(conn)
+											req := &scorepb.ShareScoreRequest{ScoreId: score.ID}
 
-										if isUser {
-											req.TargetEmail = &emailEntry.Text
-										} else {
-											bandID := bandMap[bandSelect.Selected]
-											req.TargetBandId = &bandID
-										}
-
-										_, err := client.ShareScore(context.Background(), req)
-										if err != nil {
-											dialog.ShowError(err, w)
-										} else {
-											msg := "Invitation sent to user!"
-											if !isUser {
-												msg = "Score shared with the band successfully!"
+											if isUser {
+												req.TargetEmail = &emailEntry.Text
+											} else {
+												bandID := bandMap[bandSelect.Selected]
+												req.TargetBandId = &bandID
 											}
-											dialog.ShowInformation("Success", msg, w)
+
+											_, err := client.ShareScore(context.Background(), req)
+											if err != nil {
+												dialog.ShowError(err, w)
+											} else {
+												msg := "Invitation sent to user!"
+												if !isUser {
+													msg = "Score shared with the band successfully!"
+												}
+												dialog.ShowInformation("Success", msg, w)
+											}
 										}
-									}
-								}()
-								d.Hide()
-							}),
-							widget.NewButton("Cancel", func() { d.Hide() }),
-						),
-					)
+									}()
+									d.Hide()
+								}),
+								widget.NewButton("Cancel", func() { d.Hide() }),
+							),
+						)
 
-					d = dialog.NewCustomWithoutButtons("Share Score", shareForm, w)
-					d.Show()
-				})
-
-				revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
-					emailEntry := widget.NewEntry()
-					emailEntry.SetPlaceHolder("user@example.com")
-
-					bandSelect := widget.NewSelect([]string{"Loading bands..."}, nil)
-					var bandMap map[string]uint32
-
-					targetType := widget.NewRadioGroup([]string{"User (Email)", "Band"}, func(selected string) {
-						if selected == "User (Email)" {
-							emailEntry.Enable()
-							bandSelect.Disable()
-						} else {
-							emailEntry.Disable()
-							bandSelect.Enable()
-						}
+						d = dialog.NewCustomWithoutButtons("Share Score", shareForm, w)
+						d.Show()
 					})
-					targetType.SetSelected("User (Email)")
 
-					// Pobieranie zespołów w tle
-					go func() {
-						token := app.Preferences().String("jwt_token")
-						server := app.Preferences().String("server_addr")
-						if token != "" && server != "" {
-							if conn, err := network.NewGRPCClient(server, token); err == nil {
-								defer conn.Close()
-								client := bandpb.NewBandServiceClient(conn)
-								resp, err := client.ListMyBands(context.Background(), &bandpb.ListMyBandsRequest{})
-								if err == nil {
-									bandMap = make(map[string]uint32)
-									var names []string
-									for _, b := range resp.GetBands() {
-										bandMap[b.Name] = b.Id
-										names = append(names, b.Name)
+					revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
+						emailEntry := widget.NewEntry()
+						emailEntry.SetPlaceHolder("user@example.com")
+
+						bandSelect := widget.NewSelect([]string{"Loading bands..."}, nil)
+						var bandMap map[string]uint32
+
+						targetType := widget.NewRadioGroup([]string{"User (Email)", "Band"}, func(selected string) {
+							if selected == "User (Email)" {
+								emailEntry.Enable()
+								bandSelect.Disable()
+							} else {
+								emailEntry.Disable()
+								bandSelect.Enable()
+							}
+						})
+						targetType.SetSelected("User (Email)")
+
+						go func() {
+							token := app.Preferences().String("jwt_token")
+							server := app.Preferences().String("server_addr")
+							if token != "" && server != "" {
+								if conn, err := network.NewGRPCClient(server, token); err == nil {
+									defer conn.Close()
+									client := bandpb.NewBandServiceClient(conn)
+									resp, err := client.ListMyBands(context.Background(), &bandpb.ListMyBandsRequest{})
+									if err == nil {
+										bandMap = make(map[string]uint32)
+										var names []string
+										for _, b := range resp.GetBands() {
+											bandMap[b.Name] = b.Id
+											names = append(names, b.Name)
+										}
+										if len(names) > 0 {
+											bandSelect.Options = names
+											bandSelect.SetSelected(names[0])
+										} else {
+											bandSelect.Options = []string{"No bands available"}
+											bandSelect.SetSelected("No bands available")
+										}
+										bandSelect.Refresh()
 									}
-									if len(names) > 0 {
-										bandSelect.Options = names
-										bandSelect.SetSelected(names[0])
-									} else {
-										bandSelect.Options = []string{"No bands available"}
-										bandSelect.SetSelected("No bands available")
-									}
-									bandSelect.Refresh()
 								}
 							}
-						}
-					}()
+						}()
 
-					var d dialog.Dialog
-					revokeForm := container.NewVBox(
-						widget.NewLabel(fmt.Sprintf("Revoke access to '%s':", score.Title)),
-						targetType,
-						widget.NewLabel("Email address:"), emailEntry,
-						widget.NewLabel("Select Band:"), bandSelect,
-						container.NewHBox(
-							layout.NewSpacer(),
-							widget.NewButton("Revoke", func() {
-								isUser := targetType.Selected == "User (Email)"
-								if isUser && emailEntry.Text == "" {
-									return
-								}
-								if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
-									return
-								}
-
-								go func() {
-									token := app.Preferences().String("jwt_token")
-									server := app.Preferences().String("server_addr")
-									if conn, err := network.NewGRPCClient(server, token); err == nil {
-										defer conn.Close()
-										client := scorepb.NewScoreServiceClient(conn)
-										req := &scorepb.RevokeScoreAccessRequest{ScoreId: score.ID}
-
-										if isUser {
-											req.TargetEmail = &emailEntry.Text
-										} else {
-											bandID := bandMap[bandSelect.Selected]
-											req.TargetBandId = &bandID
-										}
-
-										_, err := client.RevokeScoreAccess(context.Background(), req)
-										if err != nil {
-											dialog.ShowError(err, w)
-										} else {
-											dialog.ShowInformation("Success", "Access revoked successfully!", w)
-										}
+						var d dialog.Dialog
+						revokeForm := container.NewVBox(
+							widget.NewLabel(fmt.Sprintf("Revoke access to '%s':", score.Title)),
+							targetType,
+							widget.NewLabel("Email address:"), emailEntry,
+							widget.NewLabel("Select Band:"), bandSelect,
+							container.NewHBox(
+								layout.NewSpacer(),
+								widget.NewButton("Revoke", func() {
+									isUser := targetType.Selected == "User (Email)"
+									if isUser && emailEntry.Text == "" {
+										return
 									}
-								}()
-								d.Hide()
-							}),
-							widget.NewButton("Cancel", func() { d.Hide() }),
-						),
-					)
+									if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
+										return
+									}
 
-					d = dialog.NewCustomWithoutButtons("Revoke Access", revokeForm, w)
-					d.Show()
-				})
-				revokeBtn.Importance = widget.DangerImportance
+									go func() {
+										token := app.Preferences().String("jwt_token")
+										server := app.Preferences().String("server_addr")
+										if conn, err := network.NewGRPCClient(server, token); err == nil {
+											defer conn.Close()
+											client := scorepb.NewScoreServiceClient(conn)
+											req := &scorepb.RevokeScoreAccessRequest{ScoreId: score.ID}
 
-				editTitleBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
-					entry := widget.NewEntry()
-					entry.SetText(score.Title)
+											if isUser {
+												req.TargetEmail = &emailEntry.Text
+											} else {
+												bandID := bandMap[bandSelect.Selected]
+												req.TargetBandId = &bandID
+											}
 
-					var d dialog.Dialog
-					formContent := container.NewVBox(
-						widget.NewLabel("Edit Score Title:"),
-						entry,
-						container.NewHBox(
-							layout.NewSpacer(),
-							widget.NewButton("Save", func() {
-								if entry.Text != "" {
-									_ = db.UpdateScore(score.ID, entry.Text)
-									onScoresChanged()
-									showLibrary()
+											_, err := client.RevokeScoreAccess(context.Background(), req)
+											if err != nil {
+												dialog.ShowError(err, w)
+											} else {
+												dialog.ShowInformation("Success", "Access revoked successfully!", w)
+											}
+										}
+									}()
 									d.Hide()
-								}
-							}),
-							widget.NewButton("Cancel", func() { d.Hide() }),
-						),
-					)
+								}),
+								widget.NewButton("Cancel", func() { d.Hide() }),
+							),
+						)
 
-					d = dialog.NewCustomWithoutButtons("Edit Score", formContent, w)
-					d.Show()
-					w.Canvas().Focus(entry)
-				})
+						d = dialog.NewCustomWithoutButtons("Revoke Access", revokeForm, w)
+						d.Show()
+					})
+					revokeBtn.Importance = widget.DangerImportance
 
-				deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-					dialog.ShowConfirm("Delete Score", fmt.Sprintf("Are you sure you want to delete '%s'?", score.Title), func(confirmed bool) {
-						if confirmed {
-							_ = db.MarkScoreDeleted(score.ID)
-							onScoresChanged()
-							showLibrary()
-						}
-					}, w)
-				})
-				deleteBtn.Importance = widget.DangerImportance
+					editControls = container.NewHBox(shareBtn, revokeBtn, editTitleBtn, deleteBtn)
 
-				editControls := container.NewHBox(shareBtn, revokeBtn, editTitleBtn, deleteBtn)
+				} else {
+					readOnlyLabel := widget.NewLabelWithStyle("Shared with you", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
+					editControls = container.NewHBox(readOnlyLabel)
+				}
+
 				item := container.NewBorder(nil, editControls, nil, nil, card)
 				grid.Add(item)
 			} else {
