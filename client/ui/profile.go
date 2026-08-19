@@ -6,7 +6,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -19,178 +18,153 @@ type BandInfo struct {
 
 func BuildProfile(
 	w fyne.Window,
-	app fyne.App,
-	goBack func(),
+	a fyne.App,
+	onBack func(),
 	onLogout func(),
 	fetchBands func() ([]BandInfo, error),
-	onCreateBand func(name string) error,
-	onInviteMember func(bandID uint32, email string) error,
+	createBand func(name string) error,
+	inviteMember func(bandID uint32, email string) error,
+	changePassword func(oldPassword, newPassword string) error,
 ) *fyne.Container {
-	contentWrapper := container.NewMax()
+	token := a.Preferences().String("jwt_token")
+	server := a.Preferences().String("server_addr")
 
-	var renderProfile func()
+	topBar := container.NewHBox(
+		widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), onBack),
+		widget.NewLabelWithStyle("User Profile", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+	)
 
-	renderProfile = func() {
-		backBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
-		backBtn.Importance = widget.WarningImportance
-
-		header := container.NewBorder(nil, nil, backBtn, nil,
-			widget.NewLabelWithStyle("Profile & Bands", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
-
-		token := app.Preferences().String("jwt_token")
-		server := app.Preferences().String("server_addr")
-
-		serverLabel := widget.NewLabel(fmt.Sprintf("Server: %s", server))
-		statusLabel := widget.NewLabel(fmt.Sprintf("Status: %s", func() string {
-			if token != "" {
-				return "Logged In"
-			}
-			return "Offline / Guest"
-		}()))
-
-		userInfoCard := widget.NewCard("Account Info", "", container.NewVBox(serverLabel, statusLabel))
-
-		logoutBtn := widget.NewButtonWithIcon("Log Out", theme.LogoutIcon(), func() {
-			dialog.ShowConfirm("Log Out", "Are you sure you want to log out?", func(confirmed bool) {
-				if confirmed {
-					onLogout()
-				}
-			}, w)
-		})
-		logoutBtn.Importance = widget.DangerImportance
-
-		userSection := container.NewVBox(
-			userInfoCard,
-			logoutBtn,
+	if token == "" || server == "" {
+		notLoggedInLabel := widget.NewLabel("You are currently working in Offline Mode.")
+		content := container.NewVBox(
+			topBar,
 			widget.NewSeparator(),
+			notLoggedInLabel,
 		)
-
-		bandsListContainer := container.NewVBox()
-
-		createBandBtn := widget.NewButtonWithIcon("Create Band", theme.ContentAddIcon(), func() {
-			entry := widget.NewEntry()
-			entry.SetPlaceHolder("Band Name")
-
-			var d dialog.Dialog
-			formContent := container.NewVBox(
-				widget.NewLabel("Enter band name:"),
-				entry,
-				container.NewHBox(
-					layout.NewSpacer(),
-					widget.NewButton("Create", func() {
-						if entry.Text != "" {
-							if err := onCreateBand(entry.Text); err != nil {
-								dialog.ShowError(err, w)
-							} else {
-								dialog.ShowInformation("Success", "Band created successfully!", w)
-								renderProfile()
-							}
-							d.Hide()
-						}
-					}),
-					widget.NewButton("Cancel", func() { d.Hide() }),
-				),
-			)
-
-			d = dialog.NewCustomWithoutButtons("Create Band", formContent, w)
-			d.Show()
-			w.Canvas().Focus(entry)
-		})
-		createBandBtn.Importance = widget.HighImportance
-
-		bandsHeader := container.NewBorder(nil, nil,
-			widget.NewLabelWithStyle("My Bands", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			createBandBtn,
-		)
-
-		if token == "" {
-			bandsListContainer.Objects = []fyne.CanvasObject{
-				widget.NewLabelWithStyle("Log in to view and manage your bands.", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-			}
-		} else {
-			bands, err := fetchBands()
-			if err != nil {
-				bandsListContainer.Objects = []fyne.CanvasObject{
-					widget.NewLabel(fmt.Sprintf("Error fetching bands: %v", err)),
-				}
-			} else if len(bands) == 0 {
-				bandsListContainer.Objects = []fyne.CanvasObject{
-					widget.NewLabelWithStyle("You do not belong to any bands yet.", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-				}
-			} else {
-				grid := container.NewVBox()
-				for _, b := range bands {
-					band := b
-					roleText := "Member"
-					if band.IsManager {
-						roleText = "Manager"
-					}
-
-					bandTitle := widget.NewLabelWithStyle(fmt.Sprintf("%s (%s)", band.Name, roleText), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-
-					var inviteBtn *widget.Button
-					if band.IsManager {
-						inviteBtn = widget.NewButtonWithIcon("Invite Member", theme.MailSendIcon(), func() {
-							emailEntry := widget.NewEntry()
-							emailEntry.SetPlaceHolder("user@example.com")
-
-							var d dialog.Dialog
-							inviteForm := container.NewVBox(
-								widget.NewLabel(fmt.Sprintf("Invite member to '%s':", band.Name)),
-								emailEntry,
-								container.NewHBox(
-									layout.NewSpacer(),
-									widget.NewButton("Send Invite", func() {
-										if emailEntry.Text != "" {
-											if err := onInviteMember(band.ID, emailEntry.Text); err != nil {
-												dialog.ShowError(err, w)
-											} else {
-												dialog.ShowInformation("Success", "Invitation sent!", w)
-											}
-											d.Hide()
-										}
-									}),
-									widget.NewButton("Cancel", func() { d.Hide() }),
-								),
-							)
-
-							d = dialog.NewCustomWithoutButtons("Invite Member", inviteForm, w)
-							d.Show()
-							w.Canvas().Focus(emailEntry)
-						})
-						inviteBtn.Importance = widget.HighImportance
-					}
-
-					var row *fyne.Container
-					if inviteBtn != nil {
-						row = container.NewBorder(nil, nil, bandTitle, inviteBtn)
-					} else {
-						row = container.NewBorder(nil, nil, bandTitle, nil)
-					}
-
-					grid.Add(widget.NewCard("", "", row))
-				}
-				bandsListContainer.Objects = []fyne.CanvasObject{grid}
-			}
-		}
-
-		bandsSection := container.NewBorder(
-			bandsHeader,
-			nil, nil, nil,
-			container.NewVScroll(bandsListContainer),
-		)
-
-		mainLayout := container.NewBorder(
-			userSection,
-			nil, nil, nil,
-			bandsSection,
-		)
-
-		view := container.NewBorder(header, nil, nil, nil, container.NewPadded(mainLayout))
-		contentWrapper.Objects = []fyne.CanvasObject{view}
-		contentWrapper.Refresh()
+		return container.NewPadded(content)
 	}
 
-	renderProfile()
-	return contentWrapper
+	statusLabel := widget.NewLabel(fmt.Sprintf("Connected to: %s", server))
+
+	changePassBtn := widget.NewButtonWithIcon("Change Password", theme.SettingsIcon(), func() {
+		oldPassEntry := widget.NewPasswordEntry()
+		oldPassEntry.SetPlaceHolder("Current Password")
+		newPassEntry := widget.NewPasswordEntry()
+		newPassEntry.SetPlaceHolder("New Password")
+
+		form := container.NewVBox(
+			widget.NewLabel("Current Password:"), oldPassEntry,
+			widget.NewLabel("New Password:"), newPassEntry,
+		)
+
+		dialog.ShowCustomConfirm("Change Password", "Save", "Cancel", form, func(confirm bool) {
+			if !confirm {
+				return
+			}
+			if oldPassEntry.Text == "" || newPassEntry.Text == "" {
+				dialog.ShowInformation("Error", "Please fill in both password fields.", w)
+				return
+			}
+
+			err := changePassword(oldPassEntry.Text, newPassEntry.Text)
+			if err != nil {
+				dialog.ShowError(err, w)
+				return
+			}
+			dialog.ShowInformation("Success", "Password updated successfully.", w)
+		}, w)
+	})
+
+	logoutBtn := widget.NewButtonWithIcon("Logout", theme.LogoutIcon(), onLogout)
+	logoutBtn.Importance = widget.DangerImportance
+
+	accountSection := container.NewVBox(
+		widget.NewLabelWithStyle("Account Settings", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		statusLabel,
+		container.NewHBox(changePassBtn, logoutBtn),
+		widget.NewSeparator(),
+	)
+
+	bandsContainer := container.NewVBox()
+	refreshBandsList := func() {
+		bandsContainer.Objects = nil
+		bands, err := fetchBands()
+		if err != nil {
+			bandsContainer.Add(widget.NewLabel(fmt.Sprintf("Failed to load bands: %v", err)))
+			bandsContainer.Refresh()
+			return
+		}
+
+		if len(bands) == 0 {
+			bandsContainer.Add(widget.NewLabel("You are not a member of any band yet."))
+		} else {
+			for _, b := range bands {
+				band := b
+				roleStr := "Member"
+				if band.IsManager {
+					roleStr = "Manager"
+				}
+
+				bandLabel := widget.NewLabel(fmt.Sprintf("• %s (%s)", band.Name, roleStr))
+				row := container.NewHBox(bandLabel)
+
+				if band.IsManager {
+					inviteBtn := widget.NewButtonWithIcon("Invite Member", theme.ContentAddIcon(), func() {
+						emailEntry := widget.NewEntry()
+						emailEntry.SetPlaceHolder("musician@example.com")
+
+						dialog.ShowCustomConfirm("Invite to Band", "Send Invite", "Cancel", emailEntry, func(confirm bool) {
+							if confirm && emailEntry.Text != "" {
+								err := inviteMember(band.ID, emailEntry.Text)
+								if err != nil {
+									dialog.ShowError(err, w)
+								} else {
+									dialog.ShowInformation("Success", "Invitation sent successfully!", w)
+								}
+							}
+						}, w)
+					})
+					row.Add(inviteBtn)
+				}
+				bandsContainer.Add(row)
+			}
+		}
+		bandsContainer.Refresh()
+	}
+
+	createBandBtn := widget.NewButtonWithIcon("Create New Band", theme.FolderNewIcon(), func() {
+		nameEntry := widget.NewEntry()
+		nameEntry.SetPlaceHolder("Band Name")
+
+		dialog.ShowCustomConfirm("Create Band", "Create", "Cancel", nameEntry, func(confirm bool) {
+			if confirm && nameEntry.Text != "" {
+				err := createBand(nameEntry.Text)
+				if err != nil {
+					dialog.ShowError(err, w)
+				} else {
+					dialog.ShowInformation("Success", "Band created successfully!", w)
+					refreshBandsList()
+				}
+			}
+		}, w)
+	})
+
+	bandsSection := container.NewVBox(
+		container.NewHBox(
+			widget.NewLabelWithStyle("My Bands", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+			createBandBtn,
+		),
+		bandsContainer,
+	)
+
+	refreshBandsList()
+
+	mainLayout := container.NewVBox(
+		topBar,
+		widget.NewSeparator(),
+		accountSection,
+		bandsSection,
+	)
+
+	return container.NewPadded(container.NewVScroll(mainLayout))
 }

@@ -13,6 +13,7 @@ func BuildLoginScreen(
 	a fyne.App,
 	loginCallback func(server, email, password string) error,
 	registerCallback func(server, email, password, name, surname string) (string, error),
+	resetPasswordCallback func(server, email string) (string, error),
 	onCancel func(),
 ) *fyne.Container {
 	wrapper := container.NewMax()
@@ -42,6 +43,38 @@ func BuildLoginScreen(
 
 	var showLogin func()
 	var showRegister func()
+
+	forgotPasswordBtn := widget.NewButton("Forgot Password?", func() {
+		emailEntry := widget.NewEntry()
+		emailEntry.SetPlaceHolder("user@example.com")
+		if loginEmailEntry.Text != "" {
+			emailEntry.SetText(loginEmailEntry.Text)
+		}
+
+		form := container.NewVBox(
+			widget.NewLabel("Enter your account email to receive a temporary password:"),
+			emailEntry,
+		)
+
+		dialog.ShowCustomConfirm("Reset Password", "Send", "Cancel", form, func(confirm bool) {
+			if !confirm {
+				return
+			}
+			server := serverEntry.Text
+			email := emailEntry.Text
+			if server == "" || email == "" {
+				dialog.ShowInformation("Error", "Please provide both server address and email.", w)
+				return
+			}
+
+			msg, err := resetPasswordCallback(server, email)
+			if err != nil {
+				dialog.ShowError(err, w)
+				return
+			}
+			dialog.ShowInformation("Reset Password", msg, w)
+		}, w)
+	})
 
 	loginBtn := widget.NewButtonWithIcon("Login", theme.LoginIcon(), func() {
 		server := serverEntry.Text
@@ -97,6 +130,7 @@ func BuildLoginScreen(
 			widget.NewLabel("Server Address:"), serverEntry,
 			widget.NewLabel("Email:"), loginEmailEntry,
 			widget.NewLabel("Password:"), loginPasswordEntry,
+			forgotPasswordBtn,
 			widget.NewLabel(""),
 			loginBtn,
 			widget.NewButton("Need an account? Register here", showRegister),
