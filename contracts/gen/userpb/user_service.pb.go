@@ -705,6 +705,190 @@ func (x *RejectUserResponse) GetMessage() string {
 	return ""
 }
 
+type ChangePasswordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	OldPassword   string                 `protobuf:"bytes,1,opt,name=old_password,json=oldPassword,proto3" json:"old_password,omitempty"`
+	NewPassword   string                 `protobuf:"bytes,2,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChangePasswordRequest) Reset() {
+	*x = ChangePasswordRequest{}
+	mi := &file_contracts_proto_user_service_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangePasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangePasswordRequest) ProtoMessage() {}
+
+func (x *ChangePasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_user_service_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangePasswordRequest.ProtoReflect.Descriptor instead.
+func (*ChangePasswordRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_user_service_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *ChangePasswordRequest) GetOldPassword() string {
+	if x != nil {
+		return x.OldPassword
+	}
+	return ""
+}
+
+func (x *ChangePasswordRequest) GetNewPassword() string {
+	if x != nil {
+		return x.NewPassword
+	}
+	return ""
+}
+
+type ChangePasswordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChangePasswordResponse) Reset() {
+	*x = ChangePasswordResponse{}
+	mi := &file_contracts_proto_user_service_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangePasswordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangePasswordResponse) ProtoMessage() {}
+
+func (x *ChangePasswordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_user_service_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangePasswordResponse.ProtoReflect.Descriptor instead.
+func (*ChangePasswordResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_user_service_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ChangePasswordResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type ResetPasswordRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResetPasswordRequest) Reset() {
+	*x = ResetPasswordRequest{}
+	mi := &file_contracts_proto_user_service_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetPasswordRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetPasswordRequest) ProtoMessage() {}
+
+func (x *ResetPasswordRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_user_service_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetPasswordRequest.ProtoReflect.Descriptor instead.
+func (*ResetPasswordRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_user_service_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *ResetPasswordRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+type ResetPasswordResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResetPasswordResponse) Reset() {
+	*x = ResetPasswordResponse{}
+	mi := &file_contracts_proto_user_service_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetPasswordResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetPasswordResponse) ProtoMessage() {}
+
+func (x *ResetPasswordResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_user_service_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetPasswordResponse.ProtoReflect.Descriptor instead.
+func (*ResetPasswordResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_user_service_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ResetPasswordResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_contracts_proto_user_service_proto protoreflect.FileDescriptor
 
 const file_contracts_proto_user_service_proto_rawDesc = "" +
@@ -749,7 +933,16 @@ const file_contracts_proto_user_service_proto_rawDesc = "" +
 	"\x11RejectUserRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\rR\x06userId\".\n" +
 	"\x12RejectUserResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2\x86\x05\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"]\n" +
+	"\x15ChangePasswordRequest\x12!\n" +
+	"\fold_password\x18\x01 \x01(\tR\voldPassword\x12!\n" +
+	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"2\n" +
+	"\x16ChangePasswordResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\",\n" +
+	"\x14ResetPasswordRequest\x12\x14\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\"1\n" +
+	"\x15ResetPasswordResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage2\xed\x06\n" +
 	"\vUserService\x12m\n" +
 	"\fRegisterUser\x12-.digital_music_stand.user.RegisterUserRequest\x1a..digital_music_stand.user.RegisterUserResponse\x12d\n" +
 	"\tLoginUser\x12*.digital_music_stand.user.LoginUserRequest\x1a+.digital_music_stand.user.LoginUserResponse\x12g\n" +
@@ -758,7 +951,9 @@ const file_contracts_proto_user_service_proto_rawDesc = "" +
 	"\tListUsers\x12*.digital_music_stand.user.ListUsersRequest\x1a+.digital_music_stand.user.ListUsersResponse\x12j\n" +
 	"\vApproveUser\x12,.digital_music_stand.user.ApproveUserRequest\x1a-.digital_music_stand.user.ApproveUserResponse\x12g\n" +
 	"\n" +
-	"RejectUser\x12+.digital_music_stand.user.RejectUserRequest\x1a,.digital_music_stand.user.RejectUserResponseBFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpbb\x06proto3"
+	"RejectUser\x12+.digital_music_stand.user.RejectUserRequest\x1a,.digital_music_stand.user.RejectUserResponse\x12s\n" +
+	"\x0eChangePassword\x12/.digital_music_stand.user.ChangePasswordRequest\x1a0.digital_music_stand.user.ChangePasswordResponse\x12p\n" +
+	"\rResetPassword\x12..digital_music_stand.user.ResetPasswordRequest\x1a/.digital_music_stand.user.ResetPasswordResponseBFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpbb\x06proto3"
 
 var (
 	file_contracts_proto_user_service_proto_rawDescOnce sync.Once
@@ -772,21 +967,25 @@ func file_contracts_proto_user_service_proto_rawDescGZIP() []byte {
 	return file_contracts_proto_user_service_proto_rawDescData
 }
 
-var file_contracts_proto_user_service_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_contracts_proto_user_service_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_contracts_proto_user_service_proto_goTypes = []any{
-	(*RegisterUserRequest)(nil),  // 0: digital_music_stand.user.RegisterUserRequest
-	(*RegisterUserResponse)(nil), // 1: digital_music_stand.user.RegisterUserResponse
-	(*LoginUserRequest)(nil),     // 2: digital_music_stand.user.LoginUserRequest
-	(*LoginUserResponse)(nil),    // 3: digital_music_stand.user.LoginUserResponse
-	(*GetProfileRequest)(nil),    // 4: digital_music_stand.user.GetProfileRequest
-	(*GetProfileResponse)(nil),   // 5: digital_music_stand.user.GetProfileResponse
-	(*UserInfo)(nil),             // 6: digital_music_stand.user.UserInfo
-	(*ListUsersRequest)(nil),     // 7: digital_music_stand.user.ListUsersRequest
-	(*ListUsersResponse)(nil),    // 8: digital_music_stand.user.ListUsersResponse
-	(*ApproveUserRequest)(nil),   // 9: digital_music_stand.user.ApproveUserRequest
-	(*ApproveUserResponse)(nil),  // 10: digital_music_stand.user.ApproveUserResponse
-	(*RejectUserRequest)(nil),    // 11: digital_music_stand.user.RejectUserRequest
-	(*RejectUserResponse)(nil),   // 12: digital_music_stand.user.RejectUserResponse
+	(*RegisterUserRequest)(nil),    // 0: digital_music_stand.user.RegisterUserRequest
+	(*RegisterUserResponse)(nil),   // 1: digital_music_stand.user.RegisterUserResponse
+	(*LoginUserRequest)(nil),       // 2: digital_music_stand.user.LoginUserRequest
+	(*LoginUserResponse)(nil),      // 3: digital_music_stand.user.LoginUserResponse
+	(*GetProfileRequest)(nil),      // 4: digital_music_stand.user.GetProfileRequest
+	(*GetProfileResponse)(nil),     // 5: digital_music_stand.user.GetProfileResponse
+	(*UserInfo)(nil),               // 6: digital_music_stand.user.UserInfo
+	(*ListUsersRequest)(nil),       // 7: digital_music_stand.user.ListUsersRequest
+	(*ListUsersResponse)(nil),      // 8: digital_music_stand.user.ListUsersResponse
+	(*ApproveUserRequest)(nil),     // 9: digital_music_stand.user.ApproveUserRequest
+	(*ApproveUserResponse)(nil),    // 10: digital_music_stand.user.ApproveUserResponse
+	(*RejectUserRequest)(nil),      // 11: digital_music_stand.user.RejectUserRequest
+	(*RejectUserResponse)(nil),     // 12: digital_music_stand.user.RejectUserResponse
+	(*ChangePasswordRequest)(nil),  // 13: digital_music_stand.user.ChangePasswordRequest
+	(*ChangePasswordResponse)(nil), // 14: digital_music_stand.user.ChangePasswordResponse
+	(*ResetPasswordRequest)(nil),   // 15: digital_music_stand.user.ResetPasswordRequest
+	(*ResetPasswordResponse)(nil),  // 16: digital_music_stand.user.ResetPasswordResponse
 }
 var file_contracts_proto_user_service_proto_depIdxs = []int32{
 	6,  // 0: digital_music_stand.user.ListUsersResponse.users:type_name -> digital_music_stand.user.UserInfo
@@ -796,14 +995,18 @@ var file_contracts_proto_user_service_proto_depIdxs = []int32{
 	7,  // 4: digital_music_stand.user.UserService.ListUsers:input_type -> digital_music_stand.user.ListUsersRequest
 	9,  // 5: digital_music_stand.user.UserService.ApproveUser:input_type -> digital_music_stand.user.ApproveUserRequest
 	11, // 6: digital_music_stand.user.UserService.RejectUser:input_type -> digital_music_stand.user.RejectUserRequest
-	1,  // 7: digital_music_stand.user.UserService.RegisterUser:output_type -> digital_music_stand.user.RegisterUserResponse
-	3,  // 8: digital_music_stand.user.UserService.LoginUser:output_type -> digital_music_stand.user.LoginUserResponse
-	5,  // 9: digital_music_stand.user.UserService.GetProfile:output_type -> digital_music_stand.user.GetProfileResponse
-	8,  // 10: digital_music_stand.user.UserService.ListUsers:output_type -> digital_music_stand.user.ListUsersResponse
-	10, // 11: digital_music_stand.user.UserService.ApproveUser:output_type -> digital_music_stand.user.ApproveUserResponse
-	12, // 12: digital_music_stand.user.UserService.RejectUser:output_type -> digital_music_stand.user.RejectUserResponse
-	7,  // [7:13] is the sub-list for method output_type
-	1,  // [1:7] is the sub-list for method input_type
+	13, // 7: digital_music_stand.user.UserService.ChangePassword:input_type -> digital_music_stand.user.ChangePasswordRequest
+	15, // 8: digital_music_stand.user.UserService.ResetPassword:input_type -> digital_music_stand.user.ResetPasswordRequest
+	1,  // 9: digital_music_stand.user.UserService.RegisterUser:output_type -> digital_music_stand.user.RegisterUserResponse
+	3,  // 10: digital_music_stand.user.UserService.LoginUser:output_type -> digital_music_stand.user.LoginUserResponse
+	5,  // 11: digital_music_stand.user.UserService.GetProfile:output_type -> digital_music_stand.user.GetProfileResponse
+	8,  // 12: digital_music_stand.user.UserService.ListUsers:output_type -> digital_music_stand.user.ListUsersResponse
+	10, // 13: digital_music_stand.user.UserService.ApproveUser:output_type -> digital_music_stand.user.ApproveUserResponse
+	12, // 14: digital_music_stand.user.UserService.RejectUser:output_type -> digital_music_stand.user.RejectUserResponse
+	14, // 15: digital_music_stand.user.UserService.ChangePassword:output_type -> digital_music_stand.user.ChangePasswordResponse
+	16, // 16: digital_music_stand.user.UserService.ResetPassword:output_type -> digital_music_stand.user.ResetPasswordResponse
+	9,  // [9:17] is the sub-list for method output_type
+	1,  // [1:9] is the sub-list for method input_type
 	1,  // [1:1] is the sub-list for extension type_name
 	1,  // [1:1] is the sub-list for extension extendee
 	0,  // [0:1] is the sub-list for field type_name
@@ -820,7 +1023,7 @@ func file_contracts_proto_user_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_contracts_proto_user_service_proto_rawDesc), len(file_contracts_proto_user_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

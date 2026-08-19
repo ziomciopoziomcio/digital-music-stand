@@ -150,6 +150,22 @@ func main() {
 				}
 				return resp.GetMessage(), nil
 			},
+			func(server, email string) (string, error) {
+				conn, err := network.NewGRPCClient(server, "")
+				if err != nil {
+					return "", fmt.Errorf("connection failed: %w", err)
+				}
+				defer conn.Close()
+
+				client := userpb.NewUserServiceClient(conn)
+				resp, err := client.ResetPassword(context.Background(), &userpb.ResetPasswordRequest{
+					Email: email,
+				})
+				if err != nil {
+					return "", err
+				}
+				return resp.GetMessage(), nil
+			},
 			showDashboard,
 		)
 
@@ -345,6 +361,27 @@ func main() {
 				_, err = bandClient.InviteMember(context.Background(), &bandpb.InviteMemberRequest{
 					BandId:       bandID,
 					InviteeEmail: email,
+				})
+				return err
+			},
+			// Callback dla ZMIANY HASŁA
+			func(oldPassword, newPassword string) error {
+				token := myApp.Preferences().String("jwt_token")
+				server := myApp.Preferences().String("server_addr")
+				if token == "" || server == "" {
+					return fmt.Errorf("not logged in")
+				}
+
+				conn, err := network.NewGRPCClient(server, token)
+				if err != nil {
+					return err
+				}
+				defer conn.Close()
+
+				userClient := userpb.NewUserServiceClient(conn)
+				_, err = userClient.ChangePassword(context.Background(), &userpb.ChangePasswordRequest{
+					OldPassword: oldPassword,
+					NewPassword: newPassword,
 				})
 				return err
 			},
