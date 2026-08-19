@@ -15,6 +15,7 @@ type Score struct {
 	Title     string
 	FilePath  string
 	Checksum  string
+	IsOwner   bool
 	IsDeleted bool
 }
 
@@ -38,6 +39,7 @@ type Concert struct {
 	Location  string
 	StartTime string
 	Checksum  string
+	IsOwner   bool
 	IsDeleted bool
 	Items     []ConcertItem
 }
@@ -63,20 +65,22 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 
 	query := `
 	CREATE TABLE IF NOT EXISTS scores (
-	    id TEXT PRIMARY KEY,
-	    title TEXT NOT NULL,
-	    file_path TEXT NOT NULL,
-	    checksum TEXT NOT NULL DEFAULT '',
-	    is_deleted INTEGER NOT NULL DEFAULT 0
+		id TEXT PRIMARY KEY,
+		title TEXT NOT NULL,
+		file_path TEXT NOT NULL,
+		checksum TEXT NOT NULL DEFAULT '',
+		is_owner INTEGER NOT NULL DEFAULT 1,
+		is_deleted INTEGER NOT NULL DEFAULT 0
 	);
 
 	CREATE TABLE IF NOT EXISTS concerts (
-	    id TEXT PRIMARY KEY,
-	    name TEXT NOT NULL,
-	    location TEXT,
-	    start_time TEXT,
-	    checksum TEXT NOT NULL DEFAULT '',
-	    is_deleted INTEGER NOT NULL DEFAULT 0
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		location TEXT,
+		start_time TEXT,
+		checksum TEXT NOT NULL DEFAULT '',
+		is_owner INTEGER NOT NULL DEFAULT 1,
+		is_deleted INTEGER NOT NULL DEFAULT 0
 	);
 
 	CREATE TABLE IF NOT EXISTS concert_items (
