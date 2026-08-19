@@ -279,6 +279,8 @@ type GetProfileResponse struct {
 	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
 	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	Surname       string                 `protobuf:"bytes,4,opt,name=surname,proto3" json:"surname,omitempty"`
+	Status        string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	Role          string                 `protobuf:"bytes,6,opt,name=role,proto3" json:"role,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -341,6 +343,368 @@ func (x *GetProfileResponse) GetSurname() string {
 	return ""
 }
 
+func (x *GetProfileResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *GetProfileResponse) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+type UserInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint32                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Surname       string                 `protobuf:"bytes,4,opt,name=surname,proto3" json:"surname,omitempty"`
+	Status        string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	Role          string                 `protobuf:"bytes,6,opt,name=role,proto3" json:"role,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UserInfo) Reset() {
+	*x = UserInfo{}
+	mi := &file_contracts_proto_user_service_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserInfo) ProtoMessage() {}
+
+func (x *UserInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_user_service_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UserInfo.ProtoReflect.Descriptor instead.
+func (*UserInfo) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_user_service_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *UserInfo) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UserInfo) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *UserInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UserInfo) GetSurname() string {
+	if x != nil {
+		return x.Surname
+	}
+	return ""
+}
+
+func (x *UserInfo) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *UserInfo) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+type ListUsersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StatusFilter  string                 `protobuf:"bytes,1,opt,name=status_filter,json=statusFilter,proto3" json:"status_filter,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListUsersRequest) Reset() {
+	*x = ListUsersRequest{}
+	mi := &file_contracts_proto_user_service_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListUsersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListUsersRequest) ProtoMessage() {}
+
+func (x *ListUsersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_user_service_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListUsersRequest.ProtoReflect.Descriptor instead.
+func (*ListUsersRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_user_service_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ListUsersRequest) GetStatusFilter() string {
+	if x != nil {
+		return x.StatusFilter
+	}
+	return ""
+}
+
+type ListUsersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Users         []*UserInfo            `protobuf:"bytes,1,rep,name=users,proto3" json:"users,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListUsersResponse) Reset() {
+	*x = ListUsersResponse{}
+	mi := &file_contracts_proto_user_service_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListUsersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListUsersResponse) ProtoMessage() {}
+
+func (x *ListUsersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_user_service_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListUsersResponse.ProtoReflect.Descriptor instead.
+func (*ListUsersResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_user_service_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ListUsersResponse) GetUsers() []*UserInfo {
+	if x != nil {
+		return x.Users
+	}
+	return nil
+}
+
+type ApproveUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApproveUserRequest) Reset() {
+	*x = ApproveUserRequest{}
+	mi := &file_contracts_proto_user_service_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApproveUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApproveUserRequest) ProtoMessage() {}
+
+func (x *ApproveUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_user_service_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApproveUserRequest.ProtoReflect.Descriptor instead.
+func (*ApproveUserRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_user_service_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ApproveUserRequest) GetUserId() uint32 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+type ApproveUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApproveUserResponse) Reset() {
+	*x = ApproveUserResponse{}
+	mi := &file_contracts_proto_user_service_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApproveUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApproveUserResponse) ProtoMessage() {}
+
+func (x *ApproveUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_user_service_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApproveUserResponse.ProtoReflect.Descriptor instead.
+func (*ApproveUserResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_user_service_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ApproveUserResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type RejectUserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RejectUserRequest) Reset() {
+	*x = RejectUserRequest{}
+	mi := &file_contracts_proto_user_service_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RejectUserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RejectUserRequest) ProtoMessage() {}
+
+func (x *RejectUserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_user_service_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RejectUserRequest.ProtoReflect.Descriptor instead.
+func (*RejectUserRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_user_service_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *RejectUserRequest) GetUserId() uint32 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+type RejectUserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RejectUserResponse) Reset() {
+	*x = RejectUserResponse{}
+	mi := &file_contracts_proto_user_service_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RejectUserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RejectUserResponse) ProtoMessage() {}
+
+func (x *RejectUserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_user_service_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RejectUserResponse.ProtoReflect.Descriptor instead.
+func (*RejectUserResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_user_service_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *RejectUserResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_contracts_proto_user_service_proto protoreflect.FileDescriptor
 
 const file_contracts_proto_user_service_proto_rawDesc = "" +
@@ -359,17 +723,42 @@ const file_contracts_proto_user_service_proto_rawDesc = "" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\")\n" +
 	"\x11LoginUserResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\"\x1d\n" +
-	"\x11GetProfileRequestJ\x04\b\x01\x10\x02R\x02id\"h\n" +
+	"\x11GetProfileRequestJ\x04\b\x01\x10\x02R\x02id\"\x94\x01\n" +
 	"\x12GetProfileResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x18\n" +
-	"\asurname\x18\x04 \x01(\tR\asurname2\xcb\x02\n" +
+	"\asurname\x18\x04 \x01(\tR\asurname\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\x12\x12\n" +
+	"\x04role\x18\x06 \x01(\tR\x04role\"\x8a\x01\n" +
+	"\bUserInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
+	"\x05email\x18\x02 \x01(\tR\x05email\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x18\n" +
+	"\asurname\x18\x04 \x01(\tR\asurname\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\x12\x12\n" +
+	"\x04role\x18\x06 \x01(\tR\x04role\"7\n" +
+	"\x10ListUsersRequest\x12#\n" +
+	"\rstatus_filter\x18\x01 \x01(\tR\fstatusFilter\"M\n" +
+	"\x11ListUsersResponse\x128\n" +
+	"\x05users\x18\x01 \x03(\v2\".digital_music_stand.user.UserInfoR\x05users\"-\n" +
+	"\x12ApproveUserRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\rR\x06userId\"/\n" +
+	"\x13ApproveUserResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\",\n" +
+	"\x11RejectUserRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\rR\x06userId\".\n" +
+	"\x12RejectUserResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage2\x86\x05\n" +
 	"\vUserService\x12m\n" +
 	"\fRegisterUser\x12-.digital_music_stand.user.RegisterUserRequest\x1a..digital_music_stand.user.RegisterUserResponse\x12d\n" +
 	"\tLoginUser\x12*.digital_music_stand.user.LoginUserRequest\x1a+.digital_music_stand.user.LoginUserResponse\x12g\n" +
 	"\n" +
-	"GetProfile\x12+.digital_music_stand.user.GetProfileRequest\x1a,.digital_music_stand.user.GetProfileResponseBFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpbb\x06proto3"
+	"GetProfile\x12+.digital_music_stand.user.GetProfileRequest\x1a,.digital_music_stand.user.GetProfileResponse\x12d\n" +
+	"\tListUsers\x12*.digital_music_stand.user.ListUsersRequest\x1a+.digital_music_stand.user.ListUsersResponse\x12j\n" +
+	"\vApproveUser\x12,.digital_music_stand.user.ApproveUserRequest\x1a-.digital_music_stand.user.ApproveUserResponse\x12g\n" +
+	"\n" +
+	"RejectUser\x12+.digital_music_stand.user.RejectUserRequest\x1a,.digital_music_stand.user.RejectUserResponseBFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpbb\x06proto3"
 
 var (
 	file_contracts_proto_user_service_proto_rawDescOnce sync.Once
@@ -383,7 +772,7 @@ func file_contracts_proto_user_service_proto_rawDescGZIP() []byte {
 	return file_contracts_proto_user_service_proto_rawDescData
 }
 
-var file_contracts_proto_user_service_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_contracts_proto_user_service_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_contracts_proto_user_service_proto_goTypes = []any{
 	(*RegisterUserRequest)(nil),  // 0: digital_music_stand.user.RegisterUserRequest
 	(*RegisterUserResponse)(nil), // 1: digital_music_stand.user.RegisterUserResponse
@@ -391,19 +780,33 @@ var file_contracts_proto_user_service_proto_goTypes = []any{
 	(*LoginUserResponse)(nil),    // 3: digital_music_stand.user.LoginUserResponse
 	(*GetProfileRequest)(nil),    // 4: digital_music_stand.user.GetProfileRequest
 	(*GetProfileResponse)(nil),   // 5: digital_music_stand.user.GetProfileResponse
+	(*UserInfo)(nil),             // 6: digital_music_stand.user.UserInfo
+	(*ListUsersRequest)(nil),     // 7: digital_music_stand.user.ListUsersRequest
+	(*ListUsersResponse)(nil),    // 8: digital_music_stand.user.ListUsersResponse
+	(*ApproveUserRequest)(nil),   // 9: digital_music_stand.user.ApproveUserRequest
+	(*ApproveUserResponse)(nil),  // 10: digital_music_stand.user.ApproveUserResponse
+	(*RejectUserRequest)(nil),    // 11: digital_music_stand.user.RejectUserRequest
+	(*RejectUserResponse)(nil),   // 12: digital_music_stand.user.RejectUserResponse
 }
 var file_contracts_proto_user_service_proto_depIdxs = []int32{
-	0, // 0: digital_music_stand.user.UserService.RegisterUser:input_type -> digital_music_stand.user.RegisterUserRequest
-	2, // 1: digital_music_stand.user.UserService.LoginUser:input_type -> digital_music_stand.user.LoginUserRequest
-	4, // 2: digital_music_stand.user.UserService.GetProfile:input_type -> digital_music_stand.user.GetProfileRequest
-	1, // 3: digital_music_stand.user.UserService.RegisterUser:output_type -> digital_music_stand.user.RegisterUserResponse
-	3, // 4: digital_music_stand.user.UserService.LoginUser:output_type -> digital_music_stand.user.LoginUserResponse
-	5, // 5: digital_music_stand.user.UserService.GetProfile:output_type -> digital_music_stand.user.GetProfileResponse
-	3, // [3:6] is the sub-list for method output_type
-	0, // [0:3] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	6,  // 0: digital_music_stand.user.ListUsersResponse.users:type_name -> digital_music_stand.user.UserInfo
+	0,  // 1: digital_music_stand.user.UserService.RegisterUser:input_type -> digital_music_stand.user.RegisterUserRequest
+	2,  // 2: digital_music_stand.user.UserService.LoginUser:input_type -> digital_music_stand.user.LoginUserRequest
+	4,  // 3: digital_music_stand.user.UserService.GetProfile:input_type -> digital_music_stand.user.GetProfileRequest
+	7,  // 4: digital_music_stand.user.UserService.ListUsers:input_type -> digital_music_stand.user.ListUsersRequest
+	9,  // 5: digital_music_stand.user.UserService.ApproveUser:input_type -> digital_music_stand.user.ApproveUserRequest
+	11, // 6: digital_music_stand.user.UserService.RejectUser:input_type -> digital_music_stand.user.RejectUserRequest
+	1,  // 7: digital_music_stand.user.UserService.RegisterUser:output_type -> digital_music_stand.user.RegisterUserResponse
+	3,  // 8: digital_music_stand.user.UserService.LoginUser:output_type -> digital_music_stand.user.LoginUserResponse
+	5,  // 9: digital_music_stand.user.UserService.GetProfile:output_type -> digital_music_stand.user.GetProfileResponse
+	8,  // 10: digital_music_stand.user.UserService.ListUsers:output_type -> digital_music_stand.user.ListUsersResponse
+	10, // 11: digital_music_stand.user.UserService.ApproveUser:output_type -> digital_music_stand.user.ApproveUserResponse
+	12, // 12: digital_music_stand.user.UserService.RejectUser:output_type -> digital_music_stand.user.RejectUserResponse
+	7,  // [7:13] is the sub-list for method output_type
+	1,  // [1:7] is the sub-list for method input_type
+	1,  // [1:1] is the sub-list for extension type_name
+	1,  // [1:1] is the sub-list for extension extendee
+	0,  // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_contracts_proto_user_service_proto_init() }
@@ -417,7 +820,7 @@ func file_contracts_proto_user_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_contracts_proto_user_service_proto_rawDesc), len(file_contracts_proto_user_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
