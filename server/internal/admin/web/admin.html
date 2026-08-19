@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Music Stand - Admin Panel</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #38bdf8;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --border: #334155;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        h1 { margin: 0; font-size: 1.75rem; color: var(--primary); }
+
+        .filters {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn.active, .filter-btn:hover {
+            background: var(--primary);
+            color: #000;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th { background: #0f172a; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .badge-pending { background: #854d0e; color: #fef08a; }
+        .badge-active { background: #14532d; color: #86efac; }
+        .badge-banned { background: #7f1d1d; color: #fca5a5; }
+
+        .actions { display: flex; gap: 0.5rem; }
+
+        button.btn-approve {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button.btn-reject {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover { opacity: 0.85; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>Digital Music Stand — Admin Panel</h1>
+        <span id="user-count" style="color: var(--text-muted)">Loading...</span>
+    </header>
+
+    <div class="filters">
+        <button class="filter-btn active" onclick="setFilter('pending')">Pending Approval</button>
+        <button class="filter-btn" onclick="setFilter('active')">Active</button>
+        <button class="filter-btn" onclick="setFilter('banned')">Suspended</button>
+        <button class="filter-btn" onclick="setFilter('')">All Users</button>
+    </div>
+
+    <table>
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="users-table">
+        <tr><td colspan="6" style="text-align: center;">Loading users...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    let currentFilter = 'pending';
+
+    async function fetchUsers() {
+        try {
+            const res = await fetch(`/admin/api/users?status=${currentFilter}`);
+            if (!res.ok) throw new Error('Unauthorized or server error');
+            const users = await res.json();
+
+            const table = document.getElementById('users-table');
+            document.getElementById('user-count').innerText = `Total: ${users.length}`;
+
+            if (users.length === 0) {
+                table.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No users found.</td></tr>`;
+                return;
+            }
+
+            table.innerHTML = users.map(u => `
+                    <tr>
+                        <td>${u.ID}</td>
+                        <td><strong>${u.Name} ${u.Surname}</strong></td>
+                        <td>${u.Email}</td>
+                        <td><code>${u.Role}</code></td>
+                        <td><span class="badge badge-${u.Status}">${u.Status}</span></td>
+                        <td class="actions">
+                            ${u.Status !== 'active' ? `<button class="btn-approve" onclick="updateStatus(${u.ID}, 'approve')">Approve</button>` : ''}
+                            ${u.Status !== 'banned' ? `<button class="btn-reject" onclick="updateStatus(${u.ID}, 'reject')">Reject</button>` : ''}
+                        </td>
+                    </tr>
+                `).join('');
+        } catch (err) {
+            document.getElementById('users-table').innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--danger);">${err.message}</td></tr>`;
+        }
+    }
+
+    async function updateStatus(id, action) {
+        if (!confirm(`Are you sure you want to ${action} user #${id}?`)) return;
+        try {
+            const res = await fetch(`/admin/api/users/${action}?id=${id}`, { method: 'POST' });
+            if (res.ok) {
+                fetchUsers();
+            } else {
+                alert('Failed to process request');
+            }
+        } catch (e) {
+            alert('Error connecting to server');
+        }
+    }
+
+    function setFilter(filter) {
+        currentFilter = filter;
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+        fetchUsers();
+    }
+
+    fetchUsers();
+    setInterval(fetchUsers, 10000);
+</script>
+</body>
+</html>
