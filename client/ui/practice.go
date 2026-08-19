@@ -225,6 +225,57 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 					d.Show()
 				})
 
+				revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
+					emailEntry := widget.NewEntry()
+					emailEntry.SetPlaceHolder("user@example.com")
+
+					var d dialog.Dialog
+					revokeForm := container.NewVBox(
+						widget.NewLabel(fmt.Sprintf("Revoke access to '%s':", score.Title)),
+						widget.NewLabel("Enter user email:"),
+						emailEntry,
+						container.NewHBox(
+							layout.NewSpacer(),
+							widget.NewButton("Revoke", func() {
+								if emailEntry.Text != "" {
+									go func() {
+										token := app.Preferences().String("jwt_token")
+										server := app.Preferences().String("server_addr")
+										if token == "" || server == "" {
+											dialog.ShowError(fmt.Errorf("not logged in"), w)
+											return
+										}
+										conn, err := network.NewGRPCClient(server, token)
+										if err != nil {
+											dialog.ShowError(err, w)
+											return
+										}
+										defer conn.Close()
+
+										client := scorepb.NewScoreServiceClient(conn)
+										targetEmail := emailEntry.Text
+										_, err = client.RevokeScoreAccess(context.Background(), &scorepb.RevokeScoreAccessRequest{
+											ScoreId:     score.ID,
+											TargetEmail: &targetEmail,
+										})
+										if err != nil {
+											dialog.ShowError(err, w)
+										} else {
+											dialog.ShowInformation("Success", "Access revoked successfully!", w)
+										}
+									}()
+									d.Hide()
+								}
+							}),
+							widget.NewButton("Cancel", func() { d.Hide() }),
+						),
+					)
+
+					d = dialog.NewCustomWithoutButtons("Revoke Access", revokeForm, w)
+					d.Show()
+				})
+				revokeBtn.Importance = widget.DangerImportance
+
 				editTitleBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
 					entry := widget.NewEntry()
 					entry.SetText(score.Title)
@@ -263,7 +314,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 				})
 				deleteBtn.Importance = widget.DangerImportance
 
-				editControls := container.NewHBox(shareBtn, editTitleBtn, deleteBtn)
+				editControls := container.NewHBox(shareBtn, revokeBtn, editTitleBtn, deleteBtn)
 				item := container.NewBorder(nil, editControls, nil, nil, card)
 				grid.Add(item)
 			} else {

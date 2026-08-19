@@ -107,6 +107,57 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				d.Show()
 			})
 
+			revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
+				emailEntry := widget.NewEntry()
+				emailEntry.SetPlaceHolder("user@example.com")
+
+				var d dialog.Dialog
+				revokeForm := container.NewVBox(
+					widget.NewLabel(fmt.Sprintf("Revoke access to '%s':", concert.Name)),
+					widget.NewLabel("Enter user email:"),
+					emailEntry,
+					container.NewHBox(
+						layout.NewSpacer(),
+						widget.NewButton("Revoke", func() {
+							if emailEntry.Text != "" {
+								go func() {
+									token := app.Preferences().String("jwt_token")
+									server := app.Preferences().String("server_addr")
+									if token == "" || server == "" {
+										dialog.ShowError(fmt.Errorf("not logged in"), w)
+										return
+									}
+									conn, err := network.NewGRPCClient(server, token)
+									if err != nil {
+										dialog.ShowError(err, w)
+										return
+									}
+									defer conn.Close()
+
+									client := concertpb.NewConcertServiceClient(conn)
+									targetEmail := emailEntry.Text
+									_, err = client.RevokeConcertAccess(context.Background(), &concertpb.RevokeConcertAccessRequest{
+										ConcertId:   concert.ID,
+										TargetEmail: &targetEmail,
+									})
+									if err != nil {
+										dialog.ShowError(err, w)
+									} else {
+										dialog.ShowInformation("Success", "Concert access revoked!", w)
+									}
+								}()
+								d.Hide()
+							}
+						}),
+						widget.NewButton("Cancel", func() { d.Hide() }),
+					),
+				)
+
+				d = dialog.NewCustomWithoutButtons("Revoke Access", revokeForm, w)
+				d.Show()
+			})
+			revokeBtn.Importance = widget.DangerImportance
+
 			editBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
 				openSetup(&concert)
 			})
@@ -122,7 +173,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			})
 			deleteBtn.Importance = widget.DangerImportance
 
-			actionButtons := container.NewHBox(shareBtn, editBtn, deleteBtn, openBtn)
+			actionButtons := container.NewHBox(shareBtn, revokeBtn, editBtn, deleteBtn, openBtn)
 			cardContent := container.NewVBox(nameLabel, detailsLabel, layout.NewSpacer())
 			card := widget.NewCard("", "", cardContent)
 
