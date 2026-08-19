@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -11,6 +12,8 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/auth"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 )
 
@@ -147,4 +150,56 @@ func (s *UserService) GetProfile(ctx context.Context, req *userpb.GetProfileRequ
 
 func (s *UserService) GetDB() *gorm.DB {
 	return s.db
+}
+
+func generateTempPassword(length int) string {
+	rand.Seed(time.Now().UnixNano())
+	chars := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+	b := make([]rune, length)
+	for i := range b {
+		b[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(b)
+}
+
+func (s *UserService) ChangePassword(ctx context.Context, req *userpb.ChangePasswordRequest) (*userpb.ChangePasswordResponse, error) {
+	var user models.User
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthorized")
+	}
+
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return nil, status.Errorf(codes.NotFound, "user not found")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.OldPassword)); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid old password")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to process new password")
+	}
+
+	s.db.Model(&user).Update("password_hash", string(hashedPassword))
+
+	return &userpb.ChangePasswordResponse{Message: "Password changed successfully"}, nil
+}
+
+func (s *UserService) ResetPassword(ctx context.Context, req *userpb.ResetPasswordRequest) (*userpb.ResetPasswordResponse, error) {
+	var user models.User
+	if err := s.db.Where("email = ?", req.Email).First(&user).Error; err != nil {
+		return &userpb.ResetPasswordResponse{Message: "If the email exists, a recovery password has been sent."}, nil
+	}
+
+	tempPassword := generateTempPassword(8)
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(tempPassword), bcrypt.DefaultCost)
+
+	s.db.Model(&user).Update("password_hash", string(hashedPassword))
+
+	// TODO: Implement mail service
+	fmt.Printf("[DEBUG] Password reset for %s. New temp password: %s\n", user.Email, tempPassword)
+
+	return &userpb.ResetPasswordResponse{Message: "If the email exists, a recovery password has been sent."}, nil
 }
