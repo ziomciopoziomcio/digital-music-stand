@@ -70,6 +70,12 @@ func main() {
 		&models.Concert{},
 		&models.ConcertItem{},
 		&models.BandInvitation{},
+		&models.SharedUserScore{},
+		&models.SharedBandScore{},
+		&models.ShareScoreInvitation{},
+		&models.SharedUserConcert{},
+		&models.SharedBandConcert{},
+		&models.ShareConcertInvitation{},
 	)
 
 	if err != nil {
