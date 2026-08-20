@@ -7,9 +7,12 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
+
+var SetQuickSettingsVisible func(visible bool)
 
 func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Container) *fyne.Container {
 	isOpen := false
@@ -98,19 +101,37 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 	toggleBtn = widget.NewButtonWithIcon("", theme.MenuDropDownIcon(), togglePanel)
 	overlay.Hide()
 
-	topBar := container.NewCenter(toggleBtn)
-	baseLayout := container.NewBorder(topBar, nil, nil, nil, mainWrapper)
+	SetQuickSettingsVisible = func(visible bool) {
+		if visible {
+			toggleBtn.Show()
+		} else {
+			toggleBtn.Hide()
+			closePanel()
+		}
+	}
 
-	return container.NewMax(baseLayout, overlay)
+	floatingBtn := container.NewVBox(
+		container.NewHBox(layout.NewSpacer(), toggleBtn, layout.NewSpacer()),
+	)
+
+	return container.NewMax(mainWrapper, floatingBtn, overlay)
 }
 
 func lockApp(w fyne.Window, a fyne.App, mainWrapper *fyne.Container) {
 	previousObjects := append([]fyne.CanvasObject{}, mainWrapper.Objects...)
 
+	if SetQuickSettingsVisible != nil {
+		SetQuickSettingsVisible(false)
+	}
+
 	var lockView *fyne.Container
 	lockView = BuildLockScreen(w, a, func() {
 		mainWrapper.Objects = previousObjects
 		mainWrapper.Refresh()
+
+		if SetQuickSettingsVisible != nil {
+			SetQuickSettingsVisible(true)
+		}
 	})
 
 	mainWrapper.Objects = []fyne.CanvasObject{lockView}
