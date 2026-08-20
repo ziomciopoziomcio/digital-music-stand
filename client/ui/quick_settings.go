@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image/color"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -19,21 +20,22 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 	var toggleBtn *widget.Button
 	var settingsPanel *fyne.Container
 	var overlay *fyne.Container
+	var backdrop *widget.Button
 
 	closePanel := func() {
 		if isOpen {
-			panelHeight := float32(180)
+			panelHeight := float32(220)
 			anim := canvas.NewPositionAnimation(
 				fyne.NewPos(0, 0),
 				fyne.NewPos(0, -panelHeight),
-				time.Millisecond*250,
+				time.Millisecond*200,
 				settingsPanel.Move,
 			)
-			time.AfterFunc(time.Millisecond*250, func() {
+			time.AfterFunc(time.Millisecond*200, func() {
 				overlay.Hide()
 			})
 			anim.Start()
-			toggleBtn.SetIcon(theme.MenuDropDownIcon())
+			toggleBtn.SetIcon(theme.SettingsIcon())
 			isOpen = false
 		}
 	}
@@ -60,11 +62,16 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 	})
 	lockBtn.Importance = widget.HighImportance
 
+	closeQuickSettingsBtn := widget.NewButtonWithIcon("Close Quick Settings", theme.CancelIcon(), func() {
+		closePanel()
+	})
+
 	panelContent := container.NewVBox(
 		widget.NewLabelWithStyle("Quick Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		widget.NewSeparator(),
 		lockBtn,
 		widget.NewSeparator(),
+		closeQuickSettingsBtn,
 	)
 
 	bg := canvas.NewRectangle(theme.BackgroundColor())
@@ -72,11 +79,21 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 	bg.StrokeWidth = 2
 
 	settingsPanel = container.NewMax(bg, container.NewPadded(panelContent))
-	overlay = container.NewWithoutLayout(settingsPanel)
+
+	backdrop = widget.NewButton("", func() {
+		closePanel()
+	})
+	backdropBg := canvas.NewRectangle(color.Transparent)
+	backdropContainer := container.NewMax(backdropBg, backdrop)
+
+	overlay = container.NewWithoutLayout(backdropContainer, settingsPanel)
 
 	togglePanel := func() {
 		windowSize := w.Canvas().Size()
-		panelHeight := float32(180)
+		panelHeight := float32(220)
+
+		backdropContainer.Resize(windowSize)
+		backdropContainer.Move(fyne.NewPos(0, 0))
 
 		settingsPanel.Resize(fyne.NewSize(windowSize.Width, panelHeight))
 
@@ -87,7 +104,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 			anim := canvas.NewPositionAnimation(
 				fyne.NewPos(0, -panelHeight),
 				fyne.NewPos(0, 0),
-				time.Millisecond*250,
+				time.Millisecond*200,
 				settingsPanel.Move,
 			)
 			anim.Start()
@@ -98,7 +115,8 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 		}
 	}
 
-	toggleBtn = widget.NewButtonWithIcon("", theme.MenuDropDownIcon(), togglePanel)
+	toggleBtn = widget.NewButtonWithIcon("", theme.SettingsIcon(), togglePanel)
+	toggleBtn.Importance = widget.LowImportance
 	overlay.Hide()
 
 	SetQuickSettingsVisible = func(visible bool) {
@@ -111,7 +129,10 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 	}
 
 	floatingBtn := container.NewVBox(
-		container.NewHBox(layout.NewSpacer(), toggleBtn, layout.NewSpacer()),
+		container.NewHBox(
+			toggleBtn,
+			layout.NewSpacer(),
+		),
 	)
 
 	return container.NewMax(mainWrapper, floatingBtn, overlay)
