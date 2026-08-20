@@ -372,7 +372,6 @@ func main() {
 				})
 				return err
 			},
-			// Callback dla ZMIANY HASŁA
 			func(oldPassword, newPassword string) error {
 				token := myApp.Preferences().String("jwt_token")
 				server := myApp.Preferences().String("server_addr")
@@ -390,6 +389,58 @@ func main() {
 				_, err = userClient.ChangePassword(context.Background(), &userpb.ChangePasswordRequest{
 					OldPassword: oldPassword,
 					NewPassword: newPassword,
+				})
+				return err
+			},
+			func(bandID uint32) ([]ui.MemberInfo, error) {
+				token := myApp.Preferences().String("jwt_token")
+				server := myApp.Preferences().String("server_addr")
+				if token == "" || server == "" {
+					return nil, fmt.Errorf("not logged in")
+				}
+
+				conn, err := network.NewGRPCClient(server, token)
+				if err != nil {
+					return nil, err
+				}
+				defer conn.Close()
+
+				bandClient := bandpb.NewBandServiceClient(conn)
+				resp, err := bandClient.ListBandMembers(context.Background(), &bandpb.ListBandMembersRequest{BandId: bandID})
+				if err != nil {
+					return nil, err
+				}
+
+				var members []ui.MemberInfo
+				for _, m := range resp.GetMembers() {
+					members = append(members, ui.MemberInfo{
+						UserID:  m.GetUserId(),
+						Email:   m.GetEmail(),
+						Name:    m.GetName(),
+						Surname: m.GetSurname(),
+						Role:    m.GetRole(),
+					})
+				}
+				return members, nil
+			},
+			func(bandID uint32, userID uint32, email string) error {
+				token := myApp.Preferences().String("jwt_token")
+				server := myApp.Preferences().String("server_addr")
+				if token == "" || server == "" {
+					return fmt.Errorf("not logged in")
+				}
+
+				conn, err := network.NewGRPCClient(server, token)
+				if err != nil {
+					return err
+				}
+				defer conn.Close()
+
+				bandClient := bandpb.NewBandServiceClient(conn)
+				_, err = bandClient.RemoveMember(context.Background(), &bandpb.RemoveMemberRequest{
+					BandId: bandID,
+					UserId: userID,
+					Email:  email,
 				})
 				return err
 			},
