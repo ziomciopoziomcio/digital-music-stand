@@ -454,7 +454,9 @@ func main() {
 		showDashboard()
 	}
 
-	myWindow.SetContent(mainWrapper)
+	appWithQuickSettings := ui.WrapWithQuickSettings(myWindow, myApp, mainWrapper)
+
+	myWindow.SetContent(appWithQuickSettings)
 	myWindow.Resize(fyne.NewSize(800, 480))
 	myWindow.ShowAndRun()
 }
