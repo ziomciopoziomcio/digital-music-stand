@@ -154,3 +154,21 @@ func (m *MetronomeAudio) Close() {
 		m.ctx.Free()
 	}
 }
+
+func (m *MetronomeAudio) IsPlaying() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.playing
+}
+
+func (m *MetronomeAudio) GetBPM() float64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.bpm
+}
+
+func (m *MetronomeAudio) GetBeatsPerMeasure() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.beatsPerMeasure
+}
