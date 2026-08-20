@@ -6,9 +6,11 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/ziomciopoziomcio/digital-music-stand/client/audio"
 )
 
-func ShowToolsMenu(w fyne.Window) {
+func ShowToolsMenu(w fyne.Window, metroAudio *audio.MetronomeAudio, setDialogBeatCb func(func(bool))) {
 	var d dialog.Dialog
 
 	tunerBtn := widget.NewButtonWithIcon("Tuner", theme.SettingsIcon(), func() {
@@ -19,7 +21,7 @@ func ShowToolsMenu(w fyne.Window) {
 
 	metronomeBtn := widget.NewButtonWithIcon("Metronome", theme.HistoryIcon(), func() {
 		d.Hide()
-		ShowMetronomeDialog(w)
+		ShowMetronomeDialog(w, metroAudio, setDialogBeatCb)
 	})
 	metronomeBtn.Importance = widget.HighImportance
 
