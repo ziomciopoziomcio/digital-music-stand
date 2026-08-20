@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
@@ -192,4 +194,89 @@ func (s *BandService) ListMyBands(ctx context.Context, req *bandpb.ListMyBandsRe
 	return &bandpb.ListMyBandsResponse{
 		Bands: response,
 	}, nil
+}
+
+func (s *BandService) ListBandMembers(ctx context.Context, req *bandpb.ListBandMembersRequest) (*bandpb.ListBandMembersResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthorized")
+	}
+
+	var band models.Band
+	if err := s.db.First(&band, req.GetBandId()).Error; err != nil {
+		return nil, status.Errorf(codes.NotFound, "band not found")
+	}
+
+	var memberCheck models.BandMember
+	if err := s.db.Where("band_id = ? AND user_id = ?", req.GetBandId(), userID).First(&memberCheck).Error; err != nil {
+		return nil, status.Errorf(codes.PermissionDenied, "you are not a member of this band")
+	}
+
+	var pbMembers []*bandpb.BandMemberInfo
+
+	var members []models.BandMember
+	if err := s.db.Preload("User").Where("band_id = ?", req.GetBandId()).Find(&members).Error; err == nil {
+		for _, m := range members {
+
+			role := "member"
+			if uint(m.UserID) == band.ManagerID {
+				role = "manager"
+			}
+
+			pbMembers = append(pbMembers, &bandpb.BandMemberInfo{
+				UserId:  uint32(m.UserID),
+				Email:   m.User.Email,
+				Name:    m.User.Name,
+				Surname: m.User.Surname,
+				Role:    role,
+			})
+		}
+	}
+
+	var invites []models.BandInvitation
+	if err := s.db.Where("band_id = ? AND status = ?", req.GetBandId(), "pending").Find(&invites).Error; err == nil {
+		for _, inv := range invites {
+			pbMembers = append(pbMembers, &bandpb.BandMemberInfo{
+				UserId:  0,
+				Email:   inv.InviteeEmail,
+				Name:    "",
+				Surname: "",
+				Role:    "pending",
+			})
+		}
+	}
+
+	return &bandpb.ListBandMembersResponse{Members: pbMembers}, nil
+}
+
+func (s *BandService) RemoveMember(ctx context.Context, req *bandpb.RemoveMemberRequest) (*bandpb.RemoveMemberResponse, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "unauthorized")
+	}
+
+	var band models.Band
+	if err := s.db.First(&band, req.GetBandId()).Error; err != nil {
+		return nil, status.Errorf(codes.NotFound, "band not found")
+	}
+
+	if band.ManagerID != uint(userID) {
+		return nil, status.Errorf(codes.PermissionDenied, "only band managers can remove members or revoke invites")
+	}
+
+	if req.GetEmail() != "" && req.GetUserId() == 0 {
+		if err := s.db.Where("band_id = ? AND invitee_email = ? AND status = 'pending'", req.GetBandId(), req.GetEmail()).Delete(&models.BandInvitation{}).Error; err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to revoke invitation")
+		}
+		return &bandpb.RemoveMemberResponse{Message: "Invitation revoked successfully"}, nil
+	}
+
+	if req.GetUserId() == uint32(userID) {
+		return nil, status.Errorf(codes.InvalidArgument, "you cannot remove yourself from the band")
+	}
+	if err := s.db.Where("band_id = ? AND user_id = ?", req.GetBandId(), req.GetUserId()).Delete(&models.BandMember{}).Error; err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to remove member")
+	}
+
+	return &bandpb.RemoveMemberResponse{Message: "Member removed successfully"}, nil
 }

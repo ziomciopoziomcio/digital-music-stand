@@ -24,6 +24,8 @@ const (
 	BandService_ListMyInvitations_FullMethodName   = "/digital_music_stand.band.BandService/ListMyInvitations"
 	BandService_RespondToInvitation_FullMethodName = "/digital_music_stand.band.BandService/RespondToInvitation"
 	BandService_ListMyBands_FullMethodName         = "/digital_music_stand.band.BandService/ListMyBands"
+	BandService_RemoveMember_FullMethodName        = "/digital_music_stand.band.BandService/RemoveMember"
+	BandService_ListBandMembers_FullMethodName     = "/digital_music_stand.band.BandService/ListBandMembers"
 )
 
 // BandServiceClient is the client API for BandService service.
@@ -35,6 +37,8 @@ type BandServiceClient interface {
 	ListMyInvitations(ctx context.Context, in *ListMyInvitationsRequest, opts ...grpc.CallOption) (*ListMyInvitationsResponse, error)
 	RespondToInvitation(ctx context.Context, in *RespondToInvitationRequest, opts ...grpc.CallOption) (*RespondToInvitationResponse, error)
 	ListMyBands(ctx context.Context, in *ListMyBandsRequest, opts ...grpc.CallOption) (*ListMyBandsResponse, error)
+	RemoveMember(ctx context.Context, in *RemoveMemberRequest, opts ...grpc.CallOption) (*RemoveMemberResponse, error)
+	ListBandMembers(ctx context.Context, in *ListBandMembersRequest, opts ...grpc.CallOption) (*ListBandMembersResponse, error)
 }
 
 type bandServiceClient struct {
@@ -95,6 +99,26 @@ func (c *bandServiceClient) ListMyBands(ctx context.Context, in *ListMyBandsRequ
 	return out, nil
 }
 
+func (c *bandServiceClient) RemoveMember(ctx context.Context, in *RemoveMemberRequest, opts ...grpc.CallOption) (*RemoveMemberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveMemberResponse)
+	err := c.cc.Invoke(ctx, BandService_RemoveMember_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bandServiceClient) ListBandMembers(ctx context.Context, in *ListBandMembersRequest, opts ...grpc.CallOption) (*ListBandMembersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBandMembersResponse)
+	err := c.cc.Invoke(ctx, BandService_ListBandMembers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BandServiceServer is the server API for BandService service.
 // All implementations must embed UnimplementedBandServiceServer
 // for forward compatibility.
@@ -104,6 +128,8 @@ type BandServiceServer interface {
 	ListMyInvitations(context.Context, *ListMyInvitationsRequest) (*ListMyInvitationsResponse, error)
 	RespondToInvitation(context.Context, *RespondToInvitationRequest) (*RespondToInvitationResponse, error)
 	ListMyBands(context.Context, *ListMyBandsRequest) (*ListMyBandsResponse, error)
+	RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error)
+	ListBandMembers(context.Context, *ListBandMembersRequest) (*ListBandMembersResponse, error)
 	mustEmbedUnimplementedBandServiceServer()
 }
 
@@ -128,6 +154,12 @@ func (UnimplementedBandServiceServer) RespondToInvitation(context.Context, *Resp
 }
 func (UnimplementedBandServiceServer) ListMyBands(context.Context, *ListMyBandsRequest) (*ListMyBandsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMyBands not implemented")
+}
+func (UnimplementedBandServiceServer) RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveMember not implemented")
+}
+func (UnimplementedBandServiceServer) ListBandMembers(context.Context, *ListBandMembersRequest) (*ListBandMembersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBandMembers not implemented")
 }
 func (UnimplementedBandServiceServer) mustEmbedUnimplementedBandServiceServer() {}
 func (UnimplementedBandServiceServer) testEmbeddedByValue()                     {}
@@ -240,6 +272,42 @@ func _BandService_ListMyBands_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BandService_RemoveMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveMemberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BandServiceServer).RemoveMember(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BandService_RemoveMember_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BandServiceServer).RemoveMember(ctx, req.(*RemoveMemberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BandService_ListBandMembers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBandMembersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BandServiceServer).ListBandMembers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BandService_ListBandMembers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BandServiceServer).ListBandMembers(ctx, req.(*ListBandMembersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BandService_ServiceDesc is the grpc.ServiceDesc for BandService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -266,6 +334,14 @@ var BandService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListMyBands",
 			Handler:    _BandService_ListMyBands_Handler,
+		},
+		{
+			MethodName: "RemoveMember",
+			Handler:    _BandService_RemoveMember_Handler,
+		},
+		{
+			MethodName: "ListBandMembers",
+			Handler:    _BandService_ListBandMembers_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

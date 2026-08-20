@@ -16,6 +16,14 @@ type BandInfo struct {
 	IsManager bool
 }
 
+type MemberInfo struct {
+	UserID  uint32
+	Email   string
+	Name    string
+	Surname string
+	Role    string
+}
+
 func BuildProfile(
 	w fyne.Window,
 	a fyne.App,
@@ -25,6 +33,8 @@ func BuildProfile(
 	createBand func(name string) error,
 	inviteMember func(bandID uint32, email string) error,
 	changePassword func(oldPassword, newPassword string) error,
+	listMembers func(bandID uint32) ([]MemberInfo, error),
+	removeMember func(bandID uint32, userID uint32, email string) error,
 ) *fyne.Container {
 	token := a.Preferences().String("jwt_token")
 	server := a.Preferences().String("server_addr")
@@ -108,8 +118,65 @@ func BuildProfile(
 				bandLabel := widget.NewLabel(fmt.Sprintf("• %s (%s)", band.Name, roleStr))
 				row := container.NewHBox(bandLabel)
 
+				var showMembersDialog func()
+				showMembersDialog = func() {
+					members, err := listMembers(band.ID)
+					if err != nil {
+						dialog.ShowError(err, w)
+						return
+					}
+
+					membersBox := container.NewVBox()
+					for _, m := range members {
+						member := m
+
+						var nameStr string
+						if member.Role == "pending" {
+							nameStr = fmt.Sprintf("✉ %s (Pending Invite)", member.Email)
+						} else if member.Name == "" && member.Surname == "" {
+							nameStr = fmt.Sprintf("%s (%s)", member.Email, member.Role)
+						} else {
+							nameStr = fmt.Sprintf("%s %s (%s)", member.Name, member.Surname, member.Role)
+						}
+
+						memberRow := container.NewHBox(widget.NewLabel(nameStr))
+
+						if band.IsManager && member.Role != "manager" {
+							deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+								msg := fmt.Sprintf("Are you sure you want to remove %s from the band?", member.Email)
+								if member.Role == "pending" {
+									msg = fmt.Sprintf("Are you sure you want to cancel the invitation for %s?", member.Email)
+								}
+
+								dialog.ShowConfirm("Confirm Action", msg, func(confirm bool) {
+									if confirm {
+										err := removeMember(band.ID, member.UserID, member.Email)
+										if err != nil {
+											dialog.ShowError(err, w)
+										} else {
+											dialog.ShowInformation("Success", "Action completed.", w)
+											showMembersDialog()
+										}
+									}
+								}, w)
+							})
+							deleteBtn.Importance = widget.DangerImportance
+							memberRow.Add(deleteBtn)
+						}
+						membersBox.Add(memberRow)
+					}
+
+					scroll := container.NewVScroll(membersBox)
+					scroll.SetMinSize(fyne.NewSize(400, 250))
+					d := dialog.NewCustom(fmt.Sprintf("Members of %s", band.Name), "Close", scroll, w)
+					d.Show()
+				}
+
+				membersBtn := widget.NewButtonWithIcon("Members", theme.VisibilityIcon(), showMembersDialog)
+				row.Add(membersBtn)
+
 				if band.IsManager {
-					inviteBtn := widget.NewButtonWithIcon("Invite Member", theme.ContentAddIcon(), func() {
+					inviteBtn := widget.NewButtonWithIcon("Invite", theme.ContentAddIcon(), func() {
 						emailEntry := widget.NewEntry()
 						emailEntry.SetPlaceHolder("musician@example.com")
 
