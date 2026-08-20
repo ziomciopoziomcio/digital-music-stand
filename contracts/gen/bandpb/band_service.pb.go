@@ -593,6 +593,7 @@ type RemoveMemberRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	BandId        uint32                 `protobuf:"varint,1,opt,name=band_id,json=bandId,proto3" json:"band_id,omitempty"`
 	UserId        uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Email         string                 `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -639,6 +640,13 @@ func (x *RemoveMemberRequest) GetUserId() uint32 {
 		return x.UserId
 	}
 	return 0
+}
+
+func (x *RemoveMemberRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
 }
 
 type RemoveMemberResponse struct {
@@ -884,10 +892,11 @@ const file_contracts_proto_band_service_proto_rawDesc = "" +
 	"\n" +
 	"is_manager\x18\x03 \x01(\bR\tisManager\"K\n" +
 	"\x13ListMyBandsResponse\x124\n" +
-	"\x05bands\x18\x01 \x03(\v2\x1e.digital_music_stand.band.BandR\x05bands\"G\n" +
+	"\x05bands\x18\x01 \x03(\v2\x1e.digital_music_stand.band.BandR\x05bands\"]\n" +
 	"\x13RemoveMemberRequest\x12\x17\n" +
 	"\aband_id\x18\x01 \x01(\rR\x06bandId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\rR\x06userId\"0\n" +
+	"\auser_id\x18\x02 \x01(\rR\x06userId\x12\x14\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email\"0\n" +
 	"\x14RemoveMemberResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"\x81\x01\n" +
 	"\x0eBandMemberInfo\x12\x17\n" +
