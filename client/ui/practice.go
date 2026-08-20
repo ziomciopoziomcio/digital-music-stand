@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -13,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/audio"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
@@ -32,6 +34,33 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 	searchEntry.SetPlaceHolder("Search scores (min. 3 chars)...")
 
 	showScore := func(score localdb.Score) {
+		metroAudio, _ := audio.NewMetronomeAudio()
+
+		metroIndicator := canvas.NewRectangle(theme.DisabledColor())
+		metroIndicator.SetMinSize(fyne.NewSize(20, 20))
+		metroIndicatorContainer := container.NewCenter(metroIndicator)
+
+		var dialogBeatCb func(bool)
+
+		if metroAudio != nil {
+			metroAudio.OnBeat = func(isAccent bool) {
+				if isAccent {
+					metroIndicator.FillColor = theme.SuccessColor()
+				} else {
+					metroIndicator.FillColor = theme.PrimaryColor()
+				}
+				metroIndicator.Refresh()
+
+				time.AfterFunc(100*time.Millisecond, func() {
+					metroIndicator.FillColor = theme.DisabledColor()
+					metroIndicator.Refresh()
+				})
+
+				if dialogBeatCb != nil {
+					dialogBeatCb(isAccent)
+				}
+			}
+		}
 		pdfMgr, err := pdf.NewManager(score.FilePath)
 
 		currentPage := 0
@@ -118,6 +147,10 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		nextBtn.Importance = widget.HighImportance
 
 		exitBtn := widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
+			if metroAudio != nil {
+				metroAudio.Stop()
+				metroAudio.Close()
+			}
 			if pdfMgr != nil {
 				pdfMgr.Close()
 			}
@@ -126,10 +159,14 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		exitBtn.Importance = widget.DangerImportance
 
 		titleLabel := widget.NewLabelWithStyle(score.Title, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-		topBar := container.NewBorder(nil, nil, exitBtn, nil, titleLabel)
+
+		topBarControls := container.NewHBox(exitBtn, widget.NewLabel("  "), metroIndicatorContainer)
+		topBar := container.NewBorder(nil, nil, topBarControls, nil, titleLabel)
 
 		toolsBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
-			ShowToolsMenu(w)
+			ShowToolsMenu(w, metroAudio, func(cb func(bool)) {
+				dialogBeatCb = cb
+			})
 		})
 
 		rightSidebar := container.NewBorder(
