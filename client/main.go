@@ -105,7 +105,15 @@ func main() {
 	}
 
 	showLockScreen = func() {
-		lockView := ui.BuildLockScreen(myWindow, myApp, showDashboard)
+		if ui.SetQuickSettingsVisible != nil {
+			ui.SetQuickSettingsVisible(false)
+		}
+		lockView := ui.BuildLockScreen(myWindow, myApp, func() {
+			if ui.SetQuickSettingsVisible != nil {
+				ui.SetQuickSettingsVisible(true)
+			}
+			showDashboard()
+		})
 		mainWrapper.Objects = []fyne.CanvasObject{lockView}
 		mainWrapper.Refresh()
 	}
@@ -447,6 +455,8 @@ func main() {
 		}()
 	}
 
+	appWithQuickSettings := ui.WrapWithQuickSettings(myWindow, myApp, mainWrapper)
+
 	savedPin := myApp.Preferences().String("app_pin")
 	if savedPin != "" {
 		showLockScreen()
@@ -454,7 +464,7 @@ func main() {
 		showDashboard()
 	}
 
-	myWindow.SetContent(mainWrapper)
+	myWindow.SetContent(appWithQuickSettings)
 	myWindow.Resize(fyne.NewSize(800, 480))
 	myWindow.ShowAndRun()
 }
