@@ -13,8 +13,8 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/ziomciopoziomcio/digital-music-stand/client/audio"
 
+	"github.com/ziomciopoziomcio/digital-music-stand/client/audio"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
@@ -161,8 +161,12 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 	}
 
 	playConcert = func(concert localdb.Concert) {
-		metroAudio, _ := audio.NewMetronomeAudio()
+		if len(concert.Items) == 0 {
+			dialog.ShowInformation("Empty Setlist", "This concert has no items assigned.", w)
+			return
+		}
 
+		metroAudio, _ := audio.NewMetronomeAudio()
 		metroIndicator := canvas.NewRectangle(theme.DisabledColor())
 		metroIndicator.SetMinSize(fyne.NewSize(20, 20))
 		metroIndicatorContainer := container.NewCenter(metroIndicator)
@@ -188,10 +192,80 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			}
 		}
 
-		if len(concert.Items) == 0 {
-			dialog.ShowInformation("Empty Setlist", "This concert has no items assigned.", w)
-			return
+		concertClockLabel := canvas.NewText("--:--:--", theme.ForegroundColor())
+		concertClockLabel.Alignment = fyne.TextAlignCenter
+		concertClockLabel.TextStyle = fyne.TextStyle{Bold: true, Monospace: true}
+		concertClockLabel.TextSize = 16
+
+		parseStartTime := func(s string) (time.Time, bool) {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				return time.Time{}, false
+			}
+			now := time.Now()
+
+			formats := []string{
+				"2006-01-02 15:04:05",
+				"2006-01-02 15:04",
+				"2006-01-02T15:04:05Z07:00",
+			}
+			for _, f := range formats {
+				if t, err := time.Parse(f, s); err == nil {
+					return t, true
+				}
+			}
+
+			timeFormats := []string{"15:04:05", "15:04"}
+			for _, f := range timeFormats {
+				if t, err := time.Parse(f, s); err == nil {
+					tToday := time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), t.Second(), 0, now.Location())
+					return tToday, true
+				}
+			}
+			return time.Time{}, false
 		}
+
+		startTime, hasValidStartTime := parseStartTime(concert.StartTime)
+		fallbackStartTime := time.Now()
+
+		stopClockChan := make(chan struct{})
+
+		go func() {
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-stopClockChan:
+					return
+				case <-ticker.C:
+					now := time.Now()
+					var diff time.Duration
+					var prefix string
+
+					if hasValidStartTime {
+						if now.Before(startTime) {
+							prefix = "-"
+							diff = startTime.Sub(now)
+						} else {
+							prefix = ""
+							diff = now.Sub(startTime)
+						}
+					} else {
+						prefix = ""
+						diff = now.Sub(fallbackStartTime)
+					}
+
+					totalSec := int(diff.Seconds())
+					h := totalSec / 3600
+					m := (totalSec % 3600) / 60
+					s := totalSec % 60
+
+					concertClockLabel.Text = fmt.Sprintf("%s%02d:%02d:%02d", prefix, h, m, s)
+					concertClockLabel.Refresh()
+				}
+			}
+		}()
 
 		currentSongIdx := 0
 		currentPage := 0
@@ -443,11 +517,13 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 		exitConcertBtn := widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
 			stopCurrentTimer()
+			close(stopClockChan)
 
 			if metroAudio != nil {
 				metroAudio.Stop()
 				metroAudio.Close()
 			}
+
 			if currentPdfMgr != nil {
 				currentPdfMgr.Close()
 			}
@@ -545,8 +621,16 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			container.NewGridWithRows(2, prevPageBtn, nextPageBtn),
 		)
 
-		topBarControls := container.NewHBox(metroIndicatorContainer, widget.NewLabel("  "), prevSongBtn, nextSongBtn)
-		topBar := container.NewBorder(nil, nil, exitConcertBtn, topBarControls, songTitleLabel)
+		topRightControls := container.NewHBox(
+			metroIndicatorContainer,
+			widget.NewLabel(" "),
+			concertClockLabel,
+			widget.NewLabel(" "),
+			prevSongBtn,
+			nextSongBtn,
+		)
+
+		topBar := container.NewBorder(nil, nil, exitConcertBtn, topRightControls, songTitleLabel)
 
 		viewer := NewResponsiveViewer(func(size fyne.Size) {
 			viewerSize = size
