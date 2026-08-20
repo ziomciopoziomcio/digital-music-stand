@@ -9,6 +9,7 @@ service BandService {
   rpc ListMyInvitations(ListMyInvitationsRequest) returns (ListMyInvitationsResponse);
   rpc RespondToInvitation(RespondToInvitationRequest) returns (RespondToInvitationResponse);
   rpc ListMyBands(ListMyBandsRequest) returns (ListMyBandsResponse);
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
 }
 
 message CreateBandRequest {
@@ -60,4 +61,13 @@ message Band {
 
 message ListMyBandsResponse {
   repeated Band bands = 1;
+}
+
+message RemoveMemberRequest {
+  uint32 band_id = 1;
+  uint32 user_id = 2;
+}
+
+message RemoveMemberResponse {
+  string message = 1;
 }

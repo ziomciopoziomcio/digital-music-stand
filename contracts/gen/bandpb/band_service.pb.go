@@ -589,6 +589,102 @@ func (x *ListMyBandsResponse) GetBands() []*Band {
 	return nil
 }
 
+type RemoveMemberRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BandId        uint32                 `protobuf:"varint,1,opt,name=band_id,json=bandId,proto3" json:"band_id,omitempty"`
+	UserId        uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveMemberRequest) Reset() {
+	*x = RemoveMemberRequest{}
+	mi := &file_contracts_proto_band_service_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveMemberRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveMemberRequest) ProtoMessage() {}
+
+func (x *RemoveMemberRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_band_service_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveMemberRequest.ProtoReflect.Descriptor instead.
+func (*RemoveMemberRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *RemoveMemberRequest) GetBandId() uint32 {
+	if x != nil {
+		return x.BandId
+	}
+	return 0
+}
+
+func (x *RemoveMemberRequest) GetUserId() uint32 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+type RemoveMemberResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveMemberResponse) Reset() {
+	*x = RemoveMemberResponse{}
+	mi := &file_contracts_proto_band_service_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveMemberResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveMemberResponse) ProtoMessage() {}
+
+func (x *RemoveMemberResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_band_service_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveMemberResponse.ProtoReflect.Descriptor instead.
+func (*RemoveMemberResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_band_service_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *RemoveMemberResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_contracts_proto_band_service_proto protoreflect.FileDescriptor
 
 const file_contracts_proto_band_service_proto_rawDesc = "" +
@@ -624,14 +720,20 @@ const file_contracts_proto_band_service_proto_rawDesc = "" +
 	"\n" +
 	"is_manager\x18\x03 \x01(\bR\tisManager\"K\n" +
 	"\x13ListMyBandsResponse\x124\n" +
-	"\x05bands\x18\x01 \x03(\v2\x1e.digital_music_stand.band.BandR\x05bands2\xd4\x04\n" +
+	"\x05bands\x18\x01 \x03(\v2\x1e.digital_music_stand.band.BandR\x05bands\"G\n" +
+	"\x13RemoveMemberRequest\x12\x17\n" +
+	"\aband_id\x18\x01 \x01(\rR\x06bandId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\rR\x06userId\"0\n" +
+	"\x14RemoveMemberResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage2\xc3\x05\n" +
 	"\vBandService\x12g\n" +
 	"\n" +
 	"CreateBand\x12+.digital_music_stand.band.CreateBandRequest\x1a,.digital_music_stand.band.CreateBandResponse\x12m\n" +
 	"\fInviteMember\x12-.digital_music_stand.band.InviteMemberRequest\x1a..digital_music_stand.band.InviteMemberResponse\x12|\n" +
 	"\x11ListMyInvitations\x122.digital_music_stand.band.ListMyInvitationsRequest\x1a3.digital_music_stand.band.ListMyInvitationsResponse\x12\x82\x01\n" +
 	"\x13RespondToInvitation\x124.digital_music_stand.band.RespondToInvitationRequest\x1a5.digital_music_stand.band.RespondToInvitationResponse\x12j\n" +
-	"\vListMyBands\x12,.digital_music_stand.band.ListMyBandsRequest\x1a-.digital_music_stand.band.ListMyBandsResponseBFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpbb\x06proto3"
+	"\vListMyBands\x12,.digital_music_stand.band.ListMyBandsRequest\x1a-.digital_music_stand.band.ListMyBandsResponse\x12m\n" +
+	"\fRemoveMember\x12-.digital_music_stand.band.RemoveMemberRequest\x1a..digital_music_stand.band.RemoveMemberResponseBFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpbb\x06proto3"
 
 var (
 	file_contracts_proto_band_service_proto_rawDescOnce sync.Once
@@ -645,7 +747,7 @@ func file_contracts_proto_band_service_proto_rawDescGZIP() []byte {
 	return file_contracts_proto_band_service_proto_rawDescData
 }
 
-var file_contracts_proto_band_service_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_contracts_proto_band_service_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_contracts_proto_band_service_proto_goTypes = []any{
 	(*CreateBandRequest)(nil),           // 0: digital_music_stand.band.CreateBandRequest
 	(*CreateBandResponse)(nil),          // 1: digital_music_stand.band.CreateBandResponse
@@ -659,6 +761,8 @@ var file_contracts_proto_band_service_proto_goTypes = []any{
 	(*ListMyBandsRequest)(nil),          // 9: digital_music_stand.band.ListMyBandsRequest
 	(*Band)(nil),                        // 10: digital_music_stand.band.Band
 	(*ListMyBandsResponse)(nil),         // 11: digital_music_stand.band.ListMyBandsResponse
+	(*RemoveMemberRequest)(nil),         // 12: digital_music_stand.band.RemoveMemberRequest
+	(*RemoveMemberResponse)(nil),        // 13: digital_music_stand.band.RemoveMemberResponse
 }
 var file_contracts_proto_band_service_proto_depIdxs = []int32{
 	5,  // 0: digital_music_stand.band.ListMyInvitationsResponse.invitations:type_name -> digital_music_stand.band.Invitation
@@ -668,13 +772,15 @@ var file_contracts_proto_band_service_proto_depIdxs = []int32{
 	4,  // 4: digital_music_stand.band.BandService.ListMyInvitations:input_type -> digital_music_stand.band.ListMyInvitationsRequest
 	7,  // 5: digital_music_stand.band.BandService.RespondToInvitation:input_type -> digital_music_stand.band.RespondToInvitationRequest
 	9,  // 6: digital_music_stand.band.BandService.ListMyBands:input_type -> digital_music_stand.band.ListMyBandsRequest
-	1,  // 7: digital_music_stand.band.BandService.CreateBand:output_type -> digital_music_stand.band.CreateBandResponse
-	3,  // 8: digital_music_stand.band.BandService.InviteMember:output_type -> digital_music_stand.band.InviteMemberResponse
-	6,  // 9: digital_music_stand.band.BandService.ListMyInvitations:output_type -> digital_music_stand.band.ListMyInvitationsResponse
-	8,  // 10: digital_music_stand.band.BandService.RespondToInvitation:output_type -> digital_music_stand.band.RespondToInvitationResponse
-	11, // 11: digital_music_stand.band.BandService.ListMyBands:output_type -> digital_music_stand.band.ListMyBandsResponse
-	7,  // [7:12] is the sub-list for method output_type
-	2,  // [2:7] is the sub-list for method input_type
+	12, // 7: digital_music_stand.band.BandService.RemoveMember:input_type -> digital_music_stand.band.RemoveMemberRequest
+	1,  // 8: digital_music_stand.band.BandService.CreateBand:output_type -> digital_music_stand.band.CreateBandResponse
+	3,  // 9: digital_music_stand.band.BandService.InviteMember:output_type -> digital_music_stand.band.InviteMemberResponse
+	6,  // 10: digital_music_stand.band.BandService.ListMyInvitations:output_type -> digital_music_stand.band.ListMyInvitationsResponse
+	8,  // 11: digital_music_stand.band.BandService.RespondToInvitation:output_type -> digital_music_stand.band.RespondToInvitationResponse
+	11, // 12: digital_music_stand.band.BandService.ListMyBands:output_type -> digital_music_stand.band.ListMyBandsResponse
+	13, // 13: digital_music_stand.band.BandService.RemoveMember:output_type -> digital_music_stand.band.RemoveMemberResponse
+	8,  // [8:14] is the sub-list for method output_type
+	2,  // [2:8] is the sub-list for method input_type
 	2,  // [2:2] is the sub-list for extension type_name
 	2,  // [2:2] is the sub-list for extension extendee
 	0,  // [0:2] is the sub-list for field type_name
@@ -691,7 +797,7 @@ func file_contracts_proto_band_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_contracts_proto_band_service_proto_rawDesc), len(file_contracts_proto_band_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
