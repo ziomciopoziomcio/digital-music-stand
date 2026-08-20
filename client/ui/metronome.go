@@ -14,25 +14,43 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/client/audio"
 )
 
-func ShowMetronomeDialog(w fyne.Window) {
+func ShowMetronomeDialog(w fyne.Window, metroAudio *audio.MetronomeAudio, setDialogBeatCb func(func(bool))) {
 	bpm := 120
 	beatsPerMeasure := 4
 	playing := false
 
-	var d dialog.Dialog
-
-	metroAudio, _ := audio.NewMetronomeAudio()
 	if metroAudio != nil {
-		metroAudio.SetBPM(float64(bpm))
-		metroAudio.SetTimeSignature(beatsPerMeasure)
+		bpm = int(metroAudio.GetBPM())
+		beatsPerMeasure = metroAudio.GetBeatsPerMeasure()
+		playing = metroAudio.IsPlaying()
 	}
 
+	var d dialog.Dialog
+
 	bpmLabel := widget.NewLabelWithStyle(fmt.Sprintf("%d BPM", bpm), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	beatLabel := widget.NewLabelWithStyle("4/4 Time", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
+	beatLabelText := "Free mode"
+	if beatsPerMeasure > 1 {
+		beatLabelText = fmt.Sprintf("%d/4 Time", beatsPerMeasure)
+	}
+	beatLabel := widget.NewLabelWithStyle(beatLabelText, fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 
 	indicator := canvas.NewRectangle(theme.DisabledColor())
 	indicator.SetMinSize(fyne.NewSize(150, 150))
 	indicatorContainer := container.NewCenter(indicator)
+
+	setDialogBeatCb(func(isAccent bool) {
+		if isAccent {
+			indicator.FillColor = theme.SuccessColor()
+		} else {
+			indicator.FillColor = theme.PrimaryColor()
+		}
+		indicator.Refresh()
+
+		time.AfterFunc(100*time.Millisecond, func() {
+			indicator.FillColor = theme.DisabledColor()
+			indicator.Refresh()
+		})
+	})
 
 	bpmSlider := widget.NewSlider(40, 240)
 	bpmSlider.SetValue(float64(bpm))
@@ -62,7 +80,11 @@ func ShowMetronomeDialog(w fyne.Window) {
 
 	bpmControls := container.NewBorder(nil, nil, minusBtn, plusBtn, bpmSlider)
 
-	measureBtn := widget.NewButton("Time Sig: 4/4", nil)
+	measureBtnLabel := "Time Sig: Off"
+	if beatsPerMeasure > 1 {
+		measureBtnLabel = fmt.Sprintf("Time Sig: %d/4", beatsPerMeasure)
+	}
+	measureBtn := widget.NewButton(measureBtnLabel, nil)
 	measureBtn.OnTapped = func() {
 		beatsPerMeasure++
 		if beatsPerMeasure > 7 {
@@ -81,23 +103,15 @@ func ShowMetronomeDialog(w fyne.Window) {
 		}
 	}
 
-	toggleBtn := widget.NewButtonWithIcon("Start Metronome", theme.MediaPlayIcon(), nil)
+	toggleBtn := widget.NewButtonWithIcon("", nil, nil)
 	toggleBtn.Importance = widget.HighImportance
 
-	if metroAudio != nil {
-		metroAudio.OnBeat = func(isAccent bool) {
-			if isAccent {
-				indicator.FillColor = theme.SuccessColor()
-			} else {
-				indicator.FillColor = theme.PrimaryColor()
-			}
-			indicator.Refresh()
-
-			time.AfterFunc(100*time.Millisecond, func() {
-				indicator.FillColor = theme.DisabledColor()
-				indicator.Refresh()
-			})
-		}
+	if playing {
+		toggleBtn.SetText("Stop Metronome")
+		toggleBtn.SetIcon(theme.MediaStopIcon())
+	} else {
+		toggleBtn.SetText("Start Metronome")
+		toggleBtn.SetIcon(theme.MediaPlayIcon())
 	}
 
 	toggleBtn.OnTapped = func() {
@@ -120,10 +134,7 @@ func ShowMetronomeDialog(w fyne.Window) {
 	}
 
 	closeBtn := widget.NewButton("Close", func() {
-		if metroAudio != nil {
-			metroAudio.Stop()
-			metroAudio.Close()
-		}
+		setDialogBeatCb(nil)
 		d.Hide()
 	})
 

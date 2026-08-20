@@ -13,6 +13,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/audio"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
@@ -160,6 +161,33 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 	}
 
 	playConcert = func(concert localdb.Concert) {
+		metroAudio, _ := audio.NewMetronomeAudio()
+
+		metroIndicator := canvas.NewRectangle(theme.DisabledColor())
+		metroIndicator.SetMinSize(fyne.NewSize(20, 20))
+		metroIndicatorContainer := container.NewCenter(metroIndicator)
+
+		var dialogBeatCb func(bool)
+
+		if metroAudio != nil {
+			metroAudio.OnBeat = func(isAccent bool) {
+				if isAccent {
+					metroIndicator.FillColor = theme.SuccessColor()
+				} else {
+					metroIndicator.FillColor = theme.PrimaryColor()
+				}
+				metroIndicator.Refresh()
+				time.AfterFunc(100*time.Millisecond, func() {
+					metroIndicator.FillColor = theme.DisabledColor()
+					metroIndicator.Refresh()
+				})
+
+				if dialogBeatCb != nil {
+					dialogBeatCb(isAccent)
+				}
+			}
+		}
+
 		if len(concert.Items) == 0 {
 			dialog.ShowInformation("Empty Setlist", "This concert has no items assigned.", w)
 			return
@@ -244,6 +272,10 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 		loadCurrentSong = func(startAtEnd bool) {
 			stopCurrentTimer()
+
+			if metroAudio != nil {
+				metroAudio.Stop()
+			}
 
 			if currentPdfMgr != nil {
 				currentPdfMgr.Close()
@@ -411,6 +443,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 		exitConcertBtn := widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
 			stopCurrentTimer()
+
+			if metroAudio != nil {
+				metroAudio.Stop()
+				metroAudio.Close()
+			}
 			if currentPdfMgr != nil {
 				currentPdfMgr.Close()
 			}
@@ -472,7 +509,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 		setlistBtn.Importance = widget.HighImportance
 
 		toolsBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
-			ShowToolsMenu(w)
+			ShowToolsMenu(w, metroAudio, func(cb func(bool)) {
+				dialogBeatCb = cb
+			})
 		})
 
 		prevPageBtn := widget.NewButtonWithIcon("PREV\nPAGE", theme.NavigateBackIcon(), func() {
@@ -506,7 +545,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			container.NewGridWithRows(2, prevPageBtn, nextPageBtn),
 		)
 
-		topBar := container.NewBorder(nil, nil, exitConcertBtn, container.NewHBox(prevSongBtn, nextSongBtn), songTitleLabel)
+		topBarControls := container.NewHBox(metroIndicatorContainer, widget.NewLabel("  "), prevSongBtn, nextSongBtn)
+		topBar := container.NewBorder(nil, nil, exitConcertBtn, topBarControls, songTitleLabel)
 
 		viewer := NewResponsiveViewer(func(size fyne.Size) {
 			viewerSize = size
