@@ -37,7 +37,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 	}
 
 	buildSecurityView := func() fyne.CanvasObject {
-		pinEntry := widget.NewPasswordEntry()
+		pinEntry := NewAutoKeyboardPasswordEntry()
 		pinEntry.SetPlaceHolder("Enter PIN (numbers only)")
 
 		statusLabel := widget.NewLabel("")

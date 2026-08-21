@@ -18,7 +18,7 @@ func BuildLoginScreen(
 ) *fyne.Container {
 	wrapper := container.NewMax()
 
-	serverEntry := widget.NewEntry()
+	serverEntry := NewAutoKeyboardEntry()
 	serverEntry.SetPlaceHolder("localhost:50051")
 	savedServer := a.Preferences().String("server_addr")
 	if savedServer != "" {
@@ -27,25 +27,25 @@ func BuildLoginScreen(
 		serverEntry.SetText("localhost:50051")
 	}
 
-	loginEmailEntry := widget.NewEntry()
+	loginEmailEntry := NewAutoKeyboardEntry()
 	loginEmailEntry.SetPlaceHolder("user@example.com")
-	loginPasswordEntry := widget.NewPasswordEntry()
+	loginPasswordEntry := NewAutoKeyboardPasswordEntry()
 	loginPasswordEntry.SetPlaceHolder("Password")
 
-	regNameEntry := widget.NewEntry()
+	regNameEntry := NewAutoKeyboardEntry()
 	regNameEntry.SetPlaceHolder("First Name")
-	regSurnameEntry := widget.NewEntry()
+	regSurnameEntry := NewAutoKeyboardEntry()
 	regSurnameEntry.SetPlaceHolder("Last Name")
-	regEmailEntry := widget.NewEntry()
+	regEmailEntry := NewAutoKeyboardEntry()
 	regEmailEntry.SetPlaceHolder("user@example.com")
-	regPasswordEntry := widget.NewPasswordEntry()
+	regPasswordEntry := NewAutoKeyboardPasswordEntry()
 	regPasswordEntry.SetPlaceHolder("Password")
 
 	var showLogin func()
 	var showRegister func()
 
 	forgotPasswordBtn := widget.NewButton("Forgot Password?", func() {
-		emailEntry := widget.NewEntry()
+		emailEntry := NewAutoKeyboardEntry()
 		emailEntry.SetPlaceHolder("user@example.com")
 		if loginEmailEntry.Text != "" {
 			emailEntry.SetText(loginEmailEntry.Text)

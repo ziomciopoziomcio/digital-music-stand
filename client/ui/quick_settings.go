@@ -44,7 +44,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 		closePanel()
 		pin := a.Preferences().String("app_pin")
 		if pin == "" {
-			pinEntry := widget.NewPasswordEntry()
+			pinEntry := NewAutoKeyboardPasswordEntry()
 			pinEntry.SetPlaceHolder("Enter 4-digit PIN")
 			form := container.NewVBox(
 				widget.NewLabel("Set a PIN to lock the application:"),

@@ -29,7 +29,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 	var playConcert func(concert localdb.Concert)
 
 	gridWrapper := container.NewMax()
-	searchEntry := widget.NewEntry()
+	searchEntry := NewAutoKeyboardEntry()
 	searchEntry.SetPlaceHolder("Search concerts (min. 3 chars)...")
 
 	updateGrid = func() {
