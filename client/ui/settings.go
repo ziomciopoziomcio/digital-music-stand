@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"fmt"
+	"log"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
@@ -9,9 +12,10 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/updater"
 )
 
-func BuildSettings(w fyne.Window, app fyne.App, onClose func(), netMgr system.NetworkManager, pwrMgr system.PowerManager, medMgr system.MediaManager, devMgr system.DeviceManager) *fyne.Container {
+func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose func(), netMgr system.NetworkManager, pwrMgr system.PowerManager, medMgr system.MediaManager, devMgr system.DeviceManager) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var showCategories func()
@@ -110,6 +114,70 @@ func BuildSettings(w fyne.Window, app fyne.App, onClose func(), netMgr system.Ne
 		)
 	}
 
+	buildUpdateView := func() fyne.CanvasObject {
+		versionLabel := widget.NewLabel(fmt.Sprintf("Current Version: %s", currentVersion))
+
+		updateBtn := widget.NewButtonWithIcon("Check for Updates", theme.DownloadIcon(), func() {
+
+			loadingContent := container.NewVBox(
+				widget.NewLabel("Looking for updates on GitHub..."),
+				widget.NewProgressBarInfinite(),
+			)
+			loadingDialog := dialog.NewCustomWithoutButtons("Checking", container.NewPadded(loadingContent), w)
+			loadingDialog.Show()
+
+			owner := "ziomciopoziomcio"
+			repo := "digital-music-stand"
+
+			go func() {
+				hasUpdate, newVer, downloadURL, err := updater.CheckForUpdates(owner, repo, currentVersion)
+
+				loadingDialog.Hide()
+
+				if err != nil {
+					log.Println("Update check error:", err)
+					dialog.ShowError(fmt.Errorf("failed to check for updates: %v", err), w)
+					return
+				}
+
+				if !hasUpdate {
+					dialog.ShowInformation("Up to date", "You are running the latest version.", w)
+					return
+				}
+
+				dialog.ShowConfirm("Update Available", fmt.Sprintf("Version %s is available. Do you want to download and restart now?", newVer), func(confirm bool) {
+					if confirm {
+						downloadContent := container.NewVBox(
+							widget.NewLabel("Downloading and applying update..."),
+							widget.NewProgressBarInfinite(),
+						)
+						progressDialog := dialog.NewCustomWithoutButtons("Downloading Update", container.NewPadded(downloadContent), w)
+						progressDialog.Show()
+
+						go func() {
+							err := updater.DoUpdate(downloadURL)
+							progressDialog.Hide()
+
+							if err != nil {
+								dialog.ShowError(fmt.Errorf("update failed: %v", err), w)
+								return
+							}
+
+							dialog.ShowInformation("Success", "Update installed. Please close and restart the application.", w)
+						}()
+					}
+				}, w)
+			}()
+		})
+		updateBtn.Importance = widget.HighImportance
+
+		return container.NewVBox(
+			versionLabel,
+			widget.NewSeparator(),
+			updateBtn,
+		)
+	}
+
 	showCategories = func() {
 		netBtn := widget.NewButtonWithIcon("Network & Wi-Fi", theme.ComputerIcon(), func() { showDetail("Network Settings", buildNetworkView()) })
 		mediaBtn := widget.NewButtonWithIcon("Display & Audio", theme.ColorPaletteIcon(), func() { showDetail("Display & Audio", buildMediaView()) })
@@ -117,13 +185,16 @@ func BuildSettings(w fyne.Window, app fyne.App, onClose func(), netMgr system.Ne
 		sysBtn := widget.NewButtonWithIcon("System", theme.SettingsIcon(), func() { showDetail("System Controls", buildSystemView()) })
 		secBtn := widget.NewButtonWithIcon("Security & PIN", theme.VisibilityOffIcon(), func() { showDetail("Security Settings", buildSecurityView()) })
 
+		updBtn := widget.NewButtonWithIcon("Update App", theme.DownloadIcon(), func() { showDetail("Application Update", buildUpdateView()) })
+
 		netBtn.Importance = widget.HighImportance
 		mediaBtn.Importance = widget.HighImportance
 		powerBtn.Importance = widget.HighImportance
 		sysBtn.Importance = widget.HighImportance
 		secBtn.Importance = widget.HighImportance
+		updBtn.Importance = widget.HighImportance
 
-		grid := container.NewGridWithColumns(3, netBtn, mediaBtn, powerBtn, sysBtn, secBtn)
+		grid := container.NewGridWithColumns(3, netBtn, mediaBtn, powerBtn, sysBtn, secBtn, updBtn)
 
 		closeBtn := widget.NewButtonWithIcon("Close Settings", theme.CancelIcon(), onClose)
 		closeBtn.Importance = widget.DangerImportance
