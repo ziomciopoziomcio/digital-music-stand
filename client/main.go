@@ -23,6 +23,8 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 )
 
+var AppVersion = "client-v0.1.0-alpha.1"
+
 func main() {
 	myApp := app.NewWithID("com.digitalmusicstand.client")
 	myWindow := myApp.NewWindow("Digital Music Stand")
@@ -119,7 +121,7 @@ func main() {
 	}
 
 	showSettings = func() {
-		settingsView := ui.BuildSettings(myWindow, myApp, showDashboard, netMgr, pwrMgr, medMgr, devMgr)
+		settingsView := ui.BuildSettings(myWindow, myApp, AppVersion, showDashboard, netMgr, pwrMgr, medMgr, devMgr)
 		mainWrapper.Objects = []fyne.CanvasObject{settingsView}
 		mainWrapper.Refresh()
 	}
