@@ -118,16 +118,25 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		versionLabel := widget.NewLabel(fmt.Sprintf("Current Version: %s", currentVersion))
 
 		updateBtn := widget.NewButtonWithIcon("Check for Updates", theme.DownloadIcon(), func() {
-			dialog.ShowInformation("Checking", "Looking for updates on GitHub...", w)
+
+			loadingContent := container.NewVBox(
+				widget.NewLabel("Looking for updates on GitHub..."),
+				widget.NewProgressBarInfinite(),
+			)
+			loadingDialog := dialog.NewCustomWithoutButtons("Checking", container.NewPadded(loadingContent), w)
+			loadingDialog.Show()
 
 			owner := "ziomciopoziomcio"
 			repo := "digital-music-stand"
 
 			go func() {
 				hasUpdate, newVer, downloadURL, err := updater.CheckForUpdates(owner, repo, currentVersion)
+
+				loadingDialog.Hide()
+
 				if err != nil {
 					log.Println("Update check error:", err)
-					dialog.ShowError(fmt.Errorf("failed to check for updates"), w)
+					dialog.ShowError(fmt.Errorf("failed to check for updates: %v", err), w)
 					return
 				}
 
@@ -138,7 +147,11 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 
 				dialog.ShowConfirm("Update Available", fmt.Sprintf("Version %s is available. Do you want to download and restart now?", newVer), func(confirm bool) {
 					if confirm {
-						progressDialog := dialog.NewCustom("Downloading Update", "Please wait...", widget.NewProgressBarInfinite(), w)
+						downloadContent := container.NewVBox(
+							widget.NewLabel("Downloading and applying update..."),
+							widget.NewProgressBarInfinite(),
+						)
+						progressDialog := dialog.NewCustomWithoutButtons("Downloading Update", container.NewPadded(downloadContent), w)
 						progressDialog.Show()
 
 						go func() {
