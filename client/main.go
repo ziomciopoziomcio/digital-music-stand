@@ -157,6 +157,9 @@ func main() {
 					myApp.Preferences().SetString("jwt_token", token)
 					myApp.Preferences().SetString("server_addr", server)
 
+					myApp.Preferences().SetString("user_email", email)
+					myApp.Preferences().SetString("user_password", password)
+
 					startBackgroundSync(server, token)
 					showDashboard()
 				}
@@ -327,6 +330,8 @@ func main() {
 			func() {
 				myApp.Preferences().SetString("jwt_token", "")
 				myApp.Preferences().SetString("server_addr", "")
+				myApp.Preferences().SetString("user_email", "")
+				myApp.Preferences().SetString("user_password", "")
 				showDashboard()
 			},
 			func() ([]ui.BandInfo, error) {
@@ -504,10 +509,26 @@ func main() {
 				_, profileErr := userClient.GetProfile(ctx, &userpb.GetProfileRequest{})
 				if profileErr != nil {
 					conn.Close()
-					log.Printf("[Sync] Authorization failed: %v", profileErr)
-					myApp.Preferences().RemoveValue("jwt_token")
+					log.Printf("[Sync] Authorization failed (token expired?): %v", profileErr)
 
-					log.Println("[Sync] Background sync stopped due to authorization failure. Running in pure offline mode.")
+					email := myApp.Preferences().String("user_email")
+					password := myApp.Preferences().String("user_password")
+
+					if email != "" && password != "" {
+						log.Println("[Sync] Attempting automatic re-login...")
+						newToken, authErr := network.Authenticate(serverAddr, email, password)
+
+						if authErr == nil {
+							log.Println("[Sync] Automatic re-login successful! Updating token.")
+							myApp.Preferences().SetString("jwt_token", newToken)
+							continue
+						} else {
+							log.Printf("[Sync] Auto re-login failed: %v", authErr)
+						}
+					}
+
+					myApp.Preferences().SetString("jwt_token", "")
+					log.Println("[Sync] Background sync stopped. Running in pure offline mode.")
 					return
 				}
 
