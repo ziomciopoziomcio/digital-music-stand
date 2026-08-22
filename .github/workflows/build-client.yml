@@ -1,0 +1,56 @@
+name: Build and Release Client
+
+on:
+  push:
+    tags:
+      - 'client-v*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+
+      - name: Install fyne-cross
+        run: go install github.com/fyne-io/fyne-cross@latest
+
+      # 1. Windows (64-bit)
+      - name: Build Windows amd64
+        run: |
+          fyne-cross windows -arch=amd64 -dir=client -name=dms-windows-amd64 -ldflags="-X main.AppVersion=${{ github.ref_name }}"
+
+      # 2. LLinux (64-bit)
+      - name: Build Linux amd64
+        run: |
+          fyne-cross linux -arch=amd64 -dir=client -name=dms-linux-amd64 -ldflags="-X main.AppVersion=${{ github.ref_name }}"
+
+      # 3. Linux (ARM 64-bit)
+      - name: Build Linux arm64
+        run: |
+          fyne-cross linux -arch=arm64 -dir=client -name=dms-linux-arm64 -ldflags="-X main.AppVersion=${{ github.ref_name }}"
+
+      # 4. Linux (ARM 32-bit)
+      - name: Build Linux arm
+        run: |
+          fyne-cross linux -arch=arm -dir=client -name=dms-linux-arm -ldflags="-X main.AppVersion=${{ github.ref_name }}"
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            fyne-cross/bin/windows-amd64/dms-windows-amd64.exe
+            fyne-cross/bin/linux-amd64/dms-linux-amd64
+            fyne-cross/bin/linux-arm64/dms-linux-arm64
+            fyne-cross/bin/linux-arm/dms-linux-arm
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
