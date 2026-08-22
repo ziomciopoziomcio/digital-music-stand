@@ -44,11 +44,6 @@ jobs:
         run: |
           fyne-cross linux -arch=arm64 -dir=client -name=dms-linux-arm64 -debug -app-id=com.digitalmusicstand.client -ldflags="-X=main.AppVersion=${{ github.ref_name }}"
 
-      # 4. Linux (ARM 32-bit)
-      - name: Build Linux arm
-        run: |
-          fyne-cross linux -arch=arm -dir=client -name=dms-linux-arm -debug -app-id=com.digitalmusicstand.client -ldflags="-X=main.AppVersion=${{ github.ref_name }}"
-
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
@@ -56,7 +51,6 @@ jobs:
             fyne-cross/bin/windows-amd64/dms-windows-amd64.exe
             fyne-cross/bin/linux-amd64/dms-linux-amd64
             fyne-cross/bin/linux-arm64/dms-linux-arm64
-            fyne-cross/bin/linux-arm/dms-linux-arm
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false

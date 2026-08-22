@@ -26,8 +26,6 @@ if [ "$ARCH" = "x86_64" ]; then
     TARGET_ASSET="linux-amd64"
 elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
     TARGET_ASSET="linux-arm64"
-elif [ "$ARCH" = "armv7l" ]; then
-    TARGET_ASSET="linux-arm"
 else
     echo "Unknown architecture: $ARCH. Aborting download."
     exit 1
