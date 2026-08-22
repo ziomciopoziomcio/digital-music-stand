@@ -46,6 +46,16 @@ jobs:
       - name: Build Linux arm64
         run: |
           fyne-cross linux -arch=arm64 -dir=client -name=dms-linux-arm64 -debug -app-id=com.digitalmusicstand.client -ldflags="-X=main.AppVersion=${{ github.ref_name }}"
+          
+      - name: Extract raw Linux binaries
+        run: |
+          cd client/fyne-cross/bin/linux-amd64
+          tar -xf dms-linux-amd64.tar.xz
+          mv usr/local/bin/* ./
+          
+          cd ../linux-arm64
+          tar -xf dms-linux-arm64.tar.xz
+          mv usr/local/bin/* ./
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
