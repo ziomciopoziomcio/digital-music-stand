@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os/exec"
+	"runtime"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -98,46 +99,62 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		})
 		awakeCheck.Checked = devMgr.IsKeepAwake()
 
-		installKbBtn := widget.NewButtonWithIcon("Install On-Screen Keyboard", theme.DownloadIcon(), func() {
+		systemElements := []fyne.CanvasObject{
+			awakeCheck,
+			widget.NewSeparator(),
+		}
 
-			passEntry := NewAutoKeyboardPasswordEntry()
-			passEntry.SetPlaceHolder("Admin (sudo) password")
+		if runtime.GOOS == "linux" {
 
-			dialog.ShowCustomConfirm("Sudo Password Required", "Install", "Cancel", passEntry, func(confirm bool) {
-				if confirm && passEntry.Text != "" {
-					progress := dialog.NewCustomWithoutButtons("Installing...", container.NewPadded(widget.NewProgressBarInfinite()), w)
-					progress.Show()
+			installKbBtn := widget.NewButtonWithIcon("Install On-Screen Keyboard", theme.DownloadIcon(), func() {
 
-					go func() {
-						pwd := passEntry.Text
+				passEntry := NewAutoKeyboardPasswordEntry()
+				passEntry.SetPlaceHolder("Admin (sudo) password")
 
-						cmd1 := exec.Command("sudo", "-S", "apt-get", "update")
-						stdin1, _ := cmd1.StdinPipe()
+				dialog.ShowCustomConfirm("Sudo Password Required", "Install", "Cancel", passEntry, func(confirm bool) {
+					if confirm && passEntry.Text != "" {
+						progress := dialog.NewCustomWithoutButtons("Installing...", container.NewPadded(widget.NewProgressBarInfinite()), w)
+						progress.Show()
+
 						go func() {
-							defer stdin1.Close()
-							io.WriteString(stdin1, pwd+"\n")
+							pwd := passEntry.Text
+
+							cmd1 := exec.Command("sudo", "-S", "apt-get", "update")
+							stdin1, _ := cmd1.StdinPipe()
+							go func() {
+								defer stdin1.Close()
+								io.WriteString(stdin1, pwd+"\n")
+							}()
+							_ = cmd1.Run()
+
+							cmd2 := exec.Command("sudo", "-S", "apt-get", "install", "-y", "matchbox-keyboard")
+							stdin2, _ := cmd2.StdinPipe()
+							go func() {
+								defer stdin2.Close()
+								io.WriteString(stdin2, pwd+"\n")
+							}()
+							err := cmd2.Run()
+
+							progress.Hide()
+
+							if err != nil {
+								dialog.ShowError(fmt.Errorf("Installation failed.\nDid you enter the correct password?\nError: %v", err), w)
+							} else {
+								dialog.ShowInformation("Success", "Keyboard installed successfully!", w)
+							}
 						}()
-						_ = cmd1.Run()
-
-						cmd2 := exec.Command("sudo", "-S", "apt-get", "install", "-y", "matchbox-keyboard")
-						stdin2, _ := cmd2.StdinPipe()
-						go func() {
-							defer stdin2.Close()
-							io.WriteString(stdin2, pwd+"\n")
-						}()
-						err := cmd2.Run()
-
-						progress.Hide()
-
-						if err != nil {
-							dialog.ShowError(fmt.Errorf("Installation failed.\nDid you enter the correct password?\nError: %v", err), w)
-						} else {
-							dialog.ShowInformation("Success", "Keyboard installed successfully!", w)
-						}
-					}()
-				}
-			}, w)
-		})
+					}
+				}, w)
+			})
+			systemElements = append(systemElements, installKbBtn)
+		} else {
+			infoLabel := widget.NewLabelWithStyle(
+				"Native keyboard will be used automatically on this OS.",
+				fyne.TextAlignLeading,
+				fyne.TextStyle{Italic: true},
+			)
+			systemElements = append(systemElements, infoLabel)
+		}
 
 		rebootBtn := widget.NewButtonWithIcon("Reboot System", theme.ViewRefreshIcon(), func() {
 			_ = devMgr.Reboot()
@@ -149,13 +166,14 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		})
 		shutdownBtn.Importance = widget.DangerImportance
 
-		return container.NewVBox(
-			awakeCheck,
-			widget.NewSeparator(),
-			installKbBtn,
+		systemElements = append(systemElements,
 			layout.NewSpacer(),
 			rebootBtn,
 			shutdownBtn,
+		)
+
+		return container.NewVBox(
+			systemElements...,
 		)
 	}
 

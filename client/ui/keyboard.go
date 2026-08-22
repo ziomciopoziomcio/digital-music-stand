@@ -2,6 +2,7 @@ package ui
 
 import (
 	"os/exec"
+	"runtime"
 
 	"fyne.io/fyne/v2/widget"
 )
@@ -12,12 +13,24 @@ func ShowKeyboard() {
 	if keyboardCmd != nil && keyboardCmd.Process != nil {
 		return
 	}
-	keyboardCmd = exec.Command("matchbox-keyboard")
+	switch runtime.GOOS {
+	case "windows":
+		keyboardCmd = exec.Command("osk")
+	case "linux":
+		keyboardCmd = exec.Command("matchbox-keyboard")
+	default:
+		return
+	}
 	_ = keyboardCmd.Start()
 }
 
 func HideKeyboard() {
 	if keyboardCmd != nil && keyboardCmd.Process != nil {
+		if runtime.GOOS == "windows" {
+			_ = exec.Command("taskkill", "/IM", "osk.exe", "/F").Run()
+		} else {
+			_ = keyboardCmd.Process.Kill()
+		}
 		_ = keyboardCmd.Process.Kill()
 		keyboardCmd = nil
 	}
