@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
@@ -82,15 +83,128 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 	}
 
 	buildNetworkView := func() fyne.CanvasObject {
-		return widget.NewLabel("Network settings content...")
+		statusLabel := widget.NewLabel(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
+		listContainer := container.NewVBox()
+
+		refreshNetworks := func() {
+			listContainer.Objects = []fyne.CanvasObject{widget.NewLabel("Scanning for networks...")}
+			listContainer.Refresh()
+
+			go func() {
+				networks, err := netMgr.GetAvailableNetworks()
+				var objs []fyne.CanvasObject
+
+				if err != nil {
+					objs = append(objs, widget.NewLabel(fmt.Sprintf("Failed to scan: %v", err)))
+				} else if len(networks) == 0 {
+					objs = append(objs, widget.NewLabel("No networks found."))
+				} else {
+					for _, n := range networks {
+						net := n
+						icon := theme.ComputerIcon()
+
+						btn := widget.NewButtonWithIcon(fmt.Sprintf("%s (%d%%)", net.SSID, net.Strength), icon, func() {
+							if net.Secure {
+								passEntry := NewAutoKeyboardPasswordEntry()
+								passEntry.SetPlaceHolder("Wi-Fi Password")
+
+								dialog.ShowCustomConfirm("Connect to "+net.SSID, "Connect", "Cancel", passEntry, func(confirm bool) {
+									if confirm {
+										err := netMgr.ConnectWiFi(net.SSID, passEntry.Text)
+										if err != nil {
+											dialog.ShowError(fmt.Errorf("Failed to connect: %v", err), w)
+										}
+										statusLabel.SetText(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
+									}
+								}, w)
+							} else {
+								err := netMgr.ConnectWiFi(net.SSID, "")
+								if err != nil {
+									dialog.ShowError(fmt.Errorf("Failed to connect: %v", err), w)
+								}
+								statusLabel.SetText(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
+							}
+						})
+						objs = append(objs, btn)
+					}
+				}
+
+				listContainer.Objects = objs
+				listContainer.Refresh()
+			}()
+		}
+
+		refreshBtn := widget.NewButtonWithIcon("Scan Networks", theme.SearchIcon(), refreshNetworks)
+		refreshBtn.Importance = widget.HighImportance
+
+		disconnectBtn := widget.NewButtonWithIcon("Disconnect", theme.CancelIcon(), func() {
+			_ = netMgr.Disconnect()
+			statusLabel.SetText(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
+		})
+		disconnectBtn.Importance = widget.DangerImportance
+
+		topBar := container.NewHBox(statusLabel, layout.NewSpacer(), disconnectBtn, refreshBtn)
+
+		refreshNetworks()
+
+		return container.NewBorder(topBar, nil, nil, nil, container.NewVScroll(listContainer))
 	}
 
 	buildMediaView := func() fyne.CanvasObject {
-		return widget.NewLabel("Display & Audio content...")
+		vol, _ := medMgr.GetVolume()
+		bright, _ := medMgr.GetBrightness()
+
+		volLabel := widget.NewLabel(fmt.Sprintf("Volume: %d%%", vol))
+		volSlider := widget.NewSlider(0, 100)
+		volSlider.SetValue(float64(vol))
+		volSlider.OnChanged = func(val float64) {
+			newVol := int(val)
+			_ = medMgr.SetVolume(newVol)
+			volLabel.SetText(fmt.Sprintf("Volume: %d%%", newVol))
+		}
+
+		brightLabel := widget.NewLabel(fmt.Sprintf("Brightness: %d%%", bright))
+		brightSlider := widget.NewSlider(0, 100)
+		brightSlider.SetValue(float64(bright))
+		brightSlider.OnChanged = func(val float64) {
+			newBright := int(val)
+			_ = medMgr.SetBrightness(newBright)
+			brightLabel.SetText(fmt.Sprintf("Brightness: %d%%", newBright))
+		}
+
+		return container.NewVBox(
+			volLabel,
+			volSlider,
+			widget.NewSeparator(),
+			brightLabel,
+			brightSlider,
+		)
 	}
 
 	buildPowerView := func() fyne.CanvasObject {
-		return widget.NewLabel("Power management content...")
+		batLevel, err := pwrMgr.GetBatteryPercentage()
+		batText := fmt.Sprintf("Battery Level: %d%%", batLevel)
+		if err != nil {
+			batText = "Battery Level: Unknown / Desktop"
+		}
+
+		charging, err := pwrMgr.IsCharging()
+		chargeText := "Status: Discharging"
+		if charging {
+			chargeText = "Status: Charging / AC Power"
+		}
+		if err != nil {
+			chargeText = "Status: Unknown"
+		}
+
+		batLabel := canvas.NewText(batText, theme.ForegroundColor())
+		batLabel.TextSize = 24
+		batLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+		return container.NewVBox(
+			batLabel,
+			widget.NewLabel(chargeText),
+		)
 	}
 
 	buildSystemView := func() fyne.CanvasObject {
