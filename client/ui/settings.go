@@ -356,6 +356,39 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 	}
 
 	showCategories = func() {
+		missingDeps := system.CheckMissingDependencies()
+
+		if len(missingDeps) > 0 {
+			warningMsg := fmt.Sprintf("Missing system tools detected: %v.\nSome features may not work. Install them now?", missingDeps)
+
+			passEntry := NewAutoKeyboardPasswordEntry()
+			passEntry.SetPlaceHolder("Admin (sudo) password")
+
+			content := container.NewVBox(
+				widget.NewLabel(warningMsg),
+				passEntry,
+			)
+
+			dialog.ShowCustomConfirm("Missing Dependencies", "Install", "Ignore", content, func(confirm bool) {
+				if confirm && passEntry.Text != "" {
+					progress := dialog.NewCustomWithoutButtons("Installing...", container.NewPadded(widget.NewProgressBarInfinite()), w)
+					progress.Show()
+
+					go func() {
+						err := system.InstallDependencies(passEntry.Text, missingDeps)
+
+						progress.Hide()
+
+						if err != nil {
+							dialog.ShowError(fmt.Errorf("Installation failed.\nDid you enter the correct password?\nError: %v", err), w)
+						} else {
+							dialog.ShowInformation("Success", "All missing dependencies installed successfully!", w)
+						}
+					}()
+				}
+			}, w)
+		}
+
 		netBtn := widget.NewButtonWithIcon("Network & Wi-Fi", theme.ComputerIcon(), func() { showDetail("Network Settings", buildNetworkView()) })
 		mediaBtn := widget.NewButtonWithIcon("Display & Audio", theme.ColorPaletteIcon(), func() { showDetail("Display & Audio", buildMediaView()) })
 		powerBtn := widget.NewButtonWithIcon("Power", theme.InfoIcon(), func() { showDetail("Power Management", buildPowerView()) })
