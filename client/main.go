@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"runtime"
 	"strconv"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/system/syslinux"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpb"
 
@@ -37,10 +39,22 @@ func main() {
 	wsMgr := webserver.NewManager("./scores")
 	wsMgr.Start(8088)
 
-	netMgr := &sysmock.MockNetworkManager{Status: system.StatusDisconnected}
-	pwrMgr := &sysmock.MockPowerManager{BatteryLevel: 85, Charging: true}
-	medMgr := &sysmock.MockMediaManager{Volume: 50, Brightness: 80}
-	devMgr := &sysmock.MockDeviceManager{IsAwake: true}
+	var netMgr system.NetworkManager
+	var pwrMgr system.PowerManager
+	var medMgr system.MediaManager
+	var devMgr system.DeviceManager
+
+	if runtime.GOOS == "linux" {
+		netMgr = syslinux.NewLinuxNetworkManager()
+		pwrMgr = syslinux.NewLinuxPowerManager()
+		medMgr = syslinux.NewLinuxMediaManager()
+		devMgr = syslinux.NewLinuxDeviceManager()
+	} else {
+		netMgr = &sysmock.MockNetworkManager{Status: system.StatusDisconnected}
+		pwrMgr = &sysmock.MockPowerManager{BatteryLevel: 85, Charging: true}
+		medMgr = &sysmock.MockMediaManager{Volume: 50, Brightness: 80}
+		devMgr = &sysmock.MockDeviceManager{IsAwake: true}
+	}
 
 	mainWrapper := container.NewMax()
 
