@@ -10,7 +10,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.49
 	github.com/minio/selfupdate v0.6.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
-	github.com/ziomciopoziomcio/digital-music-stand/contracts v0.0.0-00010101000000-000000000000
+	github.com/ziomciopoziomcio/digital-music-stand/contracts v0.0.0-20260822211452-056d38c30cb2
 	google.golang.org/grpc v1.83.0
 )
 
@@ -56,4 +56,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
