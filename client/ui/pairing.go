@@ -35,7 +35,7 @@ func ShowPairingDialog(w fyne.Window, wsMgr *webserver.Manager) {
 	urlLabel := widget.NewLabelWithStyle(url, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 	instructionLabel := widget.NewLabelWithStyle("1. Open URL in browser\n2. Enter the PIN shown on screen", fyne.TextAlignCenter, fyne.TextStyle{})
 
-	pinEntry := widget.NewEntry()
+	pinEntry := NewAutoKeyboardEntry()
 	pinEntry.SetPlaceHolder("Enter 4-digit PIN")
 
 	statusLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})

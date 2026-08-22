@@ -57,9 +57,9 @@ func BuildProfile(
 	statusLabel := widget.NewLabel(fmt.Sprintf("Connected to: %s", server))
 
 	changePassBtn := widget.NewButtonWithIcon("Change Password", theme.SettingsIcon(), func() {
-		oldPassEntry := widget.NewPasswordEntry()
+		oldPassEntry := NewAutoKeyboardPasswordEntry()
 		oldPassEntry.SetPlaceHolder("Current Password")
-		newPassEntry := widget.NewPasswordEntry()
+		newPassEntry := NewAutoKeyboardPasswordEntry()
 		newPassEntry.SetPlaceHolder("New Password")
 
 		form := container.NewVBox(
@@ -177,7 +177,7 @@ func BuildProfile(
 
 				if band.IsManager {
 					inviteBtn := widget.NewButtonWithIcon("Invite", theme.ContentAddIcon(), func() {
-						emailEntry := widget.NewEntry()
+						emailEntry := NewAutoKeyboardEntry()
 						emailEntry.SetPlaceHolder("musician@example.com")
 
 						dialog.ShowCustomConfirm("Invite to Band", "Send Invite", "Cancel", emailEntry, func(confirm bool) {
@@ -200,7 +200,7 @@ func BuildProfile(
 	}
 
 	createBandBtn := widget.NewButtonWithIcon("Create New Band", theme.FolderNewIcon(), func() {
-		nameEntry := widget.NewEntry()
+		nameEntry := NewAutoKeyboardEntry()
 		nameEntry.SetPlaceHolder("Band Name")
 
 		dialog.ShowCustomConfirm("Create Band", "Create", "Cancel", nameEntry, func(confirm bool) {

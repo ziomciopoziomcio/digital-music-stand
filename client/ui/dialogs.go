@@ -22,7 +22,7 @@ func ShowAccessDialog(
 	actionBtnText string,
 	actionFunc func(targetEmail *string, targetBandID *uint32) error,
 ) {
-	emailEntry := widget.NewEntry()
+	emailEntry := NewAutoKeyboardEntry()
 	emailEntry.SetPlaceHolder("user@example.com")
 
 	bandSelect := widget.NewSelect([]string{"Loading bands..."}, nil)

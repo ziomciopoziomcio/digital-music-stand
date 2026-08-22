@@ -31,13 +31,13 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 		availableScores = []localdb.Score{}
 	}
 
-	nameEntry := widget.NewEntry()
+	nameEntry := NewAutoKeyboardEntry()
 	nameEntry.SetPlaceHolder("e.g. Winter Concert")
 
-	locEntry := widget.NewEntry()
+	locEntry := NewAutoKeyboardEntry()
 	locEntry.SetPlaceHolder("e.g. Philharmonic Hall")
 
-	dateEntry := widget.NewEntry()
+	dateEntry := NewAutoKeyboardEntry()
 	dateEntry.SetPlaceHolder("YYYY-MM-DD HH:MM")
 	dateEntry.SetText(time.Now().Format("2006-01-02 15:00"))
 
@@ -175,7 +175,7 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 	)
 
 	addBreakBtn := widget.NewButtonWithIcon("Add Break", theme.ContentAddIcon(), func() {
-		entry := widget.NewEntry()
+		entry := NewAutoKeyboardEntry()
 		entry.SetText("10")
 
 		var d dialog.Dialog

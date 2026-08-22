@@ -30,7 +30,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 	var updateGrid func()
 
 	gridWrapper := container.NewMax()
-	searchEntry := widget.NewEntry()
+	searchEntry := NewAutoKeyboardEntry()
 	searchEntry.SetPlaceHolder("Search scores (min. 3 chars)...")
 
 	showScore := func(score localdb.Score) {
@@ -266,7 +266,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 					revokeBtn.Importance = widget.DangerImportance
 
 					editTitleBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
-						entry := widget.NewEntry()
+						entry := NewAutoKeyboardEntry()
 						entry.SetText(score.Title)
 
 						var d dialog.Dialog

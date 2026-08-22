@@ -41,7 +41,7 @@ func BuildLockScreen(w fyne.Window, app fyne.App, onUnlock func()) *fyne.Contain
 		}
 	}(stopClock)
 
-	pinEntry := widget.NewPasswordEntry()
+	pinEntry := NewAutoKeyboardPasswordEntry()
 	pinEntry.Disable()
 	pinEntry.SetPlaceHolder("Enter PIN")
 
