@@ -35,7 +35,7 @@ func CheckForUpdates(owner, repo, currentVersion string) (bool, string, string, 
 	for _, release := range releases {
 		if strings.HasPrefix(release.TagName, "client-") {
 			if release.TagName != currentVersion {
-				targetAsset := fmt.Sprintf("dms-%s-%s", runtime.GOOS, runtime.GOARCH) // Remember to compile to this naming convention
+				targetAsset := fmt.Sprintf("dms-%s-%s", runtime.GOOS, runtime.GOARCH)
 				for _, asset := range release.Assets {
 					if strings.Contains(asset.Name, targetAsset) {
 						return true, release.TagName, asset.BrowserDownloadURL, nil
@@ -54,7 +54,7 @@ func DoUpdate(downloadURL string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	err = selfupdate.Apply(resp.Body, selfupdate.Options{})
 	if err != nil {
 		return fmt.Errorf("failed to apply update: %v", err)
