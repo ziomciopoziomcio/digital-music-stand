@@ -18,6 +18,12 @@ jobs:
         with:
           go-version: '1.25.0'
 
+      - name: Download Go modules
+        run: |
+          cd client
+          go mod tidy
+          go mod download
+
       - name: Install fyne-cross
         run: go install github.com/fyne-io/fyne-cross@latest
 
