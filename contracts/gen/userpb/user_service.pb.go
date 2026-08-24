@@ -196,6 +196,7 @@ func (x *LoginUserRequest) GetPassword() string {
 type LoginUserResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -233,6 +234,13 @@ func (*LoginUserResponse) Descriptor() ([]byte, []int) {
 func (x *LoginUserResponse) GetToken() string {
 	if x != nil {
 		return x.Token
+	}
+	return ""
+}
+
+func (x *LoginUserResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
 	}
 	return ""
 }
@@ -889,6 +897,102 @@ func (x *ResetPasswordResponse) GetMessage() string {
 	return ""
 }
 
+type RefreshTokenRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RefreshToken  string                 `protobuf:"bytes,1,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RefreshTokenRequest) Reset() {
+	*x = RefreshTokenRequest{}
+	mi := &file_contracts_proto_user_service_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RefreshTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RefreshTokenRequest) ProtoMessage() {}
+
+func (x *RefreshTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_user_service_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RefreshTokenRequest.ProtoReflect.Descriptor instead.
+func (*RefreshTokenRequest) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_user_service_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *RefreshTokenRequest) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+type RefreshTokenResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RefreshTokenResponse) Reset() {
+	*x = RefreshTokenResponse{}
+	mi := &file_contracts_proto_user_service_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RefreshTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RefreshTokenResponse) ProtoMessage() {}
+
+func (x *RefreshTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_contracts_proto_user_service_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RefreshTokenResponse.ProtoReflect.Descriptor instead.
+func (*RefreshTokenResponse) Descriptor() ([]byte, []int) {
+	return file_contracts_proto_user_service_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *RefreshTokenResponse) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *RefreshTokenResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
 var File_contracts_proto_user_service_proto protoreflect.FileDescriptor
 
 const file_contracts_proto_user_service_proto_rawDesc = "" +
@@ -904,9 +1008,10 @@ const file_contracts_proto_user_service_proto_rawDesc = "" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"D\n" +
 	"\x10LoginUserRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\")\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\"N\n" +
 	"\x11LoginUserResponse\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"\x1d\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12#\n" +
+	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\"\x1d\n" +
 	"\x11GetProfileRequestJ\x04\b\x01\x10\x02R\x02id\"\x94\x01\n" +
 	"\x12GetProfileResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x14\n" +
@@ -942,7 +1047,12 @@ const file_contracts_proto_user_service_proto_rawDesc = "" +
 	"\x14ResetPasswordRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\"1\n" +
 	"\x15ResetPasswordResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2\xed\x06\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\":\n" +
+	"\x13RefreshTokenRequest\x12#\n" +
+	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"Q\n" +
+	"\x14RefreshTokenResponse\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12#\n" +
+	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken2\xdc\a\n" +
 	"\vUserService\x12m\n" +
 	"\fRegisterUser\x12-.digital_music_stand.user.RegisterUserRequest\x1a..digital_music_stand.user.RegisterUserResponse\x12d\n" +
 	"\tLoginUser\x12*.digital_music_stand.user.LoginUserRequest\x1a+.digital_music_stand.user.LoginUserResponse\x12g\n" +
@@ -953,7 +1063,8 @@ const file_contracts_proto_user_service_proto_rawDesc = "" +
 	"\n" +
 	"RejectUser\x12+.digital_music_stand.user.RejectUserRequest\x1a,.digital_music_stand.user.RejectUserResponse\x12s\n" +
 	"\x0eChangePassword\x12/.digital_music_stand.user.ChangePasswordRequest\x1a0.digital_music_stand.user.ChangePasswordResponse\x12p\n" +
-	"\rResetPassword\x12..digital_music_stand.user.ResetPasswordRequest\x1a/.digital_music_stand.user.ResetPasswordResponseBFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpbb\x06proto3"
+	"\rResetPassword\x12..digital_music_stand.user.ResetPasswordRequest\x1a/.digital_music_stand.user.ResetPasswordResponse\x12m\n" +
+	"\fRefreshToken\x12-.digital_music_stand.user.RefreshTokenRequest\x1a..digital_music_stand.user.RefreshTokenResponseBFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpbb\x06proto3"
 
 var (
 	file_contracts_proto_user_service_proto_rawDescOnce sync.Once
@@ -967,7 +1078,7 @@ func file_contracts_proto_user_service_proto_rawDescGZIP() []byte {
 	return file_contracts_proto_user_service_proto_rawDescData
 }
 
-var file_contracts_proto_user_service_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_contracts_proto_user_service_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_contracts_proto_user_service_proto_goTypes = []any{
 	(*RegisterUserRequest)(nil),    // 0: digital_music_stand.user.RegisterUserRequest
 	(*RegisterUserResponse)(nil),   // 1: digital_music_stand.user.RegisterUserResponse
@@ -986,6 +1097,8 @@ var file_contracts_proto_user_service_proto_goTypes = []any{
 	(*ChangePasswordResponse)(nil), // 14: digital_music_stand.user.ChangePasswordResponse
 	(*ResetPasswordRequest)(nil),   // 15: digital_music_stand.user.ResetPasswordRequest
 	(*ResetPasswordResponse)(nil),  // 16: digital_music_stand.user.ResetPasswordResponse
+	(*RefreshTokenRequest)(nil),    // 17: digital_music_stand.user.RefreshTokenRequest
+	(*RefreshTokenResponse)(nil),   // 18: digital_music_stand.user.RefreshTokenResponse
 }
 var file_contracts_proto_user_service_proto_depIdxs = []int32{
 	6,  // 0: digital_music_stand.user.ListUsersResponse.users:type_name -> digital_music_stand.user.UserInfo
@@ -997,16 +1110,18 @@ var file_contracts_proto_user_service_proto_depIdxs = []int32{
 	11, // 6: digital_music_stand.user.UserService.RejectUser:input_type -> digital_music_stand.user.RejectUserRequest
 	13, // 7: digital_music_stand.user.UserService.ChangePassword:input_type -> digital_music_stand.user.ChangePasswordRequest
 	15, // 8: digital_music_stand.user.UserService.ResetPassword:input_type -> digital_music_stand.user.ResetPasswordRequest
-	1,  // 9: digital_music_stand.user.UserService.RegisterUser:output_type -> digital_music_stand.user.RegisterUserResponse
-	3,  // 10: digital_music_stand.user.UserService.LoginUser:output_type -> digital_music_stand.user.LoginUserResponse
-	5,  // 11: digital_music_stand.user.UserService.GetProfile:output_type -> digital_music_stand.user.GetProfileResponse
-	8,  // 12: digital_music_stand.user.UserService.ListUsers:output_type -> digital_music_stand.user.ListUsersResponse
-	10, // 13: digital_music_stand.user.UserService.ApproveUser:output_type -> digital_music_stand.user.ApproveUserResponse
-	12, // 14: digital_music_stand.user.UserService.RejectUser:output_type -> digital_music_stand.user.RejectUserResponse
-	14, // 15: digital_music_stand.user.UserService.ChangePassword:output_type -> digital_music_stand.user.ChangePasswordResponse
-	16, // 16: digital_music_stand.user.UserService.ResetPassword:output_type -> digital_music_stand.user.ResetPasswordResponse
-	9,  // [9:17] is the sub-list for method output_type
-	1,  // [1:9] is the sub-list for method input_type
+	17, // 9: digital_music_stand.user.UserService.RefreshToken:input_type -> digital_music_stand.user.RefreshTokenRequest
+	1,  // 10: digital_music_stand.user.UserService.RegisterUser:output_type -> digital_music_stand.user.RegisterUserResponse
+	3,  // 11: digital_music_stand.user.UserService.LoginUser:output_type -> digital_music_stand.user.LoginUserResponse
+	5,  // 12: digital_music_stand.user.UserService.GetProfile:output_type -> digital_music_stand.user.GetProfileResponse
+	8,  // 13: digital_music_stand.user.UserService.ListUsers:output_type -> digital_music_stand.user.ListUsersResponse
+	10, // 14: digital_music_stand.user.UserService.ApproveUser:output_type -> digital_music_stand.user.ApproveUserResponse
+	12, // 15: digital_music_stand.user.UserService.RejectUser:output_type -> digital_music_stand.user.RejectUserResponse
+	14, // 16: digital_music_stand.user.UserService.ChangePassword:output_type -> digital_music_stand.user.ChangePasswordResponse
+	16, // 17: digital_music_stand.user.UserService.ResetPassword:output_type -> digital_music_stand.user.ResetPasswordResponse
+	18, // 18: digital_music_stand.user.UserService.RefreshToken:output_type -> digital_music_stand.user.RefreshTokenResponse
+	10, // [10:19] is the sub-list for method output_type
+	1,  // [1:10] is the sub-list for method input_type
 	1,  // [1:1] is the sub-list for extension type_name
 	1,  // [1:1] is the sub-list for extension extendee
 	0,  // [0:1] is the sub-list for field type_name
@@ -1023,7 +1138,7 @@ func file_contracts_proto_user_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_contracts_proto_user_service_proto_rawDesc), len(file_contracts_proto_user_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

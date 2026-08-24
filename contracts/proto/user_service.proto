@@ -12,6 +12,7 @@ service UserService {
   rpc RejectUser(RejectUserRequest) returns (RejectUserResponse);
   rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
   rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
 }
 
 message RegisterUserRequest {
@@ -33,6 +34,7 @@ message LoginUserRequest {
 
 message LoginUserResponse {
   string token = 1;
+  string refresh_token = 2;
 }
 
 message GetProfileRequest {
@@ -97,4 +99,13 @@ message ResetPasswordRequest {
 
 message ResetPasswordResponse {
   string message = 1;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  string token = 1;
+  string refresh_token = 2;
 }
