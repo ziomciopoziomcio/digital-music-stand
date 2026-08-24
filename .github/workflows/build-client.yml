@@ -55,17 +55,17 @@ jobs:
           ARM_TAR=$(find fyne-cross -name "dms-linux-arm64.tar.xz" | head -n 1)
           
           mkdir -p tmp_extract
+          mkdir -p fyne-cross/bin/linux-amd64
+          mkdir -p fyne-cross/bin/linux-arm64
           
           tar -xf "$AMD_TAR" -C tmp_extract/
-          AMD_BIN=$(find tmp_extract -type f -name "dms-linux-amd64" | head -n 1)
-          mkdir -p fyne-cross/bin/linux-amd64
+          AMD_BIN=$(find tmp_extract -type f -path "*/bin/*" | head -n 1)
           mv "$AMD_BIN" fyne-cross/bin/linux-amd64/dms-linux-amd64
           
           rm -rf tmp_extract/*
           
           tar -xf "$ARM_TAR" -C tmp_extract/
-          ARM_BIN=$(find tmp_extract -type f -name "dms-linux-arm64" | head -n 1)
-          mkdir -p fyne-cross/bin/linux-arm64
+          ARM_BIN=$(find tmp_extract -type f -path "*/bin/*" | head -n 1)
           mv "$ARM_BIN" fyne-cross/bin/linux-arm64/dms-linux-arm64
           
           chmod +x fyne-cross/bin/linux-amd64/dms-linux-amd64
