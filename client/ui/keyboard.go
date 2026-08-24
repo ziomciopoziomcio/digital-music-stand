@@ -1,41 +1,108 @@
 package ui
 
 import (
-	"os/exec"
-	"runtime"
+	"strings"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
-var keyboardCmd *exec.Cmd
+var (
+	currentKbDialog dialog.Dialog
+	isShift         bool
+	kbContainer     *fyne.Container
+)
 
-func ShowKeyboard() {
-	if keyboardCmd != nil && keyboardCmd.Process != nil {
+func ShowKeyboard(target *widget.Entry) {
+	if currentKbDialog != nil {
 		return
 	}
-	switch runtime.GOOS {
-	case "windows":
-		keyboardCmd = exec.Command("osk")
-	case "linux":
-		if _, err := exec.LookPath("matchbox-keyboard"); err != nil {
-			return
+
+	windows := fyne.CurrentApp().Driver().AllWindows()
+	if len(windows) == 0 {
+		return
+	}
+	w := windows[0]
+
+	kbContainer = container.NewMax()
+
+	var refreshKeyboard func()
+	refreshKeyboard = func() {
+		rows := []string{
+			"1234567890-",
+			"qwertyuiop+",
+			"asdfghjkl_",
+			"zxcvbnm!?",
 		}
-		keyboardCmd = exec.Command("matchbox-keyboard")
-	default:
-		return
+
+		vbox := container.NewVBox()
+
+		for _, row := range rows {
+			hbox := container.NewHBox()
+			for _, char := range row {
+				c := char
+				if isShift && c >= 'a' && c <= 'z' {
+					c = rune(strings.ToUpper(string(c))[0])
+				}
+				btn := widget.NewButton(string(c), func() {
+					target.TypedRune(c)
+				})
+				hbox.Add(btn)
+			}
+			vbox.Add(container.NewCenter(hbox))
+		}
+
+		shiftBtn := widget.NewButton("⇧ Shift", func() {
+			isShift = !isShift
+			refreshKeyboard()
+		})
+		if isShift {
+			shiftBtn.Importance = widget.HighImportance
+		}
+
+		backspaceBtn := widget.NewButton("⌫ Del", func() {
+			target.TypedKey(&fyne.KeyEvent{Name: fyne.KeyBackspace})
+		})
+
+		spaceBtn := widget.NewButton("          Space          ", func() {
+			target.TypedRune(' ')
+		})
+
+		atBtn := widget.NewButton(" @ ", func() {
+			target.TypedRune('@')
+		})
+
+		dotBtn := widget.NewButton(" . ", func() {
+			target.TypedRune('.')
+		})
+
+		closeBtn := widget.NewButton("✓ Enter", func() {
+			HideKeyboard()
+			if target.OnSubmitted != nil {
+				target.OnSubmitted(target.Text)
+			}
+		})
+		closeBtn.Importance = widget.HighImportance
+
+		bottomRow := container.NewCenter(container.NewHBox(shiftBtn, atBtn, dotBtn, spaceBtn, backspaceBtn, closeBtn))
+		vbox.Add(bottomRow)
+
+		kbContainer.Objects = []fyne.CanvasObject{container.NewPadded(vbox)}
+		kbContainer.Refresh()
 	}
-	_ = keyboardCmd.Start()
+
+	refreshKeyboard()
+
+	currentKbDialog = dialog.NewCustomWithoutButtons("", kbContainer, w)
+	currentKbDialog.Show()
 }
 
 func HideKeyboard() {
-	if keyboardCmd != nil && keyboardCmd.Process != nil {
-		if runtime.GOOS == "windows" {
-			_ = exec.Command("taskkill", "/IM", "osk.exe", "/F").Run()
-		} else {
-			_ = keyboardCmd.Process.Kill()
-		}
-		_ = keyboardCmd.Process.Kill()
-		keyboardCmd = nil
+	if currentKbDialog != nil {
+		currentKbDialog.Hide()
+		currentKbDialog = nil
 	}
 }
 
@@ -49,14 +116,9 @@ func NewAutoKeyboardEntry() *AutoKeyboardEntry {
 	return e
 }
 
-func (e *AutoKeyboardEntry) FocusGained() {
-	e.Entry.FocusGained()
-	ShowKeyboard()
-}
-
-func (e *AutoKeyboardEntry) FocusLost() {
-	e.Entry.FocusLost()
-	HideKeyboard()
+func (e *AutoKeyboardEntry) Tapped(pe *fyne.PointEvent) {
+	e.Entry.Tapped(pe)
+	ShowKeyboard(&e.Entry)
 }
 
 type AutoKeyboardPasswordEntry struct {
@@ -70,12 +132,7 @@ func NewAutoKeyboardPasswordEntry() *AutoKeyboardPasswordEntry {
 	return e
 }
 
-func (e *AutoKeyboardPasswordEntry) FocusGained() {
-	e.Entry.FocusGained()
-	ShowKeyboard()
-}
-
-func (e *AutoKeyboardPasswordEntry) FocusLost() {
-	e.Entry.FocusLost()
-	HideKeyboard()
+func (e *AutoKeyboardPasswordEntry) Tapped(pe *fyne.PointEvent) {
+	e.Entry.Tapped(pe)
+	ShowKeyboard(&e.Entry)
 }
