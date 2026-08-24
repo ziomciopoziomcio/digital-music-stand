@@ -15,6 +15,29 @@ import (
 
 var SetQuickSettingsVisible func(visible bool)
 
+type qsLayout struct {
+	panelHeight float32
+}
+
+func (l *qsLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	return fyne.NewSize(0, 0)
+}
+
+func (l *qsLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	if len(objects) < 2 {
+		return
+	}
+	backdrop := objects[0]
+	panel := objects[1]
+
+	backdrop.Resize(size)
+	backdrop.Move(fyne.NewPos(0, 0))
+
+	currentY := panel.Position().Y
+	panel.Resize(fyne.NewSize(size.Width, l.panelHeight))
+	panel.Move(fyne.NewPos(0, currentY))
+}
+
 func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Container) *fyne.Container {
 	isOpen := false
 	var toggleBtn *widget.Button
@@ -86,16 +109,12 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 	backdropBg := canvas.NewRectangle(color.Transparent)
 	backdropContainer := container.NewMax(backdropBg, backdrop)
 
-	overlay = container.NewWithoutLayout(backdropContainer, settingsPanel)
+	overlay = container.New(&qsLayout{panelHeight: 220}, backdropContainer, settingsPanel)
+	settingsPanel.Move(fyne.NewPos(0, -220))
+	overlay.Hide()
 
 	togglePanel := func() {
-		windowSize := w.Canvas().Size()
 		panelHeight := float32(220)
-
-		backdropContainer.Resize(windowSize)
-		backdropContainer.Move(fyne.NewPos(0, 0))
-
-		settingsPanel.Resize(fyne.NewSize(windowSize.Width, panelHeight))
 
 		if !isOpen {
 			settingsPanel.Move(fyne.NewPos(0, -panelHeight))
