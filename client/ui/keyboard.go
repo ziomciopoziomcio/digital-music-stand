@@ -17,6 +17,9 @@ func ShowKeyboard() {
 	case "windows":
 		keyboardCmd = exec.Command("osk")
 	case "linux":
+		if _, err := exec.LookPath("matchbox-keyboard"); err != nil {
+			return
+		}
 		keyboardCmd = exec.Command("matchbox-keyboard")
 	default:
 		return
