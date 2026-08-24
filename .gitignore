@@ -1,5 +1,5 @@
 /.idea
-server/.env
+/.env
 client/musicstand.db
 /client/scores
 /server/uploads

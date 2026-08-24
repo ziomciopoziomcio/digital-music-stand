@@ -1,15 +1,15 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 
 	"github.com/google/uuid"
+	"github.com/minio/minio-go/v7"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/auth"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
@@ -18,12 +18,16 @@ import (
 
 type ScoreService struct {
 	scorepb.UnimplementedScoreServiceServer
-	db *gorm.DB
+	db          *gorm.DB
+	minioClient *minio.Client
+	bucketName  string
 }
 
-func NewScoreService(db *gorm.DB) *ScoreService {
+func NewScoreService(db *gorm.DB, minioClient *minio.Client, bucketName string) *ScoreService {
 	return &ScoreService{
-		db: db,
+		db:          db,
+		minioClient: minioClient,
+		bucketName:  bucketName,
 	}
 }
 
@@ -47,14 +51,14 @@ func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScore
 		ext = ".pdf"
 	}
 
-	storageDir := "./uploads/scores"
-	if err := os.MkdirAll(storageDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create storage directory: %v", err)
-	}
+	objectName := scoreID + ext
 
-	filePath := filepath.Join(storageDir, scoreID+ext)
-	if err := os.WriteFile(filePath, req.GetFileData(), 0644); err != nil {
-		return nil, fmt.Errorf("failed to save file: %v", err)
+	reader := bytes.NewReader(req.GetFileData())
+	_, err = s.minioClient.PutObject(ctx, s.bucketName, objectName, reader, int64(len(req.GetFileData())), minio.PutObjectOptions{
+		ContentType: "application/pdf",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload file to storage: %v", err)
 	}
 
 	hash := sha256.Sum256(req.GetFileData())
@@ -71,13 +75,13 @@ func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScore
 		OwnerID:       userID,
 		Name:          req.GetName(),
 		Composer:      composer,
-		FilePath:      filePath,
+		FilePath:      objectName,
 		FileExtension: ext,
 		Checksum:      checksum,
 	}
 
 	if err := s.db.Create(&newScore).Error; err != nil {
-		os.Remove(filePath)
+		_ = s.minioClient.RemoveObject(ctx, s.bucketName, objectName, minio.RemoveObjectOptions{})
 		return nil, fmt.Errorf("failed to save score to database: %v", err)
 	}
 
@@ -142,15 +146,15 @@ func (s *ScoreService) DownloadScore(req *scorepb.DownloadScoreRequest, stream s
 		return fmt.Errorf("failed to query score: %v", err)
 	}
 
-	file, err := os.Open(score.FilePath)
+	object, err := s.minioClient.GetObject(stream.Context(), s.bucketName, score.FilePath, minio.GetObjectOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to open file: %v", err)
+		return fmt.Errorf("failed to fetch object from storage: %v", err)
 	}
-	defer file.Close()
+	defer object.Close()
 
 	buffer := make([]byte, 64*1024)
 	for {
-		n, err := file.Read(buffer)
+		n, err := object.Read(buffer)
 		if n > 0 {
 			sendErr := stream.Send(&scorepb.DownloadScoreResponse{
 				ChunkData: buffer[:n],
@@ -163,7 +167,7 @@ func (s *ScoreService) DownloadScore(req *scorepb.DownloadScoreRequest, stream s
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("failed to read file: %v", err)
+			return fmt.Errorf("failed to read stream: %v", err)
 		}
 	}
 
@@ -216,6 +220,8 @@ func (s *ScoreService) DeleteScore(ctx context.Context, req *scorepb.DeleteScore
 	if score.OwnerID != userID {
 		return nil, fmt.Errorf("permission denied: you cannot delete a score owned by someone else")
 	}
+
+	_ = s.minioClient.RemoveObject(ctx, s.bucketName, score.FilePath, minio.RemoveObjectOptions{})
 
 	if err := s.db.Delete(&score).Error; err != nil {
 		return nil, fmt.Errorf("failed to delete score: %v", err)
