@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -8,6 +9,8 @@ import (
 	"strconv"
 
 	"github.com/joho/godotenv"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
@@ -24,7 +27,9 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using environment variables")
+		if err := godotenv.Load("../.env"); err != nil {
+			log.Println("No .env file found, using environment variables")
+		}
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -84,6 +89,35 @@ func main() {
 	}
 	fmt.Println("Migrated database")
 
+	minioEndpoint := os.Getenv("MINIO_ENDPOINT")
+	minioAccessKey := os.Getenv("MINIO_ACCESS_KEY")
+	minioSecretKey := os.Getenv("MINIO_SECRET_KEY")
+	minioBucket := os.Getenv("MINIO_BUCKET_NAME")
+	useSSL, _ := strconv.ParseBool(os.Getenv("MINIO_USE_SSL"))
+
+	minioClient, err := minio.New(minioEndpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(minioAccessKey, minioSecretKey, ""),
+		Secure: useSSL,
+	})
+	if err != nil {
+		log.Fatalf("Failed to initialize MinIO client: %v", err)
+	}
+
+	ctx := context.Background()
+	exists, err := minioClient.BucketExists(ctx, minioBucket)
+	if err == nil && !exists {
+		err = minioClient.MakeBucket(ctx, minioBucket, minio.MakeBucketOptions{})
+		if err != nil {
+			log.Printf("Warning: failed to create MinIO bucket '%s': %v", minioBucket, err)
+		} else {
+			log.Printf("Successfully created MinIO bucket: %s", minioBucket)
+		}
+	} else if err != nil {
+		log.Printf("Error checking MinIO bucket: %v", err)
+	} else {
+		log.Printf("MinIO connected. Bucket '%s' already exists.", minioBucket)
+	}
+
 	adminSv := admin.NewAdminServer(db, 8081)
 	go func() {
 		if err := adminSv.Start(); err != nil {
@@ -99,7 +133,7 @@ func main() {
 	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(auth.NewAuthInterceptor(jwtSecret, db)))
 
 	userpb.RegisterUserServiceServer(grpcServer, services.NewUserService(db, jwtSecret, jwtExpHours))
-	scorepb.RegisterScoreServiceServer(grpcServer, services.NewScoreService(db))
+	scorepb.RegisterScoreServiceServer(grpcServer, services.NewScoreService(db, minioClient, minioBucket))
 	bandpb.RegisterBandServiceServer(grpcServer, services.NewBandService(db))
 	concertpb.RegisterConcertServiceServer(grpcServer, services.NewConcertService(db))
 	syncpb.RegisterLiveSyncServiceServer(grpcServer, services.NewLiveSyncService())
