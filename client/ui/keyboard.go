@@ -1,23 +1,25 @@
 package ui
 
 import (
+	"image/color"
 	"strings"
+	"unicode/utf8"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
 var (
-	currentKbDialog dialog.Dialog
-	isShift         bool
-	kbContainer     *fyne.Container
+	currentKbPopUp *widget.PopUp
+	isShift        bool
 )
 
 func ShowKeyboard(target *widget.Entry) {
-	if currentKbDialog != nil {
-		return
+	if currentKbPopUp != nil {
+		currentKbPopUp.Hide()
 	}
 
 	windows := fyne.CurrentApp().Driver().AllWindows()
@@ -26,56 +28,77 @@ func ShowKeyboard(target *widget.Entry) {
 	}
 	w := windows[0]
 
-	kbContainer = container.NewMax()
+	mirrorLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-	var refreshKeyboard func()
-	refreshKeyboard = func() {
+	updateMirror := func() {
+		txt := target.Text
+		if txt == "" {
+			mirrorLabel.SetText("...")
+		} else if target.Password {
+			mirrorLabel.SetText(strings.Repeat("*", utf8.RuneCountInString(txt)))
+		} else {
+			mirrorLabel.SetText(txt)
+		}
+	}
+	updateMirror()
+
+	mirrorBg := canvas.NewRectangle(theme.InputBackgroundColor())
+	mirrorBg.CornerRadius = 8
+	mirrorContainer := container.NewPadded(container.NewMax(mirrorBg, mirrorLabel))
+
+	typeRune := func(r rune) {
+		target.TypedRune(r)
+		updateMirror()
+	}
+
+	typeKey := func(k fyne.KeyName) {
+		target.TypedKey(&fyne.KeyEvent{Name: k})
+		updateMirror()
+	}
+
+	kbContent := container.NewMax()
+
+	var buildKeyboard func() *fyne.Container
+	buildKeyboard = func() *fyne.Container {
+		vbox := container.NewVBox()
+
 		rows := []string{
 			"1234567890-",
 			"qwertyuiop+",
-			"asdfghjkl_",
-			"zxcvbnm!?",
+			"asdfghjkl_@",
+			"zxcvbnm.!?",
 		}
 
-		vbox := container.NewVBox()
-
 		for _, row := range rows {
-			hbox := container.NewHBox()
+			hbox := container.NewGridWithColumns(len(row))
 			for _, char := range row {
 				c := char
 				if isShift && c >= 'a' && c <= 'z' {
 					c = rune(strings.ToUpper(string(c))[0])
 				}
 				btn := widget.NewButton(string(c), func() {
-					target.TypedRune(c)
+					typeRune(c)
 				})
 				hbox.Add(btn)
 			}
-			vbox.Add(container.NewCenter(hbox))
+			vbox.Add(hbox)
 		}
 
 		shiftBtn := widget.NewButton("⇧ Shift", func() {
 			isShift = !isShift
-			refreshKeyboard()
+			kbContent.Objects = []fyne.CanvasObject{buildKeyboard()}
+			kbContent.Refresh()
 		})
 		if isShift {
 			shiftBtn.Importance = widget.HighImportance
 		}
 
+		spaceBtn := widget.NewButton("Space", func() {
+			typeRune(' ')
+		})
+
 		backspaceBtn := widget.NewButton("⌫ Del", func() {
-			target.TypedKey(&fyne.KeyEvent{Name: fyne.KeyBackspace})
-		})
-
-		spaceBtn := widget.NewButton("          Space          ", func() {
-			target.TypedRune(' ')
-		})
-
-		atBtn := widget.NewButton(" @ ", func() {
-			target.TypedRune('@')
-		})
-
-		dotBtn := widget.NewButton(" . ", func() {
-			target.TypedRune('.')
+			typeKey(fyne.KeyBackspace)
 		})
 
 		closeBtn := widget.NewButton("✓ Enter", func() {
@@ -86,23 +109,36 @@ func ShowKeyboard(target *widget.Entry) {
 		})
 		closeBtn.Importance = widget.HighImportance
 
-		bottomRow := container.NewCenter(container.NewHBox(shiftBtn, atBtn, dotBtn, spaceBtn, backspaceBtn, closeBtn))
+		bottomRow := container.NewGridWithColumns(4, shiftBtn, spaceBtn, backspaceBtn, closeBtn)
 		vbox.Add(bottomRow)
 
-		kbContainer.Objects = []fyne.CanvasObject{container.NewPadded(vbox)}
-		kbContainer.Refresh()
+		return container.NewVBox(
+			mirrorContainer,
+			widget.NewSeparator(),
+			vbox,
+		)
 	}
 
-	refreshKeyboard()
+	kbContent.Objects = []fyne.CanvasObject{buildKeyboard()}
 
-	currentKbDialog = dialog.NewCustomWithoutButtons("", kbContainer, w)
-	currentKbDialog.Show()
+	bg := canvas.NewRectangle(theme.BackgroundColor())
+	bg.CornerRadius = 12
+	bg.StrokeColor = theme.PrimaryColor()
+	bg.StrokeWidth = 2
+
+	spacer := canvas.NewRectangle(color.Transparent)
+	spacer.SetMinSize(fyne.NewSize(750, 300))
+
+	finalContainer := container.NewPadded(container.NewMax(bg, spacer, container.NewPadded(kbContent)))
+
+	currentKbPopUp = widget.NewPopUp(finalContainer, w.Canvas())
+	currentKbPopUp.Show()
 }
 
 func HideKeyboard() {
-	if currentKbDialog != nil {
-		currentKbDialog.Hide()
-		currentKbDialog = nil
+	if currentKbPopUp != nil {
+		currentKbPopUp.Hide()
+		currentKbPopUp = nil
 	}
 }
 
