@@ -17,6 +17,52 @@ var (
 	isShift        bool
 )
 
+type physicalKeyboardAdapter struct {
+	widget.BaseWidget
+	content  fyne.CanvasObject
+	target   *widget.Entry
+	onUpdate func()
+}
+
+func newPhysicalKeyboardAdapter(content fyne.CanvasObject, target *widget.Entry, onUpdate func()) *physicalKeyboardAdapter {
+	p := &physicalKeyboardAdapter{
+		content:  content,
+		target:   target,
+		onUpdate: onUpdate,
+	}
+	p.ExtendBaseWidget(p)
+	return p
+}
+
+func (p *physicalKeyboardAdapter) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(p.content)
+}
+
+func (p *physicalKeyboardAdapter) FocusGained() {}
+func (p *physicalKeyboardAdapter) FocusLost()   {}
+
+func (p *physicalKeyboardAdapter) TypedRune(r rune) {
+	p.target.TypedRune(r)
+	if p.onUpdate != nil {
+		p.onUpdate()
+	}
+}
+
+func (p *physicalKeyboardAdapter) TypedKey(e *fyne.KeyEvent) {
+	if e.Name == fyne.KeyReturn || e.Name == fyne.KeyEnter {
+		HideKeyboard()
+		if p.target.OnSubmitted != nil {
+			p.target.OnSubmitted(p.target.Text)
+		}
+		return
+	}
+
+	p.target.TypedKey(e)
+	if p.onUpdate != nil {
+		p.onUpdate()
+	}
+}
+
 func ShowKeyboard(target *widget.Entry) {
 	if currentKbPopUp != nil {
 		currentKbPopUp.Hide()
@@ -32,12 +78,13 @@ func ShowKeyboard(target *widget.Entry) {
 
 	updateMirror := func() {
 		txt := target.Text
+		if target.Password {
+			txt = strings.Repeat("*", utf8.RuneCountInString(txt))
+		}
 		if txt == "" {
-			mirrorLabel.SetText("...")
-		} else if target.Password {
-			mirrorLabel.SetText(strings.Repeat("*", utf8.RuneCountInString(txt)))
+			mirrorLabel.SetText("_")
 		} else {
-			mirrorLabel.SetText(txt)
+			mirrorLabel.SetText(txt + " █")
 		}
 	}
 	updateMirror()
@@ -131,8 +178,12 @@ func ShowKeyboard(target *widget.Entry) {
 
 	finalContainer := container.NewPadded(container.NewMax(bg, spacer, container.NewPadded(kbContent)))
 
-	currentKbPopUp = widget.NewPopUp(finalContainer, w.Canvas())
+	kbAdapter := newPhysicalKeyboardAdapter(finalContainer, target, updateMirror)
+
+	currentKbPopUp = widget.NewPopUp(kbAdapter, w.Canvas())
 	currentKbPopUp.Show()
+
+	w.Canvas().Focus(kbAdapter)
 }
 
 func HideKeyboard() {
