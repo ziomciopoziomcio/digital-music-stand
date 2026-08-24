@@ -3,9 +3,9 @@ services:
     image: postgres:15-alpine
     container_name: digital_music_stand_db
     environment:
-      POSTGRES_USER: devuser
-      POSTGRES_PASSWORD: devpassword
-      POSTGRES_DB: musicstand
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     ports:
       - "5432:5432"
     volumes:
