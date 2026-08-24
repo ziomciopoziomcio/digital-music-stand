@@ -35,15 +35,31 @@ func NewUserService(db *gorm.DB, secret string, durationHours int) *UserService 
 	}
 }
 
-func (s *UserService) generateJWT(userID uint, role string) (string, error) {
-	claims := jwt.MapClaims{
+func (s *UserService) generateTokens(userID uint, role string) (string, string, error) {
+	accessClaims := jwt.MapClaims{
 		"sub":  userID,
 		"role": role,
 		"exp":  time.Now().Add(s.tokenDuration).Unix(),
+		"type": "access",
+	}
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+	accessTokenString, err := accessToken.SignedString(s.jwtSecret)
+	if err != nil {
+		return "", "", err
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(s.jwtSecret)
+	refreshClaims := jwt.MapClaims{
+		"sub":  userID,
+		"exp":  time.Now().Add(time.Hour * 24 * 30).Unix(),
+		"type": "refresh",
+	}
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+	refreshTokenString, err := refreshToken.SignedString(s.jwtSecret)
+	if err != nil {
+		return "", "", err
+	}
+
+	return accessTokenString, refreshTokenString, nil
 }
 
 func (s *UserService) RegisterUser(ctx context.Context, req *userpb.RegisterUserRequest) (*userpb.RegisterUserResponse, error) {
@@ -122,13 +138,14 @@ func (s *UserService) LoginUser(ctx context.Context, req *userpb.LoginUserReques
 		return nil, fmt.Errorf("account is inactive")
 	}
 
-	tokenString, err := s.generateJWT(user.ID, user.Role)
+	tokenString, refreshTokenString, err := s.generateTokens(user.ID, user.Role)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate JWT: %v", err)
+		return nil, fmt.Errorf("failed to generate tokens: %v", err)
 	}
 
 	return &userpb.LoginUserResponse{
-		Token: tokenString,
+		Token:        tokenString,
+		RefreshToken: refreshTokenString,
 	}, nil
 }
 
@@ -233,4 +250,50 @@ func (s *UserService) ResetPassword(ctx context.Context, req *userpb.ResetPasswo
 	}
 
 	return &userpb.ResetPasswordResponse{Message: "If the email exists, a recovery password has been sent."}, nil
+}
+
+func (s *UserService) RefreshToken(ctx context.Context, req *userpb.RefreshTokenRequest) (*userpb.RefreshTokenResponse, error) {
+	token, err := jwt.Parse(req.GetRefreshToken(), func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected sign method")
+		}
+		return s.jwtSecret, nil
+	})
+
+	if err != nil || !token.Valid {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid or expired refresh token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid token claims")
+	}
+
+	if tokenType, ok := claims["type"].(string); !ok || tokenType != "refresh" {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid token type")
+	}
+
+	userIDFloat, ok := claims["sub"].(float64)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "missing sub claim")
+	}
+	userID := uint(userIDFloat)
+
+	var user models.User
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "user not found")
+	}
+	if user.Status != "active" {
+		return nil, status.Errorf(codes.PermissionDenied, "account is inactive")
+	}
+
+	newAccess, newRefresh, err := s.generateTokens(user.ID, user.Role)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to generate tokens")
+	}
+
+	return &userpb.RefreshTokenResponse{
+		Token:        newAccess,
+		RefreshToken: newRefresh,
+	}, nil
 }
