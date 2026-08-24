@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
@@ -39,6 +40,16 @@ func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScore
 
 	if req.GetName() == "" || len(req.GetFileData()) == 0 {
 		return nil, fmt.Errorf("missing required fields")
+	}
+
+	const maxFileSize = 25 * 1024 * 1024 // 25 MB
+	if len(req.GetFileData()) > maxFileSize {
+		return nil, fmt.Errorf("file size exceeds the 25 MB limit")
+	}
+
+	contentType := http.DetectContentType(req.GetFileData())
+	if contentType != "application/pdf" {
+		return nil, fmt.Errorf("invalid file type: %s. Only PDF files are allowed", contentType)
 	}
 
 	scoreID := uuid.New().String()
