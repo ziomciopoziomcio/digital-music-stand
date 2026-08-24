@@ -10,8 +10,12 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
@@ -126,13 +130,11 @@ func main() {
 			myWindow,
 			myApp,
 			func(server, email, password string) error {
-				token, err := network.Authenticate(server, email, password)
+				token, refreshToken, err := network.Authenticate(server, email, password)
 				if err == nil {
 					myApp.Preferences().SetString("jwt_token", token)
+					myApp.Preferences().SetString("refresh_token", refreshToken)
 					myApp.Preferences().SetString("server_addr", server)
-
-					myApp.Preferences().SetString("user_email", email)
-					myApp.Preferences().SetString("user_password", password)
 
 					startBackgroundSync(server, token)
 					showDashboard()
@@ -303,9 +305,8 @@ func main() {
 			showDashboard,
 			func() {
 				myApp.Preferences().SetString("jwt_token", "")
+				myApp.Preferences().SetString("refresh_token", "")
 				myApp.Preferences().SetString("server_addr", "")
-				myApp.Preferences().SetString("user_email", "")
-				myApp.Preferences().SetString("user_password", "")
 				showDashboard()
 			},
 			func() ([]ui.BandInfo, error) {
@@ -483,26 +484,34 @@ func main() {
 				_, profileErr := userClient.GetProfile(ctx, &userpb.GetProfileRequest{})
 				if profileErr != nil {
 					conn.Close()
-					log.Printf("[Sync] Authorization failed (token expired?): %v", profileErr)
+					st, ok := status.FromError(profileErr)
 
-					email := myApp.Preferences().String("user_email")
-					password := myApp.Preferences().String("user_password")
+					if ok && (st.Code() == codes.Unavailable || st.Code() == codes.DeadlineExceeded) {
+						log.Printf("[Sync] Network unavailable, remaining in offline mode.")
+						<-ticker.C
+						continue
+					}
 
-					if email != "" && password != "" {
-						log.Println("[Sync] Attempting automatic re-login...")
-						newToken, authErr := network.Authenticate(serverAddr, email, password)
+					if ok && st.Code() == codes.Unauthenticated {
+						log.Printf("[Sync] Access token expired. Attempting refresh...")
+						refreshToken := myApp.Preferences().String("refresh_token")
 
-						if authErr == nil {
-							log.Println("[Sync] Automatic re-login successful! Updating token.")
-							myApp.Preferences().SetString("jwt_token", newToken)
-							continue
-						} else {
-							log.Printf("[Sync] Auto re-login failed: %v", authErr)
+						if refreshToken != "" {
+							newJwt, newRef, err := network.RefreshSession(serverAddr, refreshToken)
+							if err == nil {
+								log.Println("[Sync] Session refreshed successfully! Updating tokens.")
+								myApp.Preferences().SetString("jwt_token", newJwt)
+								myApp.Preferences().SetString("refresh_token", newRef)
+								continue
+							} else {
+								log.Printf("[Sync] Auto refresh failed: %v", err)
+							}
 						}
 					}
 
 					myApp.Preferences().SetString("jwt_token", "")
-					log.Println("[Sync] Background sync stopped. Running in pure offline mode.")
+					myApp.Preferences().SetString("refresh_token", "")
+					log.Println("[Sync] Background sync stopped. Logged out.")
 					return
 				}
 
