@@ -218,48 +218,62 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 			widget.NewSeparator(),
 		}
 
+		installKbBtn := widget.NewButtonWithIcon("Install On-Screen Keyboard", theme.DownloadIcon(), nil)
+
 		if runtime.GOOS == "linux" {
+			_, err := exec.LookPath("matchbox-keyboard")
+			isKbInstalled := err == nil
 
-			installKbBtn := widget.NewButtonWithIcon("Install On-Screen Keyboard", theme.DownloadIcon(), func() {
+			if isKbInstalled {
+				installKbBtn.SetText("Keyboard Installed")
+				installKbBtn.SetIcon(theme.ConfirmIcon())
+				installKbBtn.Disable()
+			} else {
 
-				passEntry := NewAutoKeyboardPasswordEntry()
-				passEntry.SetPlaceHolder("Admin (sudo) password")
+				installKbBtn.OnTapped = func() {
 
-				dialog.ShowCustomConfirm("Sudo Password Required", "Install", "Cancel", passEntry, func(confirm bool) {
-					if confirm && passEntry.Text != "" {
-						progress := dialog.NewCustomWithoutButtons("Installing...", container.NewPadded(widget.NewProgressBarInfinite()), w)
-						progress.Show()
+					passEntry := NewAutoKeyboardPasswordEntry()
+					passEntry.SetPlaceHolder("Admin (sudo) password")
 
-						go func() {
-							pwd := passEntry.Text
+					dialog.ShowCustomConfirm("Sudo Password Required", "Install", "Cancel", passEntry, func(confirm bool) {
+						if confirm && passEntry.Text != "" {
+							progress := dialog.NewCustomWithoutButtons("Installing...", container.NewPadded(widget.NewProgressBarInfinite()), w)
+							progress.Show()
 
-							cmd1 := exec.Command("sudo", "-S", "apt-get", "update")
-							stdin1, _ := cmd1.StdinPipe()
 							go func() {
-								defer stdin1.Close()
-								io.WriteString(stdin1, pwd+"\n")
+								pwd := passEntry.Text
+
+								cmd1 := exec.Command("sudo", "-S", "apt-get", "update")
+								stdin1, _ := cmd1.StdinPipe()
+								go func() {
+									defer stdin1.Close()
+									io.WriteString(stdin1, pwd+"\n")
+								}()
+								_ = cmd1.Run()
+
+								cmd2 := exec.Command("sudo", "-S", "apt-get", "install", "-y", "matchbox-keyboard")
+								stdin2, _ := cmd2.StdinPipe()
+								go func() {
+									defer stdin2.Close()
+									io.WriteString(stdin2, pwd+"\n")
+								}()
+								err := cmd2.Run()
+
+								progress.Hide()
+
+								if err != nil {
+									dialog.ShowError(fmt.Errorf("Installation failed.\nDid you enter the correct password?\nError: %v", err), w)
+								} else {
+									dialog.ShowInformation("Success", "Keyboard installed successfully!", w)
+									installKbBtn.SetText("Keyboard Installed")
+									installKbBtn.SetIcon(theme.ConfirmIcon())
+									installKbBtn.Disable()
+								}
 							}()
-							_ = cmd1.Run()
-
-							cmd2 := exec.Command("sudo", "-S", "apt-get", "install", "-y", "matchbox-keyboard")
-							stdin2, _ := cmd2.StdinPipe()
-							go func() {
-								defer stdin2.Close()
-								io.WriteString(stdin2, pwd+"\n")
-							}()
-							err := cmd2.Run()
-
-							progress.Hide()
-
-							if err != nil {
-								dialog.ShowError(fmt.Errorf("Installation failed.\nDid you enter the correct password?\nError: %v", err), w)
-							} else {
-								dialog.ShowInformation("Success", "Keyboard installed successfully!", w)
-							}
-						}()
-					}
-				}, w)
-			})
+						}
+					}, w)
+				}
+			}
 			systemElements = append(systemElements, installKbBtn)
 		} else {
 			infoLabel := widget.NewLabelWithStyle(
