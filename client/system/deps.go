@@ -16,7 +16,6 @@ func CheckMissingDependencies() []string {
 		"amixer",
 		"brightnessctl",
 		"xset",
-		"matchbox-keyboard",
 	}
 
 	var missing []string
