@@ -220,6 +220,32 @@ func main() {
 	}
 
 	showConcert = func() {
+		refreshToken := myApp.Preferences().String("refresh_token")
+
+		if refreshToken != "" {
+			token, _, err := new(jwt.Parser).ParseUnverified(refreshToken, jwt.MapClaims{})
+			if err == nil {
+				if claims, ok := token.Claims.(jwt.MapClaims); ok {
+					if exp, ok := claims["exp"].(float64); ok {
+						expirationTime := time.Unix(int64(exp), 0)
+
+						if time.Until(expirationTime) < 24*time.Hour {
+							dialog.ShowConfirm("Warning: Session Expiring Soon",
+								"Your session is about to expire. We recommend refreshing your session to avoid potential issues with concert synchronization.\n\nTo refresh your session, please log out and log back in.\nWould you like to proceed to the concert mode anyway?",
+								func(confirm bool) {
+									if confirm {
+										concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, triggerConcertSync)
+										mainWrapper.Objects = []fyne.CanvasObject{concertView}
+										mainWrapper.Refresh()
+									}
+								}, myWindow)
+							return
+						}
+					}
+				}
+			}
+		}
+
 		concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, triggerConcertSync)
 		mainWrapper.Objects = []fyne.CanvasObject{concertView}
 		mainWrapper.Refresh()
