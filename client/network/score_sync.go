@@ -10,6 +10,8 @@ import (
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClient, dbMgr *localdb.DBManager) error {
@@ -79,6 +81,12 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 					FileExtension: ext,
 				})
 				if err != nil {
+					st, ok := status.FromError(err)
+					if ok && st.Code() == codes.InvalidArgument {
+						log.Printf("Server rejected score %s", ls.Title)
+						_ = dbMgr.HardDeleteScore(ls.ID)
+						continue
+					}
 					log.Printf("Failed to push score %s to cloud: %v", ls.Title, err)
 				} else {
 					_ = dbMgr.SyncScoreFromServer(resp.Id, ls.Title, ls.FilePath, resp.Checksum, true)

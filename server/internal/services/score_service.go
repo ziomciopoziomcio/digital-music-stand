@@ -7,12 +7,15 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/auth"
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/models"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 )
 
@@ -38,7 +41,17 @@ func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScore
 	}
 
 	if req.GetName() == "" || len(req.GetFileData()) == 0 {
-		return nil, fmt.Errorf("missing required fields")
+		return nil, status.Errorf(codes.InvalidArgument, "missing required fields")
+	}
+
+	const maxFileSize = 25 * 1024 * 1024 // 25 MB
+	if len(req.GetFileData()) > maxFileSize {
+		return nil, status.Errorf(codes.InvalidArgument, "file size exceeds the 25 MB limit")
+	}
+
+	contentType := http.DetectContentType(req.GetFileData())
+	if contentType != "application/pdf" {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid file type: %s. Only PDF files are allowed", contentType)
 	}
 
 	scoreID := uuid.New().String()
