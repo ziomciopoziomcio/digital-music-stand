@@ -33,6 +33,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 	searchEntry.SetPlaceHolder("Search concerts (min. 3 chars)...")
 
 	updateGrid = func() {
+		isLoggedIn := app.Preferences().String("jwt_token") != ""
+
 		concerts, err := db.GetConcerts()
 		if err != nil {
 			dialog.ShowError(err, w)
@@ -100,6 +102,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 					})
 				})
 				revokeBtn.Importance = widget.DangerImportance
+
+				if !isLoggedIn {
+					shareBtn.Disable()
+					revokeBtn.Disable()
+				}
 
 				editBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
 					openSetup(&concert)

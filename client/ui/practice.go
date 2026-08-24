@@ -198,6 +198,8 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 	}
 
 	updateGrid = func() {
+		isLoggedIn := app.Preferences().String("jwt_token") != ""
+
 		scores, err := db.GetScores()
 		if err != nil {
 			dialog.ShowError(err, w)
@@ -264,6 +266,11 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 						})
 					})
 					revokeBtn.Importance = widget.DangerImportance
+
+					if !isLoggedIn {
+						shareBtn.Disable()
+						revokeBtn.Disable()
+					}
 
 					editTitleBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
 						entry := NewAutoKeyboardEntry()

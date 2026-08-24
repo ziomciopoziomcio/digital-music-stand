@@ -32,6 +32,12 @@ func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin 
 	profileBtn := widget.NewButtonWithIcon("Profile", theme.AccountIcon(), openProfile)
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), openSettings)
 
+	if token == "" {
+		inboxBtn.Disable()
+		profileBtn.Disable()
+		cloudStatusBtn.SetText("Offline")
+	}
+
 	topBar := container.NewHBox(
 		clock,
 		layout.NewSpacer(),
