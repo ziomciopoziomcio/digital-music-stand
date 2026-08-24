@@ -2,10 +2,7 @@ package ui
 
 import (
 	"fmt"
-	"io"
 	"log"
-	"os/exec"
-	"runtime"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -216,72 +213,6 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		systemElements := []fyne.CanvasObject{
 			awakeCheck,
 			widget.NewSeparator(),
-		}
-
-		installKbBtn := widget.NewButtonWithIcon("Install On-Screen Keyboard", theme.DownloadIcon(), nil)
-
-		if runtime.GOOS == "linux" {
-			_, err := exec.LookPath("matchbox-keyboard")
-			isKbInstalled := err == nil
-
-			if isKbInstalled {
-				installKbBtn.SetText("Keyboard Installed")
-				installKbBtn.SetIcon(theme.ConfirmIcon())
-				installKbBtn.Disable()
-			} else {
-
-				installKbBtn.OnTapped = func() {
-
-					passEntry := NewAutoKeyboardPasswordEntry()
-					passEntry.SetPlaceHolder("Admin (sudo) password")
-
-					dialog.ShowCustomConfirm("Sudo Password Required", "Install", "Cancel", passEntry, func(confirm bool) {
-						if confirm && passEntry.Text != "" {
-							progress := dialog.NewCustomWithoutButtons("Installing...", container.NewPadded(widget.NewProgressBarInfinite()), w)
-							progress.Show()
-
-							go func() {
-								pwd := passEntry.Text
-
-								cmd1 := exec.Command("sudo", "-S", "apt-get", "update")
-								stdin1, _ := cmd1.StdinPipe()
-								go func() {
-									defer stdin1.Close()
-									io.WriteString(stdin1, pwd+"\n")
-								}()
-								_ = cmd1.Run()
-
-								cmd2 := exec.Command("sudo", "-S", "apt-get", "install", "-y", "matchbox-keyboard")
-								stdin2, _ := cmd2.StdinPipe()
-								go func() {
-									defer stdin2.Close()
-									io.WriteString(stdin2, pwd+"\n")
-								}()
-								err := cmd2.Run()
-
-								progress.Hide()
-
-								if err != nil {
-									dialog.ShowError(fmt.Errorf("Installation failed.\nDid you enter the correct password?\nError: %v", err), w)
-								} else {
-									dialog.ShowInformation("Success", "Keyboard installed successfully!", w)
-									installKbBtn.SetText("Keyboard Installed")
-									installKbBtn.SetIcon(theme.ConfirmIcon())
-									installKbBtn.Disable()
-								}
-							}()
-						}
-					}, w)
-				}
-			}
-			systemElements = append(systemElements, installKbBtn)
-		} else {
-			infoLabel := widget.NewLabelWithStyle(
-				"Native keyboard will be used automatically on this OS.",
-				fyne.TextAlignLeading,
-				fyne.TextStyle{Italic: true},
-			)
-			systemElements = append(systemElements, infoLabel)
 		}
 
 		rebootBtn := widget.NewButtonWithIcon("Reboot System", theme.ViewRefreshIcon(), func() {
