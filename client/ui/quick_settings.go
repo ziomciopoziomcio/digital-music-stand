@@ -40,10 +40,12 @@ func (l *qsLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 
 func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Container) *fyne.Container {
 	isOpen := false
+	globalVisible := true
 	var toggleBtn *widget.Button
 	var settingsPanel *fyne.Container
 	var overlay *fyne.Container
 	var backdrop *widget.Button
+	var togglePanel func()
 
 	closePanel := func() {
 		if isOpen {
@@ -56,9 +58,12 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 			)
 			time.AfterFunc(time.Millisecond*200, func() {
 				overlay.Hide()
+				if globalVisible {
+					toggleBtn.Show()
+				}
 			})
 			anim.Start()
-			toggleBtn.SetIcon(theme.SettingsIcon())
+			toggleBtn.SetIcon(theme.MenuDropDownIcon())
 			isOpen = false
 		}
 	}
@@ -113,12 +118,14 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 	settingsPanel.Move(fyne.NewPos(0, -220))
 	overlay.Hide()
 
-	togglePanel := func() {
+	togglePanel = func() {
 		panelHeight := float32(220)
 
 		if !isOpen {
 			settingsPanel.Move(fyne.NewPos(0, -panelHeight))
 			overlay.Show()
+
+			toggleBtn.Hide()
 
 			anim := canvas.NewPositionAnimation(
 				fyne.NewPos(0, -panelHeight),
@@ -134,9 +141,8 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 		}
 	}
 
-	toggleBtn = widget.NewButtonWithIcon("", theme.SettingsIcon(), togglePanel)
+	toggleBtn = widget.NewButtonWithIcon("", theme.MenuDropDownIcon(), togglePanel)
 	toggleBtn.Importance = widget.LowImportance
-	overlay.Hide()
 
 	SetQuickSettingsVisible = func(visible bool) {
 		if visible {
@@ -147,14 +153,15 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 		}
 	}
 
-	floatingBtn := container.NewVBox(
+	floatingHandle := container.NewVBox(
 		container.NewHBox(
+			layout.NewSpacer(),
 			toggleBtn,
 			layout.NewSpacer(),
 		),
 	)
 
-	return container.NewMax(mainWrapper, floatingBtn, overlay)
+	return container.NewMax(mainWrapper, overlay, floatingHandle)
 }
 
 func lockApp(w fyne.Window, a fyne.App, mainWrapper *fyne.Container) {
@@ -168,7 +175,6 @@ func lockApp(w fyne.Window, a fyne.App, mainWrapper *fyne.Container) {
 	lockView = BuildLockScreen(w, a, func() {
 		mainWrapper.Objects = previousObjects
 		mainWrapper.Refresh()
-
 		if SetQuickSettingsVisible != nil {
 			SetQuickSettingsVisible(true)
 		}
