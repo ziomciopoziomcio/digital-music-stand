@@ -18,6 +18,7 @@ var unprotectedMethods = map[string]bool{
 	"/digital_music_stand.user.UserService/RegisterUser":  true,
 	"/digital_music_stand.user.UserService/LoginUser":     true,
 	"/digital_music_stand.user.UserService/ResetPassword": true,
+	"/digital_music_stand.user.UserService/RefreshToken":  true,
 }
 
 func NewAuthInterceptor(secret string, db *gorm.DB) grpc.UnaryServerInterceptor {
