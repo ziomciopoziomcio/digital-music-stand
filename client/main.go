@@ -163,7 +163,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	}
 
 	showSettings = func() {
-		settingsView := ui.BuildSettings(myWindow, myApp, AppVersion, showDashboard, netMgr, pwrMgr, medMgr, devMgr)
+		settingsView := ui.BuildSettings(myWindow, myApp, AppVersion, showDashboard, netMgr, pwrMgr, medMgr, devMgr, pm, profileID)
 		mainWrapper.Objects = []fyne.CanvasObject{settingsView}
 		mainWrapper.Refresh()
 	}

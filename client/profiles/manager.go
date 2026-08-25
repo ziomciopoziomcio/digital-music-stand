@@ -155,3 +155,42 @@ func hashPin(pin string) string {
 	hash := sha256.Sum256([]byte(pin))
 	return hex.EncodeToString(hash[:])
 }
+
+func (m *Manager) UpdatePin(id, newPin string) error {
+	profiles, err := m.GetProfiles()
+	if err != nil {
+		return err
+	}
+
+	updated := false
+	for i, p := range profiles {
+		if p.ID == id {
+			if newPin == "" {
+				profiles[i].PinHash = ""
+			} else {
+				profiles[i].PinHash = hashPin(newPin)
+			}
+			updated = true
+			break
+		}
+	}
+
+	if !updated {
+		return fmt.Errorf("profile not found")
+	}
+
+	return m.saveProfiles(profiles)
+}
+
+func (m *Manager) CheckIfHasPin(id string) bool {
+	profiles, err := m.GetProfiles()
+	if err != nil {
+		return false
+	}
+	for _, p := range profiles {
+		if p.ID == id && p.PinHash != "" {
+			return true
+		}
+	}
+	return false
+}

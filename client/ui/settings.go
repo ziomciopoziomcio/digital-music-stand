@@ -12,11 +12,12 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/ziomciopoziomcio/digital-music-stand/client/profiles"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/updater"
 )
 
-func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose func(), netMgr system.NetworkManager, pwrMgr system.PowerManager, medMgr system.MediaManager, devMgr system.DeviceManager) *fyne.Container {
+func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose func(), netMgr system.NetworkManager, pwrMgr system.PowerManager, medMgr system.MediaManager, devMgr system.DeviceManager, pm *profiles.Manager, profileID string) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var showCategories func()
@@ -43,8 +44,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 
 		statusLabel := widget.NewLabel("")
 		updateStatus := func() {
-			savedPin := app.Preferences().String("app_pin")
-			if savedPin != "" {
+			if pm.CheckIfHasPin(profileID) {
 				statusLabel.SetText("Status: PIN Protection Active")
 			} else {
 				statusLabel.SetText("Status: PIN Protection Disabled")
@@ -54,7 +54,10 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 
 		savePinBtn := widget.NewButtonWithIcon("Save PIN", theme.DocumentSaveIcon(), func() {
 			if pinEntry.Text != "" {
-				app.Preferences().SetString("app_pin", pinEntry.Text)
+				if err := pm.UpdatePin(profileID, pinEntry.Text); err != nil {
+					dialog.ShowError(err, w)
+					return
+				}
 				dialog.ShowInformation("Security", "PIN updated successfully.", w)
 				pinEntry.SetText("")
 				updateStatus()
@@ -63,7 +66,10 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		savePinBtn.Importance = widget.HighImportance
 
 		clearPinBtn := widget.NewButtonWithIcon("Remove PIN", theme.DeleteIcon(), func() {
-			app.Preferences().SetString("app_pin", "")
+			if err := pm.UpdatePin(profileID, ""); err != nil {
+				dialog.ShowError(err, w)
+				return
+			}
 			dialog.ShowInformation("Security", "PIN removed successfully.", w)
 			pinEntry.SetText("")
 			updateStatus()
