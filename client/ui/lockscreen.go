@@ -12,7 +12,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func BuildLockScreen(w fyne.Window, app fyne.App, onUnlock func()) *fyne.Container {
+func BuildLockScreen(w fyne.Window, a fyne.App, verifyPin func(string) bool, onSuccess func()) fyne.CanvasObject {
 	contentWrapper := container.NewMax()
 
 	timeText := canvas.NewText(time.Now().Format("15:04"), theme.ForegroundColor())
@@ -45,8 +45,6 @@ func BuildLockScreen(w fyne.Window, app fyne.App, onUnlock func()) *fyne.Contain
 	pinEntry.Disable()
 	pinEntry.SetPlaceHolder("Enter PIN")
 
-	savedPin := app.Preferences().String("app_pin")
-
 	keypad := container.NewGridWithColumns(3)
 
 	appendPin := func(digit string) {
@@ -65,18 +63,20 @@ func BuildLockScreen(w fyne.Window, app fyne.App, onUnlock func()) *fyne.Contain
 
 	keypad.Add(widget.NewButton("C", func() {
 		pinEntry.SetText("")
+		pinEntry.SetPlaceHolder("Enter PIN")
 	}))
 	keypad.Add(widget.NewButton("0", func() {
 		appendPin("0")
 	}))
 
 	unlockBtn := widget.NewButton("OK", func() {
-		if pinEntry.Text == savedPin || savedPin == "" {
+		if verifyPin(pinEntry.Text) {
 			close(stopClock)
 			pinEntry.SetText("")
-			onUnlock()
+			onSuccess()
 		} else {
 			pinEntry.SetText("")
+			pinEntry.SetPlaceHolder("Wrong PIN!")
 		}
 	})
 	unlockBtn.Importance = widget.HighImportance

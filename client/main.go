@@ -85,6 +85,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	var showPairing func()
 	var showInbox func()
 	var showProfile func()
+	var showLockScreen func()
 
 	startBackgroundSync := func(server, token string) {
 		go func() {
@@ -114,13 +115,55 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 		mainWrapper.Refresh()
 	}
 
+	showLockScreen = func() {
+		profileInfo, err := pm.GetProfiles()
+		hasPin := false
+		if err == nil {
+			for _, p := range profileInfo {
+				if p.ID == profileID && p.PinHash != "" {
+					hasPin = true
+					break
+				}
+			}
+		}
+
+		if !hasPin {
+			dialog.ShowInformation("No PIN", "This profile does not have a PIN set. Screen cannot be locked.", myWindow)
+			return
+		}
+
+		var previousView fyne.CanvasObject
+		if len(mainWrapper.Objects) > 0 {
+			previousView = mainWrapper.Objects[0]
+		}
+
+		if ui.SetQuickSettingsVisible != nil {
+			ui.SetQuickSettingsVisible(false)
+		}
+
+		lockView := ui.BuildLockScreen(myWindow, myApp,
+			func(enteredPin string) bool {
+				return pm.VerifyPin(profileID, enteredPin)
+			},
+			func() {
+				if ui.SetQuickSettingsVisible != nil {
+					ui.SetQuickSettingsVisible(true)
+				}
+				if previousView != nil {
+					mainWrapper.Objects = []fyne.CanvasObject{previousView}
+					mainWrapper.Refresh()
+				} else {
+					showDashboard()
+				}
+			},
+		)
+
+		mainWrapper.Objects = []fyne.CanvasObject{lockView}
+		mainWrapper.Refresh()
+	}
+
 	showSettings = func() {
-		settingsView := ui.BuildSettings(myWindow, myApp, AppVersion, func() {
-			cancelSession()
-			ui.ShowProfileSelector(myWindow, pm, func(newProfileID string) {
-				launchProfileSession(myWindow, myApp, pm, newProfileID)
-			})
-		}, netMgr, pwrMgr, medMgr, devMgr)
+		settingsView := ui.BuildSettings(myWindow, myApp, AppVersion, showDashboard, netMgr, pwrMgr, medMgr, devMgr)
 		mainWrapper.Objects = []fyne.CanvasObject{settingsView}
 		mainWrapper.Refresh()
 	}
@@ -328,7 +371,11 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 				myApp.Preferences().SetString(prefToken, "")
 				myApp.Preferences().SetString(prefRefresh, "")
 				myApp.Preferences().SetString(prefServer, "")
-				showDashboard()
+
+				cancelSession()
+				ui.ShowProfileSelector(myWindow, pm, func(newProfileID string) {
+					launchProfileSession(myWindow, myApp, pm, newProfileID)
+				})
 			},
 			func() ([]ui.BandInfo, error) {
 				token := myApp.Preferences().String(prefToken)
@@ -541,7 +588,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 		}()
 	}
 
-	appWithQuickSettings := ui.WrapWithQuickSettings(myWindow, myApp, mainWrapper)
+	appWithQuickSettings := ui.WrapWithQuickSettings(myWindow, myApp, mainWrapper, showLockScreen)
 	showDashboard()
 	myWindow.SetContent(appWithQuickSettings)
 }
