@@ -37,7 +37,7 @@ func (l *qsLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	panel.Move(fyne.NewPos(0, currentY))
 }
 
-func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject, onLock func()) fyne.CanvasObject {
+func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject, onLock func(), isCloudConnected func() bool) fyne.CanvasObject {
 	isOpen := false
 	globalVisible := true
 	var toggleBtn *widget.Button
@@ -78,8 +78,11 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 		closePanel()
 	})
 
+	statusLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
 	panelContent := container.NewVBox(
 		widget.NewLabelWithStyle("Quick Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		statusLabel,
 		widget.NewSeparator(),
 		lockBtn,
 		widget.NewSeparator(),
@@ -106,6 +109,12 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 		panelHeight := float32(220)
 
 		if !isOpen {
+			if isCloudConnected != nil && isCloudConnected() {
+				statusLabel.SetText("Cloud: Connected")
+			} else {
+				statusLabel.SetText("Cloud: Disconnected")
+			}
+
 			settingsPanel.Move(fyne.NewPos(0, -panelHeight))
 			overlay.Show()
 
@@ -129,6 +138,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 	toggleBtn.Importance = widget.LowImportance
 
 	SetQuickSettingsVisible = func(visible bool) {
+		globalVisible = visible
 		if visible {
 			toggleBtn.Show()
 		} else {

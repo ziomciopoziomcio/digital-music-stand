@@ -36,13 +36,13 @@ func main() {
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatalf("Failed to get home directory: %v", err)
+		log.Fatalf("Fatal: %v", err)
 	}
 	appDataDir := filepath.Join(homeDir, ".digitalmusicstand")
 
 	pm, err := profiles.NewManager(appDataDir)
 	if err != nil {
-		log.Fatalf("Failed to initialize profile manager: %v", err)
+		log.Fatalf("Fatal: %v", err)
 	}
 
 	ui.ShowProfileSelector(myWindow, pm, func(profileID string) {
@@ -73,7 +73,6 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	wsMgr.Start(8088)
 
 	netMgr, pwrMgr, medMgr, devMgr := InitManagers()
-
 	mainWrapper := container.NewMax()
 
 	var showDashboard func()
@@ -87,30 +86,100 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	var showProfile func()
 	var showLockScreen func()
 
-	startBackgroundSync := func(server, token string) {
+	isCloudConnected := func() bool {
+		token := myApp.Preferences().String(prefToken)
+		server := myApp.Preferences().String(prefServer)
+		if len(token) > 50 && server != "" {
+			return true
+		}
+		return false
+	}
+
+	startBackgroundSyncLoop := func(server, initialToken string) {
 		go func() {
-			conn, err := network.NewGRPCClient(server, token)
-			if err != nil {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+
+			doSync := func() bool {
+				currentToken := myApp.Preferences().String(prefToken)
+				if currentToken == "" {
+					return false
+				}
+
+				conn, err := network.NewGRPCClient(server, currentToken)
+				if err != nil {
+					return true
+				}
+				defer conn.Close()
+
+				userClient := userpb.NewUserServiceClient(conn)
+				_, profileErr := userClient.GetProfile(sessionCtx, &userpb.GetProfileRequest{})
+
+				if profileErr != nil {
+					st, ok := status.FromError(profileErr)
+					if ok && (st.Code() == codes.Unavailable || st.Code() == codes.DeadlineExceeded) {
+						return true
+					}
+
+					if ok && st.Code() == codes.Unauthenticated {
+						refreshToken := myApp.Preferences().String(prefRefresh)
+						if refreshToken != "" {
+							newJwt, newRef, err := network.RefreshSession(server, refreshToken)
+							if err == nil {
+								myApp.Preferences().SetString(prefToken, newJwt)
+								myApp.Preferences().SetString(prefRefresh, newRef)
+								return true
+							}
+						}
+					}
+
+					myApp.Preferences().SetString(prefToken, "")
+					myApp.Preferences().SetString(prefRefresh, "")
+					return false
+				}
+
+				scoreClient := scorepb.NewScoreServiceClient(conn)
+				concertClient := concertpb.NewConcertServiceClient(conn)
+				bandClient := bandpb.NewBandServiceClient(conn)
+
+				if err := network.SynchronizeScores(sessionCtx, scoreClient, dbMgr, scoresPath); err != nil {
+					log.Printf("Score sync error: %v", err)
+				}
+				if err := network.SynchronizeConcerts(sessionCtx, concertClient, dbMgr); err != nil {
+					log.Printf("Concert sync error: %v", err)
+				}
+				if err := network.SynchronizeInvitations(sessionCtx, bandClient, dbMgr); err != nil {
+					log.Printf("Band invite sync error: %v", err)
+				}
+				if err := network.SynchronizeConcertInvitations(sessionCtx, concertClient, dbMgr); err != nil {
+					log.Printf("Concert invite sync error: %v", err)
+				}
+				if err := network.SynchronizeScoreInvitations(sessionCtx, scoreClient, dbMgr); err != nil {
+					log.Printf("Score invite sync error: %v", err)
+				}
+
+				return true
+			}
+
+			if !doSync() {
 				return
 			}
-			defer conn.Close()
 
-			scoreClient := scorepb.NewScoreServiceClient(conn)
-			_ = network.SynchronizeScores(sessionCtx, scoreClient, dbMgr)
-
-			concertClient := concertpb.NewConcertServiceClient(conn)
-			_ = network.SynchronizeConcerts(sessionCtx, concertClient, dbMgr)
-
-			bandClient := bandpb.NewBandServiceClient(conn)
-			_ = network.SynchronizeInvitations(sessionCtx, bandClient, dbMgr)
-
-			_ = network.SynchronizeConcertInvitations(sessionCtx, concertClient, dbMgr)
-			_ = network.SynchronizeScoreInvitations(sessionCtx, scoreClient, dbMgr)
+			for {
+				select {
+				case <-sessionCtx.Done():
+					return
+				case <-ticker.C:
+					if !doSync() {
+						return
+					}
+				}
+			}
 		}()
 	}
 
 	showDashboard = func() {
-		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice, showConcert, showPairing, showInbox, showProfile)
+		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice, showConcert, showPairing, showInbox, showProfile, isCloudConnected)
 		mainWrapper.Objects = []fyne.CanvasObject{dash}
 		mainWrapper.Refresh()
 	}
@@ -128,7 +197,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 		}
 
 		if !hasPin {
-			dialog.ShowInformation("No PIN", "This profile does not have a PIN set. Screen cannot be locked.", myWindow)
+			dialog.ShowInformation("No PIN", "Profile has no PIN set.", myWindow)
 			return
 		}
 
@@ -178,8 +247,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 					myApp.Preferences().SetString(prefToken, token)
 					myApp.Preferences().SetString(prefRefresh, refreshToken)
 					myApp.Preferences().SetString(prefServer, server)
-
-					startBackgroundSync(server, token)
+					startBackgroundSyncLoop(server, token)
 					showDashboard()
 				}
 				return err
@@ -187,7 +255,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 			func(server, email, password, name, surname string) (string, error) {
 				conn, err := network.NewGRPCClient(server, "")
 				if err != nil {
-					return "", fmt.Errorf("connection failed: %w", err)
+					return "", err
 				}
 				defer conn.Close()
 
@@ -206,7 +274,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 			func(server, email string) (string, error) {
 				conn, err := network.NewGRPCClient(server, "")
 				if err != nil {
-					return "", fmt.Errorf("connection failed: %w", err)
+					return "", err
 				}
 				defer conn.Close()
 
@@ -236,7 +304,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 					if err == nil {
 						defer conn.Close()
 						scoreClient := scorepb.NewScoreServiceClient(conn)
-						_ = network.SynchronizeScores(sessionCtx, scoreClient, dbMgr)
+						_ = network.SynchronizeScores(sessionCtx, scoreClient, dbMgr, scoresPath)
 					}
 				}()
 			}
@@ -268,11 +336,9 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 			if err == nil {
 				if claims, ok := token.Claims.(jwt.MapClaims); ok {
 					if exp, ok := claims["exp"].(float64); ok {
-						expirationTime := time.Unix(int64(exp), 0)
-
-						if time.Until(expirationTime) < 24*time.Hour {
+						if time.Until(time.Unix(int64(exp), 0)) < 24*time.Hour {
 							dialog.ShowConfirm("Warning",
-								"Session Expiring Soon",
+								"Session expiring soon.",
 								func(confirm bool) {
 									if confirm {
 										concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, triggerConcertSync)
@@ -330,7 +396,6 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 					defer conn.Close()
 
 					invID, _ := strconv.ParseUint(notif.ReferenceID, 10, 32)
-
 					switch notif.Type {
 					case "band_invite":
 						bandClient := bandpb.NewBandServiceClient(conn)
@@ -353,7 +418,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 					}
 
 					if accept {
-						startBackgroundSync(server, token)
+						triggerConcertSync()
 					}
 				}()
 			}
@@ -371,7 +436,6 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 				myApp.Preferences().SetString(prefToken, "")
 				myApp.Preferences().SetString(prefRefresh, "")
 				myApp.Preferences().SetString(prefServer, "")
-
 				cancelSession()
 				ui.ShowProfileSelector(myWindow, pm, func(newProfileID string) {
 					launchProfileSession(myWindow, myApp, pm, newProfileID)
@@ -383,26 +447,19 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 				if token == "" || server == "" {
 					return nil, fmt.Errorf("not logged in")
 				}
-
 				conn, err := network.NewGRPCClient(server, token)
 				if err != nil {
 					return nil, err
 				}
 				defer conn.Close()
-
 				bandClient := bandpb.NewBandServiceClient(conn)
 				resp, err := bandClient.ListMyBands(sessionCtx, &bandpb.ListMyBandsRequest{})
 				if err != nil {
 					return nil, err
 				}
-
 				var bands []ui.BandInfo
 				for _, b := range resp.GetBands() {
-					bands = append(bands, ui.BandInfo{
-						ID:        b.Id,
-						Name:      b.Name,
-						IsManager: b.IsManager,
-					})
+					bands = append(bands, ui.BandInfo{ID: b.Id, Name: b.Name, IsManager: b.IsManager})
 				}
 				return bands, nil
 			},
@@ -412,13 +469,11 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 				if token == "" || server == "" {
 					return fmt.Errorf("not logged in")
 				}
-
 				conn, err := network.NewGRPCClient(server, token)
 				if err != nil {
 					return err
 				}
 				defer conn.Close()
-
 				bandClient := bandpb.NewBandServiceClient(conn)
 				_, err = bandClient.CreateBand(sessionCtx, &bandpb.CreateBandRequest{Name: name})
 				return err
@@ -429,18 +484,13 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 				if token == "" || server == "" {
 					return fmt.Errorf("not logged in")
 				}
-
 				conn, err := network.NewGRPCClient(server, token)
 				if err != nil {
 					return err
 				}
 				defer conn.Close()
-
 				bandClient := bandpb.NewBandServiceClient(conn)
-				_, err = bandClient.InviteMember(sessionCtx, &bandpb.InviteMemberRequest{
-					BandId:       bandID,
-					InviteeEmail: email,
-				})
+				_, err = bandClient.InviteMember(sessionCtx, &bandpb.InviteMemberRequest{BandId: bandID, InviteeEmail: email})
 				return err
 			},
 			func(oldPassword, newPassword string) error {
@@ -449,18 +499,13 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 				if token == "" || server == "" {
 					return fmt.Errorf("not logged in")
 				}
-
 				conn, err := network.NewGRPCClient(server, token)
 				if err != nil {
 					return err
 				}
 				defer conn.Close()
-
 				userClient := userpb.NewUserServiceClient(conn)
-				_, err = userClient.ChangePassword(sessionCtx, &userpb.ChangePasswordRequest{
-					OldPassword: oldPassword,
-					NewPassword: newPassword,
-				})
+				_, err = userClient.ChangePassword(sessionCtx, &userpb.ChangePasswordRequest{OldPassword: oldPassword, NewPassword: newPassword})
 				return err
 			},
 			func(bandID uint32) ([]ui.MemberInfo, error) {
@@ -469,28 +514,19 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 				if token == "" || server == "" {
 					return nil, fmt.Errorf("not logged in")
 				}
-
 				conn, err := network.NewGRPCClient(server, token)
 				if err != nil {
 					return nil, err
 				}
 				defer conn.Close()
-
 				bandClient := bandpb.NewBandServiceClient(conn)
 				resp, err := bandClient.ListBandMembers(sessionCtx, &bandpb.ListBandMembersRequest{BandId: bandID})
 				if err != nil {
 					return nil, err
 				}
-
 				var members []ui.MemberInfo
 				for _, m := range resp.GetMembers() {
-					members = append(members, ui.MemberInfo{
-						UserID:  m.GetUserId(),
-						Email:   m.GetEmail(),
-						Name:    m.GetName(),
-						Surname: m.GetSurname(),
-						Role:    m.GetRole(),
-					})
+					members = append(members, ui.MemberInfo{UserID: m.GetUserId(), Email: m.GetEmail(), Name: m.GetName(), Surname: m.GetSurname(), Role: m.GetRole()})
 				}
 				return members, nil
 			},
@@ -500,19 +536,13 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 				if token == "" || server == "" {
 					return fmt.Errorf("not logged in")
 				}
-
 				conn, err := network.NewGRPCClient(server, token)
 				if err != nil {
 					return err
 				}
 				defer conn.Close()
-
 				bandClient := bandpb.NewBandServiceClient(conn)
-				_, err = bandClient.RemoveMember(sessionCtx, &bandpb.RemoveMemberRequest{
-					BandId: bandID,
-					UserId: userID,
-					Email:  email,
-				})
+				_, err = bandClient.RemoveMember(sessionCtx, &bandpb.RemoveMemberRequest{BandId: bandID, UserId: userID, Email: email})
 				return err
 			},
 		)
@@ -520,75 +550,14 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 		mainWrapper.Refresh()
 	}
 
-	savedToken := myApp.Preferences().String(prefToken)
-	savedServer := myApp.Preferences().String(prefServer)
+	appWithQuickSettings := ui.WrapWithQuickSettings(myWindow, myApp, mainWrapper, showLockScreen, isCloudConnected)
 
-	if savedToken != "" && savedServer != "" {
-		go func() {
-			ticker := time.NewTicker(10 * time.Second)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-sessionCtx.Done():
-					return
-				case <-ticker.C:
-					serverAddr := myApp.Preferences().String(prefServer)
-					token := myApp.Preferences().String(prefToken)
-
-					if serverAddr == "" || token == "" {
-						continue
-					}
-
-					conn, err := network.NewGRPCClient(serverAddr, token)
-					if err != nil {
-						continue
-					}
-
-					userClient := userpb.NewUserServiceClient(conn)
-
-					_, profileErr := userClient.GetProfile(sessionCtx, &userpb.GetProfileRequest{})
-					if profileErr != nil {
-						conn.Close()
-						st, ok := status.FromError(profileErr)
-
-						if ok && (st.Code() == codes.Unavailable || st.Code() == codes.DeadlineExceeded) {
-							continue
-						}
-
-						if ok && st.Code() == codes.Unauthenticated {
-							refreshToken := myApp.Preferences().String(prefRefresh)
-							if refreshToken != "" {
-								newJwt, newRef, err := network.RefreshSession(serverAddr, refreshToken)
-								if err == nil {
-									myApp.Preferences().SetString(prefToken, newJwt)
-									myApp.Preferences().SetString(prefRefresh, newRef)
-									continue
-								}
-							}
-						}
-
-						myApp.Preferences().SetString(prefToken, "")
-						myApp.Preferences().SetString(prefRefresh, "")
-						return
-					}
-
-					scoreClient := scorepb.NewScoreServiceClient(conn)
-					concertClient := concertpb.NewConcertServiceClient(conn)
-					bandClient := bandpb.NewBandServiceClient(conn)
-
-					_ = network.SynchronizeScores(sessionCtx, scoreClient, dbMgr)
-					_ = network.SynchronizeConcerts(sessionCtx, concertClient, dbMgr)
-					_ = network.SynchronizeInvitations(sessionCtx, bandClient, dbMgr)
-					_ = network.SynchronizeConcertInvitations(sessionCtx, concertClient, dbMgr)
-					_ = network.SynchronizeScoreInvitations(sessionCtx, scoreClient, dbMgr)
-					conn.Close()
-				}
-			}
-		}()
-	}
-
-	appWithQuickSettings := ui.WrapWithQuickSettings(myWindow, myApp, mainWrapper, showLockScreen)
 	showDashboard()
 	myWindow.SetContent(appWithQuickSettings)
+
+	savedToken := myApp.Preferences().String(prefToken)
+	savedServer := myApp.Preferences().String(prefServer)
+	if savedToken != "" && savedServer != "" {
+		startBackgroundSyncLoop(savedServer, savedToken)
+	}
 }
