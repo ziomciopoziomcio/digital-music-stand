@@ -14,8 +14,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClient, dbMgr *localdb.DBManager) error {
-	if err := os.MkdirAll("./scores", 0755); err != nil {
+func SynchronizeScores(ctx context.Context, client scorepb.ScoreServiceClient, dbMgr *localdb.DBManager, scoresPath string) error {
+	if err := os.MkdirAll(scoresPath, 0755); err != nil {
 		return fmt.Errorf("failed to create local scores directory: %w", err)
 	}
 
@@ -23,7 +23,7 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 	if err == nil {
 		for _, id := range deletedIDs {
 			log.Printf("Pushing deletion for score %s to cloud...", id)
-			_, err := scoreClient.DeleteScore(ctx, &scorepb.DeleteScoreRequest{Id: id})
+			_, err := client.DeleteScore(ctx, &scorepb.DeleteScoreRequest{Id: id})
 			if err != nil {
 				log.Printf("Failed to delete score %s on server: %v", id, err)
 			} else {
@@ -32,7 +32,7 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 		}
 	}
 
-	remoteResp, err := scoreClient.ListMyScores(ctx, &scorepb.ListMyScoresRequest{})
+	remoteResp, err := client.ListMyScores(ctx, &scorepb.ListMyScoresRequest{})
 	if err != nil {
 		return fmt.Errorf("failed to list remote scores: %w", err)
 	}
@@ -51,7 +51,7 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 		if ls.Checksum == "" {
 			if _, existsOnServer := remoteMap[ls.ID]; existsOnServer {
 				log.Printf("Updating remote score %s (%s)...", ls.Title, ls.ID)
-				resp, err := scoreClient.UpdateScore(ctx, &scorepb.UpdateScoreRequest{
+				resp, err := client.UpdateScore(ctx, &scorepb.UpdateScoreRequest{
 					Id:   ls.ID,
 					Name: ls.Title,
 				})
@@ -74,7 +74,7 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 					ext = ".pdf"
 				}
 
-				resp, err := scoreClient.CreateScore(ctx, &scorepb.CreateScoreRequest{
+				resp, err := client.CreateScore(ctx, &scorepb.CreateScoreRequest{
 					Id:            &ls.ID,
 					Name:          ls.Title,
 					FileData:      fileData,
@@ -95,7 +95,7 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 		}
 	}
 
-	remoteResp, err = scoreClient.ListMyScores(ctx, &scorepb.ListMyScoresRequest{})
+	remoteResp, err = client.ListMyScores(ctx, &scorepb.ListMyScoresRequest{})
 	if err != nil {
 		return fmt.Errorf("failed to list remote scores after push: %w", err)
 	}
@@ -117,7 +117,7 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 		if !exists || localScore.Checksum != rs.Checksum {
 			log.Printf("Downloading score %s (%s) from cloud...", rs.Name, rs.Id)
 
-			stream, err := scoreClient.DownloadScore(ctx, &scorepb.DownloadScoreRequest{
+			stream, err := client.DownloadScore(ctx, &scorepb.DownloadScoreRequest{
 				ScoreId: rs.Id,
 			})
 			if err != nil {
@@ -130,7 +130,7 @@ func SynchronizeScores(ctx context.Context, scoreClient scorepb.ScoreServiceClie
 				ext = ".pdf"
 			}
 
-			localFilePath := filepath.Join("./scores", rs.Id+ext)
+			localFilePath := filepath.Join(scoresPath, rs.Id+ext)
 			absFilePath, err := filepath.Abs(localFilePath)
 			if err != nil {
 				absFilePath = localFilePath

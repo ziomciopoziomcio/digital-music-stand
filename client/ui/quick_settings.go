@@ -7,7 +7,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -38,7 +37,7 @@ func (l *qsLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	panel.Move(fyne.NewPos(0, currentY))
 }
 
-func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Container) *fyne.Container {
+func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject, onLock func(), isCloudConnected func() bool) fyne.CanvasObject {
 	isOpen := false
 	globalVisible := true
 	var toggleBtn *widget.Button
@@ -69,24 +68,9 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 	}
 
 	lockBtn := widget.NewButtonWithIcon("Lock Screen", theme.LogoutIcon(), func() {
-		closePanel()
-		pin := a.Preferences().String("app_pin")
-		if pin == "" {
-			pinEntry := NewAutoKeyboardPasswordEntry()
-			pinEntry.SetPlaceHolder("Enter 4-digit PIN")
-			form := container.NewVBox(
-				widget.NewLabel("Set a PIN to lock the application:"),
-				pinEntry,
-			)
-			dialog.ShowCustomConfirm("Set PIN", "Save & Lock", "Cancel", form, func(confirm bool) {
-				if confirm && len(pinEntry.Text) >= 4 {
-					a.Preferences().SetString("app_pin", pinEntry.Text)
-					lockApp(w, a, mainWrapper)
-				}
-			}, w)
-			return
+		if onLock != nil {
+			onLock()
 		}
-		lockApp(w, a, mainWrapper)
 	})
 	lockBtn.Importance = widget.HighImportance
 
@@ -94,8 +78,11 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 		closePanel()
 	})
 
+	statusLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
 	panelContent := container.NewVBox(
 		widget.NewLabelWithStyle("Quick Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		statusLabel,
 		widget.NewSeparator(),
 		lockBtn,
 		widget.NewSeparator(),
@@ -122,6 +109,12 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 		panelHeight := float32(220)
 
 		if !isOpen {
+			if isCloudConnected != nil && isCloudConnected() {
+				statusLabel.SetText("Cloud: Connected")
+			} else {
+				statusLabel.SetText("Cloud: Disconnected")
+			}
+
 			settingsPanel.Move(fyne.NewPos(0, -panelHeight))
 			overlay.Show()
 
@@ -145,6 +138,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 	toggleBtn.Importance = widget.LowImportance
 
 	SetQuickSettingsVisible = func(visible bool) {
+		globalVisible = visible
 		if visible {
 			toggleBtn.Show()
 		} else {
@@ -161,25 +155,5 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, mainWrapper *fyne.Containe
 		),
 	)
 
-	return container.NewMax(mainWrapper, overlay, floatingHandle)
-}
-
-func lockApp(w fyne.Window, a fyne.App, mainWrapper *fyne.Container) {
-	previousObjects := append([]fyne.CanvasObject{}, mainWrapper.Objects...)
-
-	if SetQuickSettingsVisible != nil {
-		SetQuickSettingsVisible(false)
-	}
-
-	var lockView *fyne.Container
-	lockView = BuildLockScreen(w, a, func() {
-		mainWrapper.Objects = previousObjects
-		mainWrapper.Refresh()
-		if SetQuickSettingsVisible != nil {
-			SetQuickSettingsVisible(true)
-		}
-	})
-
-	mainWrapper.Objects = []fyne.CanvasObject{lockView}
-	mainWrapper.Refresh()
+	return container.NewMax(content, overlay, floatingHandle)
 }

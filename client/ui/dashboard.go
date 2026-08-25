@@ -10,21 +10,20 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func(), openPractice func(), openConcert func(), openPairing func(), openInbox func(), openProfile func()) *fyne.Container {
+func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func(), openPractice func(), openConcert func(), openPairing func(), openInbox func(), openProfile func(), isCloudConnected func() bool) *fyne.Container {
 	clock := widget.NewLabel(time.Now().Format("15:04"))
 	clock.TextStyle = fyne.TextStyle{Bold: true}
 
-	token := app.Preferences().String("jwt_token")
 	statusText := "Offline"
 	statusIcon := theme.WarningIcon()
 
-	if token != "" {
+	if isCloudConnected() {
 		statusText = "Connected"
 		statusIcon = theme.ConfirmIcon()
 	}
 
 	cloudStatusBtn := widget.NewButtonWithIcon(statusText, statusIcon, openLogin)
-	if token == "" {
+	if !isCloudConnected() {
 		cloudStatusBtn.Importance = widget.WarningImportance
 	}
 
@@ -32,7 +31,7 @@ func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin 
 	profileBtn := widget.NewButtonWithIcon("Profile", theme.AccountIcon(), openProfile)
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), openSettings)
 
-	if token == "" {
+	if !isCloudConnected() {
 		inboxBtn.Disable()
 		profileBtn.Disable()
 		cloudStatusBtn.SetText("Offline")
