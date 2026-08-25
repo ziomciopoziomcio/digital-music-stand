@@ -11,12 +11,20 @@ import (
 )
 
 type Score struct {
-	ID        string
-	Title     string
-	FilePath  string
-	Checksum  string
-	IsOwner   bool
-	IsDeleted bool
+	ID         string
+	Title      string
+	FilePath   string
+	Checksum   string
+	IsOwner    bool
+	IsDeleted  bool
+	LocalAlias string
+}
+
+func (s Score) DisplayTitle() string {
+	if s.LocalAlias != "" {
+		return s.LocalAlias
+	}
+	return s.Title
 }
 
 type SetlistItem struct {
@@ -34,14 +42,22 @@ type ConcertItem struct {
 }
 
 type Concert struct {
-	ID        string
-	Name      string
-	Location  string
-	StartTime string
-	Checksum  string
-	IsOwner   bool
-	IsDeleted bool
-	Items     []ConcertItem
+	ID         string
+	Name       string
+	Location   string
+	StartTime  string
+	Checksum   string
+	IsOwner    bool
+	IsDeleted  bool
+	Items      []ConcertItem
+	LocalAlias string
+}
+
+func (c Concert) DisplayName() string {
+	if c.LocalAlias != "" {
+		return c.LocalAlias
+	}
+	return c.Name
 }
 
 type Notification struct {
@@ -84,32 +100,36 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 	);
 
 	CREATE TABLE IF NOT EXISTS concert_items (
-	    id TEXT PRIMARY KEY,
-	    concert_id TEXT NOT NULL,
-	    sort_order INTEGER NOT NULL,
-	    score_id TEXT,
-	    break_min INTEGER,
-	    FOREIGN KEY(concert_id) REFERENCES concerts(id) ON DELETE CASCADE,
-	    FOREIGN KEY(score_id) REFERENCES scores(id) ON DELETE CASCADE
+		id TEXT PRIMARY KEY,
+		concert_id TEXT NOT NULL,
+		sort_order INTEGER NOT NULL,
+		score_id TEXT,
+		break_min INTEGER,
+		FOREIGN KEY(concert_id) REFERENCES concerts(id) ON DELETE CASCADE,
+		FOREIGN KEY(score_id) REFERENCES scores(id) ON DELETE CASCADE
 	);
 
 	CREATE TABLE IF NOT EXISTS notifications (
-	    id TEXT PRIMARY KEY,
-	    type TEXT NOT NULL,
-	    reference_id TEXT NOT NULL,
-	    title TEXT NOT NULL,
-	    body TEXT NOT NULL,
-	    status TEXT NOT NULL DEFAULT 'pending'
+		id TEXT PRIMARY KEY,
+		type TEXT NOT NULL,
+		reference_id TEXT NOT NULL,
+		title TEXT NOT NULL,
+		body TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'pending'
 	);`
 
 	if _, err := db.Exec(query); err != nil {
 		return nil, fmt.Errorf("failed to create tables: %w", err)
 	}
+
+	_, _ = db.Exec("ALTER TABLE scores ADD COLUMN local_alias TEXT NOT NULL DEFAULT ''")
+	_, _ = db.Exec("ALTER TABLE concerts ADD COLUMN local_alias TEXT NOT NULL DEFAULT ''")
+
 	return &DBManager{db: db}, nil
 }
 
 func (m *DBManager) GetScores() ([]Score, error) {
-	rows, err := m.db.Query("SELECT id, title, file_path, checksum, is_owner FROM scores WHERE is_deleted = 0 ORDER BY title")
+	rows, err := m.db.Query("SELECT id, title, file_path, checksum, is_owner, local_alias FROM scores WHERE is_deleted = 0 ORDER BY title")
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +139,7 @@ func (m *DBManager) GetScores() ([]Score, error) {
 	for rows.Next() {
 		var s Score
 		var isOwner int
-		if err := rows.Scan(&s.ID, &s.Title, &s.FilePath, &s.Checksum, &isOwner); err != nil {
+		if err := rows.Scan(&s.ID, &s.Title, &s.FilePath, &s.Checksum, &isOwner, &s.LocalAlias); err != nil {
 			return nil, err
 		}
 		s.IsOwner = isOwner == 1
@@ -149,7 +169,6 @@ func (m *DBManager) AddScore(title, originalFilePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to read source score file: %w", err)
 	}
-
 	if err := os.WriteFile(absPath, input, 0644); err != nil {
 		return "", fmt.Errorf("failed to copy score file locally: %w", err)
 	}
@@ -160,6 +179,11 @@ func (m *DBManager) AddScore(title, originalFilePath string) (string, error) {
 
 func (m *DBManager) UpdateScore(id string, title string) error {
 	_, err := m.db.Exec("UPDATE scores SET title = ?, checksum = '' WHERE id = ?", title, id)
+	return err
+}
+
+func (m *DBManager) SetScoreAlias(id string, alias string) error {
+	_, err := m.db.Exec("UPDATE scores SET local_alias = ? WHERE id = ?", alias, id)
 	return err
 }
 
@@ -205,11 +229,11 @@ func (m *DBManager) SyncScoreFromServer(id, title, filePath, checksum string, is
 		INSERT INTO scores (id, title, file_path, checksum, is_owner, is_deleted) 
 		VALUES (?, ?, ?, ?, ?, 0)
 		ON CONFLICT(id) DO UPDATE SET 
-			title = excluded.title,
-			file_path = excluded.file_path,
-			checksum = excluded.checksum,
-			is_owner = excluded.is_owner,
-			is_deleted = 0`,
+		title = excluded.title,
+		file_path = excluded.file_path,
+		checksum = excluded.checksum,
+		is_owner = excluded.is_owner,
+		is_deleted = 0`,
 		id, title, filePath, checksum, ownerVal,
 	)
 	return err
@@ -223,7 +247,6 @@ func (m *DBManager) AddConcert(name, location, startTime string, setlist []Setli
 	defer tx.Rollback()
 
 	concertID := uuid.New().String()
-
 	_, err = tx.Exec("INSERT INTO concerts (id, name, location, start_time, checksum, is_deleted) VALUES (?, ?, ?, ?, '', 0)", concertID, name, location, startTime)
 	if err != nil {
 		return "", err
@@ -231,7 +254,8 @@ func (m *DBManager) AddConcert(name, location, startTime string, setlist []Setli
 
 	for pos, item := range setlist {
 		itemID := uuid.New().String()
-		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min) VALUES (?, ?, ?, ?, ?)", itemID, concertID, pos+1, item.ScoreID, item.BreakMin)
+		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min) VALUES (?, ?, ?, ?, ?)",
+			itemID, concertID, pos+1, item.ScoreID, item.BreakMin)
 		if err != nil {
 			return "", err
 		}
@@ -259,13 +283,19 @@ func (m *DBManager) UpdateConcert(id, name, location, startTime string, setlist 
 
 	for pos, item := range setlist {
 		itemID := uuid.New().String()
-		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min) VALUES (?, ?, ?, ?, ?)", itemID, id, pos+1, item.ScoreID, item.BreakMin)
+		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min) VALUES (?, ?, ?, ?, ?)",
+			itemID, id, pos+1, item.ScoreID, item.BreakMin)
 		if err != nil {
 			return err
 		}
 	}
 
 	return tx.Commit()
+}
+
+func (m *DBManager) SetConcertAlias(id string, alias string) error {
+	_, err := m.db.Exec("UPDATE concerts SET local_alias = ? WHERE id = ?", alias, id)
+	return err
 }
 
 func (m *DBManager) MarkConcertDeleted(id string) error {
@@ -294,12 +324,12 @@ func (m *DBManager) SyncConcertFromServer(concertID string, name, location, star
 		INSERT INTO concerts (id, name, location, start_time, checksum, is_owner, is_deleted) 
 		VALUES (?, ?, ?, ?, ?, ?, 0)
 		ON CONFLICT(id) DO UPDATE SET 
-			name = excluded.name,
-			location = excluded.location,
-			start_time = excluded.start_time,
-			checksum = excluded.checksum,
-			is_owner = excluded.is_owner,
-			is_deleted = 0`,
+		name = excluded.name,
+		location = excluded.location,
+		start_time = excluded.start_time,
+		checksum = excluded.checksum,
+		is_owner = excluded.is_owner,
+		is_deleted = 0`,
 		concertID, name, location, startTime, checksum, ownerVal,
 	)
 	if err != nil {
@@ -326,7 +356,7 @@ func (m *DBManager) SyncConcertFromServer(concertID string, name, location, star
 }
 
 func (m *DBManager) GetConcerts() ([]Concert, error) {
-	rows, err := m.db.Query("SELECT id, name, COALESCE(location, ''), COALESCE(start_time, ''), checksum, is_owner FROM concerts WHERE is_deleted = 0 ORDER BY rowid DESC")
+	rows, err := m.db.Query("SELECT id, name, COALESCE(location, ''), COALESCE(start_time, ''), checksum, is_owner, local_alias FROM concerts WHERE is_deleted = 0 ORDER BY rowid DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -336,13 +366,13 @@ func (m *DBManager) GetConcerts() ([]Concert, error) {
 	for rows.Next() {
 		var c Concert
 		var isOwner int
-		if err := rows.Scan(&c.ID, &c.Name, &c.Location, &c.StartTime, &c.Checksum, &isOwner); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Location, &c.StartTime, &c.Checksum, &isOwner, &c.LocalAlias); err != nil {
 			return nil, err
 		}
 		c.IsOwner = isOwner == 1
 
 		itemRows, err := m.db.Query(`
-			SELECT ci.id, ci.sort_order, ci.score_id, ci.break_min, s.title, s.file_path 
+			SELECT ci.id, ci.sort_order, ci.score_id, ci.break_min, COALESCE(NULLIF(s.local_alias, ''), s.title), s.file_path 
 			FROM concert_items ci 
 			LEFT JOIN scores s ON ci.score_id = s.id 
 			WHERE ci.concert_id = ? 
@@ -367,9 +397,9 @@ func (m *DBManager) GetConcerts() ([]Concert, error) {
 			c.Items = append(c.Items, item)
 		}
 		itemRows.Close()
-
 		concerts = append(concerts, c)
 	}
+
 	return concerts, nil
 }
 
