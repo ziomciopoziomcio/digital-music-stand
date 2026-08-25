@@ -33,14 +33,13 @@ func ParseColor(c string) color.Color {
 	case "yellow":
 		return color.RGBA{R: 255, G: 235, B: 59, A: 255}
 	case "blue":
-		return color.RGBA{R: 33, G: 150, B: 243, A: 255}
+		fallthrough
 	default:
 		return color.RGBA{R: 33, G: 150, B: 243, A: 255}
 	}
 }
 
-func ApplyAppTheme(a fyne.App) {
-	colorName := a.Preferences().StringWithFallback("app_accent_color", "blue")
+func ApplyAppTheme(a fyne.App, colorName string) {
 	custom := &customTheme{
 		Theme:        theme.DefaultTheme(),
 		primaryColor: ParseColor(colorName),

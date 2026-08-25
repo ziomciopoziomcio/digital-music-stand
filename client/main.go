@@ -33,6 +33,7 @@ var AppVersion = "client-v0.1.0-alpha.1"
 func main() {
 	myApp := app.NewWithID("com.digitalmusicstand.client")
 	myWindow := myApp.NewWindow("Digital Music Stand")
+	ui.ApplyAppTheme(myApp, "blue")
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -45,7 +46,7 @@ func main() {
 		log.Fatalf("Fatal: %v", err)
 	}
 
-	ui.ShowProfileSelector(myWindow, pm, func(profileID string) {
+	ui.ShowProfileSelector(myWindow, myApp, pm, func(profileID string) {
 		launchProfileSession(myWindow, myApp, pm, profileID)
 	})
 
@@ -59,6 +60,10 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	prefToken := profileID + "_jwt_token"
 	prefRefresh := profileID + "_refresh_token"
 	prefServer := profileID + "_server_addr"
+	prefTheme := profileID + "_theme_color"
+
+	themeColor := myApp.Preferences().StringWithFallback(prefTheme, "blue")
+	ui.ApplyAppTheme(myApp, themeColor)
 
 	profilePath := pm.GetProfilePath(profileID)
 	dbPath := filepath.Join(profilePath, "musicstand.db")
@@ -437,8 +442,9 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 				myApp.Preferences().SetString(prefRefresh, "")
 				myApp.Preferences().SetString(prefServer, "")
 				cancelSession()
-				ui.ShowProfileSelector(myWindow, pm, func(newProfileID string) {
-					launchProfileSession(myWindow, myApp, pm, newProfileID)
+				ui.ApplyAppTheme(myApp, "blue")
+				ui.ShowProfileSelector(myWindow, myApp, pm, func(profileID string) {
+					launchProfileSession(myWindow, myApp, pm, profileID)
 				})
 			},
 			func() ([]ui.BandInfo, error) {

@@ -1,17 +1,20 @@
 package ui
 
 import (
+	"image/color"
 	"strings"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
 	"github.com/ziomciopoziomcio/digital-music-stand/client/profiles"
 )
 
-func ShowProfileSelector(w fyne.Window, pm *profiles.Manager, onProfileSelected func(profileID string)) {
+func ShowProfileSelector(w fyne.Window, a fyne.App, pm *profiles.Manager, onProfileSelected func(profileID string)) {
 	var showProfiles func()
 	var showPinScreen func(p profiles.Profile)
 
@@ -27,18 +30,30 @@ func ShowProfileSelector(w fyne.Window, pm *profiles.Manager, onProfileSelected 
 
 		for _, p := range profs {
 			profile := p
-			btn := widget.NewButton(profile.Name, func() {
+
+			bg := canvas.NewRectangle(ParseColor(profile.Color))
+			bg.CornerRadius = 12
+
+			nameLabel := canvas.NewText(profile.Name, color.White)
+			nameLabel.Alignment = fyne.TextAlignCenter
+			nameLabel.TextStyle = fyne.TextStyle{Bold: true}
+			nameLabel.TextSize = 20
+
+			btn := widget.NewButton("", func() {
 				if profile.PinHash != "" {
 					showPinScreen(profile)
 				} else {
 					onProfileSelected(profile.ID)
 				}
 			})
-			grid.Add(btn)
+			btn.Importance = widget.LowImportance
+
+			tile := container.NewMax(bg, container.NewCenter(nameLabel), btn)
+			grid.Add(tile)
 		}
 
 		addBtn := widget.NewButtonWithIcon("New Profile", theme.ContentAddIcon(), func() {
-			showCreateProfileDialog(w, pm, showProfiles)
+			showCreateProfileDialog(w, a, pm, showProfiles)
 		})
 		addBtn.Importance = widget.HighImportance
 		grid.Add(addBtn)
@@ -59,7 +74,7 @@ func ShowProfileSelector(w fyne.Window, pm *profiles.Manager, onProfileSelected 
 			if enteredPin == "" {
 				pinDisplay.SetText("Enter PIN")
 			} else {
-				pinDisplay.SetText(strings.Repeat("•", len(enteredPin)))
+				pinDisplay.SetText(strings.Repeat("*", len(enteredPin)))
 			}
 		}
 
@@ -75,7 +90,6 @@ func ShowProfileSelector(w fyne.Window, pm *profiles.Manager, onProfileSelected 
 				updateDisplay()
 			}))
 		}
-
 		keys.Add(widget.NewButton("C", func() {
 			enteredPin = ""
 			updateDisplay()
@@ -108,25 +122,31 @@ func ShowProfileSelector(w fyne.Window, pm *profiles.Manager, onProfileSelected 
 	showProfiles()
 }
 
-func showCreateProfileDialog(w fyne.Window, pm *profiles.Manager, refresh func()) {
+func showCreateProfileDialog(w fyne.Window, a fyne.App, pm *profiles.Manager, refresh func()) {
 	nameEntry := widget.NewEntry()
 	nameEntry.SetPlaceHolder("Name")
 
 	pinEntry := widget.NewPasswordEntry()
 	pinEntry.SetPlaceHolder("Optional PIN")
 
+	colorSelect := widget.NewSelect([]string{"blue", "red", "green", "purple", "orange", "yellow"}, nil)
+	colorSelect.SetSelected("blue")
+
 	items := []*widget.FormItem{
 		widget.NewFormItem("Name", nameEntry),
 		widget.NewFormItem("PIN", pinEntry),
+		widget.NewFormItem("Tile Color", colorSelect),
 	}
 
 	dialog.ShowForm("Create Profile", "Add", "Cancel", items, func(confirm bool) {
 		if confirm && nameEntry.Text != "" {
-			_, err := pm.CreateProfile(nameEntry.Text, pinEntry.Text, "blue")
+			newProfile, err := pm.CreateProfile(nameEntry.Text, pinEntry.Text, colorSelect.Selected)
 			if err != nil {
 				dialog.ShowError(err, w)
 				return
 			}
+
+			a.Preferences().SetString(newProfile.ID+"_theme_color", colorSelect.Selected)
 			refresh()
 		}
 	}, w)
