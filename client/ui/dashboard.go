@@ -5,12 +5,13 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
-func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func(), openPractice func(), openConcert func(), openPairing func(), openInbox func(), openProfile func(), isCloudConnected func() bool) *fyne.Container {
+func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func(), openPractice func(), openConcert func(), openPairing func(), openInbox func(), openProfile func(), isCloudConnected func() bool, forceSync func()) *fyne.Container {
 	clock := widget.NewLabel(time.Now().Format("15:04"))
 	clock.TextStyle = fyne.TextStyle{Bold: true}
 
@@ -27,11 +28,17 @@ func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin 
 		cloudStatusBtn.Importance = widget.WarningImportance
 	}
 
+	syncBtn := widget.NewButtonWithIcon("Sync", theme.ViewRefreshIcon(), func() {
+		forceSync()
+		dialog.ShowInformation("Sync", "Synchronization started in the background.", w)
+	})
+
 	inboxBtn := widget.NewButtonWithIcon("Inbox", theme.InfoIcon(), openInbox)
 	profileBtn := widget.NewButtonWithIcon("Profile", theme.AccountIcon(), openProfile)
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), openSettings)
 
 	if !isCloudConnected() {
+		syncBtn.Disable()
 		inboxBtn.Disable()
 		profileBtn.Disable()
 		cloudStatusBtn.SetText("Offline")
@@ -40,6 +47,7 @@ func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin 
 	topBar := container.NewHBox(
 		clock,
 		layout.NewSpacer(),
+		syncBtn,
 		inboxBtn,
 		profileBtn,
 		cloudStatusBtn,
