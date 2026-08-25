@@ -37,7 +37,7 @@ func (l *qsLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	panel.Move(fyne.NewPos(0, currentY))
 }
 
-func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject, onLock func(), isCloudConnected func() bool) fyne.CanvasObject {
+func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject, onLock func(), onSwitchProfile func(), isCloudConnected func() bool) fyne.CanvasObject {
 	isOpen := false
 	globalVisible := true
 	var toggleBtn *widget.Button
@@ -48,7 +48,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 
 	closePanel := func() {
 		if isOpen {
-			panelHeight := float32(220)
+			panelHeight := float32(280)
 			anim := canvas.NewPositionAnimation(
 				fyne.NewPos(0, 0),
 				fyne.NewPos(0, -panelHeight),
@@ -67,7 +67,16 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 		}
 	}
 
+	switchBtn := widget.NewButtonWithIcon("Switch Profile", theme.AccountIcon(), func() {
+		closePanel()
+		if onSwitchProfile != nil {
+			onSwitchProfile()
+		}
+	})
+	switchBtn.Importance = widget.WarningImportance
+
 	lockBtn := widget.NewButtonWithIcon("Lock Screen", theme.LogoutIcon(), func() {
+		closePanel()
 		if onLock != nil {
 			onLock()
 		}
@@ -84,6 +93,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 		widget.NewLabelWithStyle("Quick Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		statusLabel,
 		widget.NewSeparator(),
+		switchBtn,
 		lockBtn,
 		widget.NewSeparator(),
 		closeQuickSettingsBtn,
@@ -101,12 +111,12 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 	backdropBg := canvas.NewRectangle(color.Transparent)
 	backdropContainer := container.NewMax(backdropBg, backdrop)
 
-	overlay = container.New(&qsLayout{panelHeight: 220}, backdropContainer, settingsPanel)
-	settingsPanel.Move(fyne.NewPos(0, -220))
+	overlay = container.New(&qsLayout{panelHeight: 280}, backdropContainer, settingsPanel)
+	settingsPanel.Move(fyne.NewPos(0, -280))
 	overlay.Hide()
 
 	togglePanel = func() {
-		panelHeight := float32(220)
+		panelHeight := float32(280)
 
 		if !isOpen {
 			if isCloudConnected != nil && isCloudConnected() {

@@ -100,6 +100,14 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 		return false
 	}
 
+	onSwitchProfile := func() {
+		cancelSession()
+		ui.ApplyAppTheme(myApp, "blue")
+		ui.ShowProfileSelector(myWindow, myApp, pm, func(newProfileID string) {
+			launchProfileSession(myWindow, myApp, pm, newProfileID)
+		})
+	}
+
 	startBackgroundSyncLoop := func(server, initialToken string) {
 		go func() {
 			ticker := time.NewTicker(10 * time.Second)
@@ -556,7 +564,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 		mainWrapper.Refresh()
 	}
 
-	appWithQuickSettings := ui.WrapWithQuickSettings(myWindow, myApp, mainWrapper, showLockScreen, isCloudConnected)
+	appWithQuickSettings := ui.WrapWithQuickSettings(myWindow, myApp, mainWrapper, showLockScreen, onSwitchProfile, isCloudConnected)
 
 	showDashboard()
 	myWindow.SetContent(appWithQuickSettings)

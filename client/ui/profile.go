@@ -28,7 +28,7 @@ func BuildProfile(
 	w fyne.Window,
 	a fyne.App,
 	onBack func(),
-	onLogout func(),
+	onCloudLogout func(),
 	fetchBands func() ([]BandInfo, error),
 	createBand func(name string) error,
 	inviteMember func(bandID uint32, email string) error,
@@ -46,6 +46,7 @@ func BuildProfile(
 
 	if token == "" || server == "" {
 		notLoggedInLabel := widget.NewLabel("You are currently working in Offline Mode.")
+
 		content := container.NewVBox(
 			topBar,
 			widget.NewSeparator(),
@@ -59,12 +60,15 @@ func BuildProfile(
 	changePassBtn := widget.NewButtonWithIcon("Change Password", theme.SettingsIcon(), func() {
 		oldPassEntry := NewAutoKeyboardPasswordEntry()
 		oldPassEntry.SetPlaceHolder("Current Password")
+
 		newPassEntry := NewAutoKeyboardPasswordEntry()
 		newPassEntry.SetPlaceHolder("New Password")
 
 		form := container.NewVBox(
-			widget.NewLabel("Current Password:"), oldPassEntry,
-			widget.NewLabel("New Password:"), newPassEntry,
+			widget.NewLabel("Current Password:"),
+			oldPassEntry,
+			widget.NewLabel("New Password:"),
+			newPassEntry,
 		)
 
 		dialog.ShowCustomConfirm("Change Password", "Save", "Cancel", form, func(confirm bool) {
@@ -75,7 +79,6 @@ func BuildProfile(
 				dialog.ShowInformation("Error", "Please fill in both password fields.", w)
 				return
 			}
-
 			err := changePassword(oldPassEntry.Text, newPassEntry.Text)
 			if err != nil {
 				dialog.ShowError(err, w)
@@ -85,7 +88,7 @@ func BuildProfile(
 		}, w)
 	})
 
-	logoutBtn := widget.NewButtonWithIcon("Logout", theme.LogoutIcon(), onLogout)
+	logoutBtn := widget.NewButtonWithIcon("Logout from Cloud", theme.LogoutIcon(), onCloudLogout)
 	logoutBtn.Importance = widget.DangerImportance
 
 	accountSection := container.NewVBox(
@@ -96,8 +99,10 @@ func BuildProfile(
 	)
 
 	bandsContainer := container.NewVBox()
+
 	refreshBandsList := func() {
 		bandsContainer.Objects = nil
+
 		bands, err := fetchBands()
 		if err != nil {
 			bandsContainer.Add(widget.NewLabel(fmt.Sprintf("Failed to load bands: %v", err)))
@@ -115,7 +120,7 @@ func BuildProfile(
 					roleStr = "Manager"
 				}
 
-				bandLabel := widget.NewLabel(fmt.Sprintf("• %s (%s)", band.Name, roleStr))
+				bandLabel := widget.NewLabel(fmt.Sprintf("  %s (%s)", band.Name, roleStr))
 				row := container.NewHBox(bandLabel)
 
 				var showMembersDialog func()
@@ -129,10 +134,9 @@ func BuildProfile(
 					membersBox := container.NewVBox()
 					for _, m := range members {
 						member := m
-
 						var nameStr string
 						if member.Role == "pending" {
-							nameStr = fmt.Sprintf("✉ %s (Pending Invite)", member.Email)
+							nameStr = fmt.Sprintf("  %s (Pending Invite)", member.Email)
 						} else if member.Name == "" && member.Surname == "" {
 							nameStr = fmt.Sprintf("%s (%s)", member.Email, member.Role)
 						} else {
@@ -147,7 +151,6 @@ func BuildProfile(
 								if member.Role == "pending" {
 									msg = fmt.Sprintf("Are you sure you want to cancel the invitation for %s?", member.Email)
 								}
-
 								dialog.ShowConfirm("Confirm Action", msg, func(confirm bool) {
 									if confirm {
 										err := removeMember(band.ID, member.UserID, member.Email)
@@ -179,7 +182,6 @@ func BuildProfile(
 					inviteBtn := widget.NewButtonWithIcon("Invite", theme.ContentAddIcon(), func() {
 						emailEntry := NewAutoKeyboardEntry()
 						emailEntry.SetPlaceHolder("musician@example.com")
-
 						dialog.ShowCustomConfirm("Invite to Band", "Send Invite", "Cancel", emailEntry, func(confirm bool) {
 							if confirm && emailEntry.Text != "" {
 								err := inviteMember(band.ID, emailEntry.Text)
@@ -193,6 +195,7 @@ func BuildProfile(
 					})
 					row.Add(inviteBtn)
 				}
+
 				bandsContainer.Add(row)
 			}
 		}
@@ -202,7 +205,6 @@ func BuildProfile(
 	createBandBtn := widget.NewButtonWithIcon("Create New Band", theme.FolderNewIcon(), func() {
 		nameEntry := NewAutoKeyboardEntry()
 		nameEntry.SetPlaceHolder("Band Name")
-
 		dialog.ShowCustomConfirm("Create Band", "Create", "Cancel", nameEntry, func(confirm bool) {
 			if confirm && nameEntry.Text != "" {
 				err := createBand(nameEntry.Text)
