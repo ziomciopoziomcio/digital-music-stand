@@ -12,7 +12,18 @@ import (
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
+	"google.golang.org/grpc/status"
 )
+
+func FormatAppError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if st, ok := status.FromError(err); ok {
+		return fmt.Errorf("%s", st.Message())
+	}
+	return err
+}
 
 func ShowAccessDialog(
 	w fyne.Window,
@@ -71,8 +82,10 @@ func ShowAccessDialog(
 	form := container.NewVBox(
 		widget.NewLabel(fmt.Sprintf("%s '%s':", dialogTitle, itemTitle)),
 		targetType,
-		widget.NewLabel("Email address:"), emailEntry,
-		widget.NewLabel("Select Band:"), bandSelect,
+		widget.NewLabel("Email address:"),
+		emailEntry,
+		widget.NewLabel("Select Band:"),
+		bandSelect,
 		container.NewHBox(
 			layout.NewSpacer(),
 			widget.NewButton(actionBtnText, func() {
@@ -96,14 +109,16 @@ func ShowAccessDialog(
 					}
 
 					if err := actionFunc(targetEmail, targetBandID); err != nil {
-						dialog.ShowError(err, w)
+						dialog.ShowError(FormatAppError(err), w)
 					} else {
 						dialog.ShowInformation("Success", "Operation completed successfully!", w)
+						d.Hide()
 					}
 				}()
+			}),
+			widget.NewButton("Cancel", func() {
 				d.Hide()
 			}),
-			widget.NewButton("Cancel", func() { d.Hide() }),
 		),
 	)
 
