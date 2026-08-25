@@ -63,7 +63,6 @@ func (s *ScoreService) CreateScore(ctx context.Context, req *scorepb.CreateScore
 	if ext == "" {
 		ext = ".pdf"
 	}
-
 	objectName := scoreID + ext
 
 	reader := bytes.NewReader(req.GetFileData())
@@ -112,10 +111,21 @@ func (s *ScoreService) ListMyScores(ctx context.Context, req *scorepb.ListMyScor
 	}
 
 	var scores []models.Score
+
 	subQueryDirect := s.db.Model(&models.SharedUserScore{}).Select("score_id").Where("user_id = ?", userID)
 	subQueryBand := s.db.Model(&models.SharedBandScore{}).Select("score_id").Where("band_id IN (?)", s.db.Model(&models.BandMember{}).Select("band_id").Where("user_id = ?", userID))
 
-	err = s.db.Where("owner_id = ? OR id IN (?) OR id IN (?)", userID, subQueryDirect, subQueryBand).
+	accessibleConcerts := s.db.Model(&models.Concert{}).Select("id").Where(
+		"user_id = ? OR band_id IN (?) OR id IN (?) OR id IN (?)",
+		userID,
+		s.db.Model(&models.BandMember{}).Select("band_id").Where("user_id = ?", userID),
+		s.db.Model(&models.SharedUserConcert{}).Select("concert_id").Where("user_id = ?", userID),
+		s.db.Model(&models.SharedBandConcert{}).Select("concert_id").Where("band_id IN (?)", s.db.Model(&models.BandMember{}).Select("band_id").Where("user_id = ?", userID)),
+	)
+
+	subQueryConcertScores := s.db.Model(&models.ConcertItem{}).Select("score_id").Where("concert_id IN (?) AND score_id IS NOT NULL", accessibleConcerts)
+
+	err = s.db.Where("owner_id = ? OR id IN (?) OR id IN (?) OR id IN (?)", userID, subQueryDirect, subQueryBand, subQueryConcertScores).
 		Distinct().
 		Find(&scores).Error
 
@@ -129,7 +139,6 @@ func (s *ScoreService) ListMyScores(ctx context.Context, req *scorepb.ListMyScor
 		if score.Composer != nil {
 			composer = *score.Composer
 		}
-
 		scoreList = append(scoreList, &scorepb.Score{
 			Id:            score.ID,
 			Name:          score.Name,
@@ -274,17 +283,16 @@ func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRe
 		if err := s.db.Create(&sharedBand).Error; err != nil {
 			return nil, fmt.Errorf("failed to share score with band: %v", err)
 		}
+
 		return &scorepb.ShareScoreResponse{Message: "Score shared with band successfully"}, nil
 	}
 
 	if req.TargetEmail != nil {
 		email := *req.TargetEmail
-
 		var targetUser models.User
 		if err := s.db.Where("email = ?", email).First(&targetUser).Error; err != nil {
 			return nil, fmt.Errorf("user with email %s does not exist", email)
 		}
-
 		if targetUser.ID == userID {
 			return nil, fmt.Errorf("you cannot share a score with yourself")
 		}
@@ -307,6 +315,7 @@ func (s *ScoreService) ShareScore(ctx context.Context, req *scorepb.ShareScoreRe
 		if err := s.db.Create(&invite).Error; err != nil {
 			return nil, fmt.Errorf("failed to create score invitation: %v", err)
 		}
+
 		return &scorepb.ShareScoreResponse{Message: "Score sharing invitation sent to user"}, nil
 	}
 
@@ -326,31 +335,73 @@ func (s *ScoreService) RevokeScoreAccess(ctx context.Context, req *scorepb.Revok
 
 	if req.TargetBandId != nil {
 		res := s.db.Where("score_id = ? AND band_id = ?", score.ID, *req.TargetBandId).Delete(&models.SharedBandScore{})
+
+		accessibleConcertsForBand := s.db.Model(&models.Concert{}).Select("id").Where(
+			"band_id = ? OR id IN (?)",
+			*req.TargetBandId,
+			s.db.Model(&models.SharedBandConcert{}).Select("concert_id").Where("band_id = ?", *req.TargetBandId),
+		)
+		var count int64
+		s.db.Model(&models.ConcertItem{}).Where("concert_id IN (?) AND score_id = ?", accessibleConcertsForBand, score.ID).Count(&count)
+
 		if res.RowsAffected == 0 {
+			if count > 0 {
+				return nil, fmt.Errorf("this band has access via a shared concert. you cannot revoke it directly")
+			}
 			return nil, fmt.Errorf("this band does not have access to this score")
 		}
-		return &scorepb.RevokeScoreAccessResponse{Message: "Access revoked for band"}, nil
+
+		msg := "Access revoked for band"
+		if count > 0 {
+			msg += " (Note: Band still has access via a shared concert)"
+		}
+
+		return &scorepb.RevokeScoreAccessResponse{Message: msg}, nil
 	}
 
 	if req.TargetEmail != nil {
 		email := *req.TargetEmail
-		var deletedShares int64
-		var deletedInvites int64
 
 		var targetUser models.User
+		var targetUserID uint
 		if err := s.db.Where("email = ?", email).First(&targetUser).Error; err == nil {
-			res := s.db.Where("score_id = ? AND user_id = ?", score.ID, targetUser.ID).Delete(&models.SharedUserScore{})
+			targetUserID = targetUser.ID
+		}
+
+		var deletedShares int64
+		if targetUserID != 0 {
+			res := s.db.Where("score_id = ? AND user_id = ?", score.ID, targetUserID).Delete(&models.SharedUserScore{})
 			deletedShares = res.RowsAffected
 		}
 
 		res := s.db.Where("score_id = ? AND invitee_email = ? AND status = 'pending'", score.ID, email).Delete(&models.ShareScoreInvitation{})
-		deletedInvites = res.RowsAffected
+		deletedInvites := res.RowsAffected
+
+		var count int64
+		if targetUserID != 0 {
+			accessibleConcertsForTarget := s.db.Model(&models.Concert{}).Select("id").Where(
+				"user_id = ? OR band_id IN (?) OR id IN (?) OR id IN (?)",
+				targetUserID,
+				s.db.Model(&models.BandMember{}).Select("band_id").Where("user_id = ?", targetUserID),
+				s.db.Model(&models.SharedUserConcert{}).Select("concert_id").Where("user_id = ?", targetUserID),
+				s.db.Model(&models.SharedBandConcert{}).Select("concert_id").Where("band_id IN (?)", s.db.Model(&models.BandMember{}).Select("band_id").Where("user_id = ?", targetUserID)),
+			)
+			s.db.Model(&models.ConcertItem{}).Where("concert_id IN (?) AND score_id = ?", accessibleConcertsForTarget, score.ID).Count(&count)
+		}
 
 		if deletedShares == 0 && deletedInvites == 0 {
+			if count > 0 {
+				return nil, fmt.Errorf("user has access via a shared concert. you cannot revoke it directly")
+			}
 			return nil, fmt.Errorf("no active access or pending invitation found for %s", email)
 		}
 
-		return &scorepb.RevokeScoreAccessResponse{Message: "Access revoked successfully"}, nil
+		msg := "Access revoked successfully"
+		if count > 0 {
+			msg += " (Note: User still has access via a shared concert)"
+		}
+
+		return &scorepb.RevokeScoreAccessResponse{Message: msg}, nil
 	}
 
 	return nil, fmt.Errorf("target_email or target_band_id must be provided")

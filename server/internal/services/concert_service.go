@@ -77,7 +77,6 @@ func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.Creat
 	if req.Location != nil {
 		location = *req.Location
 	}
-
 	startTime := ""
 	if req.StartTime != nil {
 		startTime = *req.StartTime
@@ -96,13 +95,11 @@ func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.Creat
 		if err := tx.Create(&concert).Error; err != nil {
 			return err
 		}
-
 		for idx, item := range req.GetItems() {
 			itemUUID := item.GetId()
 			if itemUUID == "" {
 				itemUUID = uuid.New().String()
 			}
-
 			var breakMin *int
 			if item.BreakMin != nil {
 				bm := int(*item.BreakMin)
@@ -116,12 +113,10 @@ func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.Creat
 				ScoreID:   item.ScoreId,
 				BreakMin:  breakMin,
 			}
-
 			if err := tx.Create(&concertItem).Error; err != nil {
 				return err
 			}
 		}
-
 		return nil
 	})
 
@@ -149,7 +144,6 @@ func (s *ConcertService) UpdateConcert(ctx context.Context, req *concertpb.Updat
 		return nil, fmt.Errorf("concert not found")
 	}
 
-	// BLOKADA: Sprawdzamy, czy użytkownik jest właścicielem lub menedżerem zespołu
 	isOwner := concert.UserID != nil && *concert.UserID == userID
 	isBandManager := false
 	if concert.BandID != nil {
@@ -186,7 +180,6 @@ func (s *ConcertService) UpdateConcert(ctx context.Context, req *concertpb.Updat
 				if itemUUID == "" {
 					itemUUID = uuid.New().String()
 				}
-
 				var breakMin *int
 				if item.BreakMin != nil {
 					bm := int(*item.BreakMin)
@@ -200,13 +193,11 @@ func (s *ConcertService) UpdateConcert(ctx context.Context, req *concertpb.Updat
 					ScoreID:   item.ScoreId,
 					BreakMin:  breakMin,
 				}
-
 				if err := tx.Create(&concertItem).Error; err != nil {
 					return err
 				}
 			}
 		}
-
 		return nil
 	})
 
@@ -285,7 +276,6 @@ func (s *ConcertService) ListMyConcerts(ctx context.Context, req *concertpb.List
 		for _, item := range items {
 			var scoreName *string
 			var filePath *string
-
 			if item.ScoreID != nil {
 				var score models.Score
 				if err := s.db.First(&score, "id = ?", *item.ScoreID).Error; err == nil {
@@ -301,12 +291,10 @@ func (s *ConcertService) ListMyConcerts(ctx context.Context, req *concertpb.List
 				ScoreName: scoreName,
 				FilePath:  filePath,
 			}
-
 			if item.BreakMin != nil {
 				bm := uint32(*item.BreakMin)
 				pbItem.BreakMin = &bm
 			}
-
 			pbItems = append(pbItems, pbItem)
 		}
 
@@ -373,19 +361,7 @@ func (s *ConcertService) ShareConcert(ctx context.Context, req *concertpb.ShareC
 			return nil, fmt.Errorf("failed to share concert with band: %v", err)
 		}
 
-		var items []models.ConcertItem
-		s.db.Where("concert_id = ? AND score_id IS NOT NULL", concert.ID).Find(&items)
-		for _, item := range items {
-			if item.ScoreID != nil {
-				sharedBandScore := models.SharedBandScore{
-					ScoreID: *item.ScoreID,
-					BandID:  uint(*req.TargetBandId),
-				}
-				s.db.FirstOrCreate(&sharedBandScore, sharedBandScore)
-			}
-		}
-
-		return &concertpb.ShareConcertResponse{Message: "Concert and its scores shared with band successfully"}, nil
+		return &concertpb.ShareConcertResponse{Message: "Concert shared with band successfully"}, nil
 	}
 
 	if req.TargetEmail != nil {
@@ -395,7 +371,6 @@ func (s *ConcertService) ShareConcert(ctx context.Context, req *concertpb.ShareC
 		if err := s.db.Where("email = ?", email).First(&targetUser).Error; err != nil {
 			return nil, fmt.Errorf("user with email %s does not exist", email)
 		}
-
 		if targetUser.ID == userID {
 			return nil, fmt.Errorf("you cannot share a concert with yourself")
 		}
@@ -415,9 +390,11 @@ func (s *ConcertService) ShareConcert(ctx context.Context, req *concertpb.ShareC
 			InviteeEmail: email,
 			Status:       "pending",
 		}
+
 		if err := s.db.Create(&invite).Error; err != nil {
 			return nil, fmt.Errorf("failed to create concert invitation: %v", err)
 		}
+
 		return &concertpb.ShareConcertResponse{Message: "Concert invitation sent to user"}, nil
 	}
 
@@ -533,19 +510,6 @@ func (s *ConcertService) RespondToConcertInvitation(ctx context.Context, req *co
 			}
 			if err := tx.FirstOrCreate(&sharedConcert, sharedConcert).Error; err != nil {
 				return err
-			}
-
-			var items []models.ConcertItem
-			if err := tx.Where("concert_id = ? AND score_id IS NOT NULL", invite.ConcertID).Find(&items).Error; err == nil {
-				for _, item := range items {
-					if item.ScoreID != nil {
-						sharedScore := models.SharedUserScore{
-							ScoreID: *item.ScoreID,
-							UserID:  userID,
-						}
-						_ = tx.FirstOrCreate(&sharedScore, sharedScore)
-					}
-				}
 			}
 		}
 		return nil
