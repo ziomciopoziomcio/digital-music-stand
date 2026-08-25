@@ -46,6 +46,8 @@ func main() {
 		log.Fatalf("Fatal: %v", err)
 	}
 
+	ui.ApplyAppTheme(myApp, "blue")
+
 	ui.ShowProfileSelector(myWindow, myApp, pm, func(profileID string) {
 		launchProfileSession(myWindow, myApp, pm, profileID)
 	})
@@ -90,6 +92,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	var showInbox func()
 	var showProfile func()
 	var showLockScreen func()
+	var performFullSync func(server string) bool
 
 	isCloudConnected := func() bool {
 		token := myApp.Preferences().String(prefToken)
@@ -108,73 +111,83 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 		})
 	}
 
-	startBackgroundSyncLoop := func(server, initialToken string) {
-		go func() {
-			ticker := time.NewTicker(10 * time.Second)
-			defer ticker.Stop()
+	performFullSync = func(server string) bool {
+		currentToken := myApp.Preferences().String(prefToken)
+		if currentToken == "" {
+			return false
+		}
 
-			doSync := func() bool {
-				currentToken := myApp.Preferences().String(prefToken)
-				if currentToken == "" {
-					return false
-				}
+		conn, err := network.NewGRPCClient(server, currentToken)
+		if err != nil {
+			log.Printf("gRPC connection error: %v", err)
+			return true
+		}
+		defer conn.Close()
 
-				conn, err := network.NewGRPCClient(server, currentToken)
-				if err != nil {
-					return true
-				}
-				defer conn.Close()
+		userClient := userpb.NewUserServiceClient(conn)
+		_, profileErr := userClient.GetProfile(sessionCtx, &userpb.GetProfileRequest{})
 
-				userClient := userpb.NewUserServiceClient(conn)
-				_, profileErr := userClient.GetProfile(sessionCtx, &userpb.GetProfileRequest{})
-
-				if profileErr != nil {
-					st, ok := status.FromError(profileErr)
-					if ok && (st.Code() == codes.Unavailable || st.Code() == codes.DeadlineExceeded) {
-						return true
-					}
-
-					if ok && st.Code() == codes.Unauthenticated {
-						refreshToken := myApp.Preferences().String(prefRefresh)
-						if refreshToken != "" {
-							newJwt, newRef, err := network.RefreshSession(server, refreshToken)
-							if err == nil {
-								myApp.Preferences().SetString(prefToken, newJwt)
-								myApp.Preferences().SetString(prefRefresh, newRef)
-								return true
-							}
-						}
-					}
-
-					myApp.Preferences().SetString(prefToken, "")
-					myApp.Preferences().SetString(prefRefresh, "")
-					return false
-				}
-
-				scoreClient := scorepb.NewScoreServiceClient(conn)
-				concertClient := concertpb.NewConcertServiceClient(conn)
-				bandClient := bandpb.NewBandServiceClient(conn)
-
-				if err := network.SynchronizeScores(sessionCtx, scoreClient, dbMgr, scoresPath); err != nil {
-					log.Printf("Score sync error: %v", err)
-				}
-				if err := network.SynchronizeConcerts(sessionCtx, concertClient, dbMgr); err != nil {
-					log.Printf("Concert sync error: %v", err)
-				}
-				if err := network.SynchronizeInvitations(sessionCtx, bandClient, dbMgr); err != nil {
-					log.Printf("Band invite sync error: %v", err)
-				}
-				if err := network.SynchronizeConcertInvitations(sessionCtx, concertClient, dbMgr); err != nil {
-					log.Printf("Concert invite sync error: %v", err)
-				}
-				if err := network.SynchronizeScoreInvitations(sessionCtx, scoreClient, dbMgr); err != nil {
-					log.Printf("Score invite sync error: %v", err)
-				}
-
+		if profileErr != nil {
+			st, ok := status.FromError(profileErr)
+			if ok && (st.Code() == codes.Unavailable || st.Code() == codes.DeadlineExceeded) {
 				return true
 			}
 
-			if !doSync() {
+			if ok && st.Code() == codes.Unauthenticated {
+				refreshToken := myApp.Preferences().String(prefRefresh)
+				if refreshToken != "" {
+					newJwt, newRef, err := network.RefreshSession(server, refreshToken)
+					if err == nil {
+						myApp.Preferences().SetString(prefToken, newJwt)
+						myApp.Preferences().SetString(prefRefresh, newRef)
+						return performFullSync(server)
+					}
+				}
+			}
+
+			myApp.Preferences().SetString(prefToken, "")
+			myApp.Preferences().SetString(prefRefresh, "")
+			return false
+		}
+
+		scoreClient := scorepb.NewScoreServiceClient(conn)
+		concertClient := concertpb.NewConcertServiceClient(conn)
+		bandClient := bandpb.NewBandServiceClient(conn)
+
+		if err := network.SynchronizeScores(sessionCtx, scoreClient, dbMgr, scoresPath); err != nil {
+			log.Printf("Score sync error: %v", err)
+		}
+		if err := network.SynchronizeConcerts(sessionCtx, concertClient, dbMgr); err != nil {
+			log.Printf("Concert sync error: %v", err)
+		}
+		if err := network.SynchronizeInvitations(sessionCtx, bandClient, dbMgr); err != nil {
+			log.Printf("Band invite sync error: %v", err)
+		}
+		if err := network.SynchronizeConcertInvitations(sessionCtx, concertClient, dbMgr); err != nil {
+			log.Printf("Concert invite sync error: %v", err)
+		}
+		if err := network.SynchronizeScoreInvitations(sessionCtx, scoreClient, dbMgr); err != nil {
+			log.Printf("Score invite sync error: %v", err)
+		}
+
+		return true
+	}
+
+	forceSync := func() {
+		server := myApp.Preferences().String(prefServer)
+		if isCloudConnected() {
+			go func() {
+				performFullSync(server)
+			}()
+		}
+	}
+
+	startBackgroundSyncLoop := func(server string) {
+		go func() {
+			ticker := time.NewTicker(5 * time.Minute)
+			defer ticker.Stop()
+
+			if !performFullSync(server) {
 				return
 			}
 
@@ -183,7 +196,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 				case <-sessionCtx.Done():
 					return
 				case <-ticker.C:
-					if !doSync() {
+					if !performFullSync(server) {
 						return
 					}
 				}
@@ -192,7 +205,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	}
 
 	showDashboard = func() {
-		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice, showConcert, showPairing, showInbox, showProfile, isCloudConnected)
+		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice, showConcert, showPairing, showInbox, showProfile, isCloudConnected, forceSync)
 		mainWrapper.Objects = []fyne.CanvasObject{dash}
 		mainWrapper.Refresh()
 	}
@@ -260,7 +273,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 					myApp.Preferences().SetString(prefToken, token)
 					myApp.Preferences().SetString(prefRefresh, refreshToken)
 					myApp.Preferences().SetString(prefServer, server)
-					startBackgroundSyncLoop(server, token)
+					startBackgroundSyncLoop(server)
 					showDashboard()
 				}
 				return err
@@ -308,37 +321,9 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	}
 
 	showPractice = func() {
-		practiceView := ui.BuildPracticeMode(myWindow, myApp, dbMgr, func() {
-			token := myApp.Preferences().String(prefToken)
-			server := myApp.Preferences().String(prefServer)
-			if token != "" && server != "" {
-				go func() {
-					conn, err := network.NewGRPCClient(server, token)
-					if err == nil {
-						defer conn.Close()
-						scoreClient := scorepb.NewScoreServiceClient(conn)
-						_ = network.SynchronizeScores(sessionCtx, scoreClient, dbMgr, scoresPath)
-					}
-				}()
-			}
-		}, showDashboard)
+		practiceView := ui.BuildPracticeMode(myWindow, myApp, dbMgr, forceSync, showDashboard)
 		mainWrapper.Objects = []fyne.CanvasObject{practiceView}
 		mainWrapper.Refresh()
-	}
-
-	triggerConcertSync := func() {
-		token := myApp.Preferences().String(prefToken)
-		server := myApp.Preferences().String(prefServer)
-		if token != "" && server != "" {
-			go func() {
-				conn, err := network.NewGRPCClient(server, token)
-				if err == nil {
-					defer conn.Close()
-					concertClient := concertpb.NewConcertServiceClient(conn)
-					_ = network.SynchronizeConcerts(sessionCtx, concertClient, dbMgr)
-				}
-			}()
-		}
 	}
 
 	showConcert = func() {
@@ -354,7 +339,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 								"Session expiring soon.",
 								func(confirm bool) {
 									if confirm {
-										concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, triggerConcertSync)
+										concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, forceSync)
 										mainWrapper.Objects = []fyne.CanvasObject{concertView}
 										mainWrapper.Refresh()
 									}
@@ -366,7 +351,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 			}
 		}
 
-		concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, triggerConcertSync)
+		concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, forceSync)
 		mainWrapper.Objects = []fyne.CanvasObject{concertView}
 		mainWrapper.Refresh()
 	}
@@ -384,7 +369,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 					return err
 				}
 			}
-			triggerConcertSync()
+			forceSync()
 			return nil
 		}, showConcert)
 		mainWrapper.Objects = []fyne.CanvasObject{setupView}
@@ -431,7 +416,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 					}
 
 					if accept {
-						triggerConcertSync()
+						forceSync()
 					}
 				}()
 			}
@@ -448,12 +433,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 			func() {
 				myApp.Preferences().SetString(prefToken, "")
 				myApp.Preferences().SetString(prefRefresh, "")
-				myApp.Preferences().SetString(prefServer, "")
-				cancelSession()
-				ui.ApplyAppTheme(myApp, "blue")
-				ui.ShowProfileSelector(myWindow, myApp, pm, func(profileID string) {
-					launchProfileSession(myWindow, myApp, pm, profileID)
-				})
+				showProfile()
 			},
 			func() ([]ui.BandInfo, error) {
 				token := myApp.Preferences().String(prefToken)
@@ -569,9 +549,8 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	showDashboard()
 	myWindow.SetContent(appWithQuickSettings)
 
-	savedToken := myApp.Preferences().String(prefToken)
 	savedServer := myApp.Preferences().String(prefServer)
-	if savedToken != "" && savedServer != "" {
-		startBackgroundSyncLoop(savedServer, savedToken)
+	if isCloudConnected() {
+		startBackgroundSyncLoop(savedServer)
 	}
 }
