@@ -306,6 +306,23 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		)
 	}
 
+	buildAppearanceView := func() fyne.CanvasObject {
+		prefTheme := profileID + "_theme_color"
+		currentAccent := app.Preferences().StringWithFallback(prefTheme, "blue")
+
+		colorSelect := widget.NewSelect([]string{"blue", "red", "green", "purple", "orange", "yellow"}, func(selected string) {
+			app.Preferences().SetString(prefTheme, selected)
+			ApplyAppTheme(app, selected)
+		})
+		colorSelect.SetSelected(currentAccent)
+
+		return container.NewVBox(
+			widget.NewLabelWithStyle("App Accent Color", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+			widget.NewLabel("Choose the primary color for buttons, selections, and highlights."),
+			colorSelect,
+		)
+	}
+
 	showCategories = func() {
 		missingDeps := system.CheckMissingDependencies()
 
@@ -345,7 +362,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		powerBtn := widget.NewButtonWithIcon("Power", theme.InfoIcon(), func() { showDetail("Power Management", buildPowerView()) })
 		sysBtn := widget.NewButtonWithIcon("System", theme.SettingsIcon(), func() { showDetail("System Controls", buildSystemView()) })
 		secBtn := widget.NewButtonWithIcon("Security & PIN", theme.VisibilityOffIcon(), func() { showDetail("Security Settings", buildSecurityView()) })
-
+		apprBtn := widget.NewButtonWithIcon("Appearance", theme.ColorPaletteIcon(), func() { showDetail("Appearance Settings", buildAppearanceView()) })
 		updBtn := widget.NewButtonWithIcon("Update App", theme.DownloadIcon(), func() { showDetail("Application Update", buildUpdateView()) })
 
 		netBtn.Importance = widget.HighImportance
@@ -354,8 +371,9 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		sysBtn.Importance = widget.HighImportance
 		secBtn.Importance = widget.HighImportance
 		updBtn.Importance = widget.HighImportance
+		apprBtn.Importance = widget.HighImportance
 
-		grid := container.NewGridWithColumns(3, netBtn, mediaBtn, powerBtn, sysBtn, secBtn, updBtn)
+		grid := container.NewGridWithColumns(3, netBtn, mediaBtn, powerBtn, sysBtn, secBtn, apprBtn, updBtn)
 
 		closeBtn := widget.NewButtonWithIcon("Close Settings", theme.CancelIcon(), onClose)
 		closeBtn.Importance = widget.DangerImportance
