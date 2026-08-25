@@ -23,7 +23,6 @@ type setlistSetupItem struct {
 
 func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *localdb.Concert, onSave func(id, name, location, startTime string, setlist []localdb.SetlistItem) error, goBack func()) *fyne.Container {
 	contentWrapper := container.NewMax()
-
 	var setlist []setlistSetupItem
 
 	availableScores, err := db.GetScores()
@@ -52,14 +51,13 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 		for _, s := range availableScores {
 			scoresMap[s.ID] = s
 		}
-
 		for _, item := range editingConcert.Items {
 			if item.ScoreID != nil {
 				if score, ok := scoresMap[*item.ScoreID]; ok {
 					sID := score.ID
 					setlist = append(setlist, setlistSetupItem{
 						ScoreID: &sID,
-						Title:   score.Title,
+						Title:   score.DisplayTitle(),
 					})
 				}
 			} else if item.BreakMin != nil {
@@ -91,7 +89,6 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 		func(i widget.ListItemID, o fyne.CanvasObject) {
 			score := availableScores[i]
 			c := o.(*fyne.Container)
-
 			var title *widget.Label
 			var addBtn *widget.Button
 			for _, obj := range c.Objects {
@@ -102,16 +99,15 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 					addBtn = b
 				}
 			}
-
 			if title != nil {
-				title.SetText(score.Title)
+				title.SetText(score.DisplayTitle())
 			}
 			if addBtn != nil {
 				addBtn.OnTapped = func() {
 					sID := score.ID
 					setlist = append(setlist, setlistSetupItem{
 						ScoreID: &sID,
-						Title:   score.Title,
+						Title:   score.DisplayTitle(),
 					})
 					rightList.Refresh()
 				}
@@ -126,16 +122,15 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 			upBtn := widget.NewButtonWithIcon("", theme.MoveUpIcon(), nil)
 			downBtn := widget.NewButtonWithIcon("", theme.MoveDownIcon(), nil)
 			delBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), nil)
-
 			buttons := container.NewHBox(upBtn, downBtn, delBtn)
 			return container.NewBorder(nil, nil, nil, buttons, title)
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
 			item := setlist[i]
 			c := o.(*fyne.Container)
-
 			var title *widget.Label
 			var buttons *fyne.Container
+
 			for _, obj := range c.Objects {
 				if l, ok := obj.(*widget.Label); ok {
 					title = l
@@ -148,7 +143,6 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 			if title != nil {
 				title.SetText(fmt.Sprintf("%d. %s", i+1, item.Title))
 			}
-
 			if buttons != nil {
 				upBtn := buttons.Objects[0].(*widget.Button)
 				downBtn := buttons.Objects[1].(*widget.Button)
@@ -177,8 +171,8 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 	addBreakBtn := widget.NewButtonWithIcon("Add Break", theme.ContentAddIcon(), func() {
 		entry := NewAutoKeyboardEntry()
 		entry.SetText("10")
-
 		var d dialog.Dialog
+
 		submitAction := func() {
 			if mins, err := strconv.Atoi(entry.Text); err == nil && mins > 0 {
 				bm := mins
@@ -193,7 +187,6 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 
 		saveBtn := widget.NewButton("Add", submitAction)
 		cancelBtn := widget.NewButton("Cancel", func() { d.Hide() })
-
 		controls := container.NewHBox(layout.NewSpacer(), saveBtn, cancelBtn)
 		content := container.NewVBox(widget.NewLabel("Enter break duration (minutes):"), entry, controls)
 
@@ -237,7 +230,6 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 			dialog.ShowError(fmt.Errorf("failed to save concert: %w", err), w)
 			return
 		}
-
 		dialog.ShowInformation("Success", "Concert saved successfully", w)
 		goBack()
 	})
@@ -250,7 +242,6 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 	if editingConcert != nil {
 		headerTitle = "Edit Concert"
 	}
-
 	header := container.NewBorder(nil, nil, backToDashBtn, nil, widget.NewLabelWithStyle(headerTitle, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
 
 	mainLayout := container.NewBorder(
@@ -261,7 +252,6 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 	)
 
 	view := container.NewBorder(header, nil, nil, nil, mainLayout)
-
 	contentWrapper.Objects = []fyne.CanvasObject{view}
 	contentWrapper.Refresh()
 
