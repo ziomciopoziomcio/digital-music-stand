@@ -29,12 +29,12 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 	var playConcert func(concert localdb.Concert)
 
 	gridWrapper := container.NewMax()
+
 	searchEntry := NewAutoKeyboardEntry()
 	searchEntry.SetPlaceHolder("Search concerts (min. 3 chars)...")
 
 	updateGrid = func() {
 		isLoggedIn := app.Preferences().String("jwt_token") != ""
-
 		concerts, err := db.GetConcerts()
 		if err != nil {
 			dialog.ShowError(err, w)
@@ -47,11 +47,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 		for _, c := range concerts {
 			concert := c
 
-			if len(query) >= 3 && !strings.Contains(strings.ToLower(concert.Name), query) {
+			if len(query) >= 3 && !strings.Contains(strings.ToLower(concert.DisplayName()), query) {
 				continue
 			}
 
-			nameLabel := widget.NewLabelWithStyle(concert.Name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+			nameLabel := widget.NewLabelWithStyle(concert.DisplayName(), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 			detailsLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s\n%s\nItems: %d", concert.Location, concert.StartTime, len(concert.Items)), fyne.TextAlignCenter, fyne.TextStyle{})
 
 			openBtn := widget.NewButtonWithIcon("ENTER", theme.MediaPlayIcon(), func() {
@@ -126,7 +126,33 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				actionButtons = container.NewHBox(shareBtn, revokeBtn, editBtn, deleteBtn, openBtn)
 			} else {
 				sharedBadge := widget.NewLabelWithStyle("Shared", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
-				actionButtons = container.NewHBox(sharedBadge, openBtn)
+				setAliasBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
+					entry := NewAutoKeyboardEntry()
+					entry.SetText(concert.DisplayName())
+					var d dialog.Dialog
+					formContent := container.NewVBox(
+						widget.NewLabel("Set local alias (only visible to you):"),
+						entry,
+						container.NewHBox(
+							layout.NewSpacer(),
+							widget.NewButton("Save", func() {
+								_ = db.SetConcertAlias(concert.ID, entry.Text)
+								updateGrid()
+								d.Hide()
+							}),
+							widget.NewButton("Clear", func() {
+								_ = db.SetConcertAlias(concert.ID, "")
+								updateGrid()
+								d.Hide()
+							}),
+							widget.NewButton("Cancel", func() { d.Hide() }),
+						),
+					)
+					d = dialog.NewCustomWithoutButtons("Set Alias", formContent, w)
+					d.Show()
+					w.Canvas().Focus(entry)
+				})
+				actionButtons = container.NewHBox(sharedBadge, setAliasBtn, openBtn)
 			}
 
 			cardContent := container.NewVBox(nameLabel, detailsLabel, layout.NewSpacer())
@@ -148,7 +174,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 	showConcertList = func() {
 		updateGrid()
-
 		backBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 		backBtn.Importance = widget.WarningImportance
 
@@ -156,13 +181,12 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			openSetup(nil)
 		})
 		newConcertBtn.Importance = widget.HighImportance
-
 		topControls := container.NewHBox(newConcertBtn)
+
 		searchContainer := container.NewPadded(searchEntry)
-
 		header := container.NewBorder(nil, nil, backBtn, topControls, searchContainer)
-
 		view := container.NewBorder(header, nil, nil, nil, gridWrapper)
+
 		contentWrapper.Objects = []fyne.CanvasObject{view}
 		contentWrapper.Refresh()
 	}
@@ -179,7 +203,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 		metroIndicatorContainer := container.NewCenter(metroIndicator)
 
 		var dialogBeatCb func(bool)
-
 		if metroAudio != nil {
 			metroAudio.OnBeat = func(isAccent bool) {
 				if isAccent {
@@ -188,11 +211,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 					metroIndicator.FillColor = theme.PrimaryColor()
 				}
 				metroIndicator.Refresh()
+
 				time.AfterFunc(100*time.Millisecond, func() {
 					metroIndicator.FillColor = theme.DisabledColor()
 					metroIndicator.Refresh()
 				})
-
 				if dialogBeatCb != nil {
 					dialogBeatCb(isAccent)
 				}
@@ -209,8 +232,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			if s == "" {
 				return time.Time{}, false
 			}
-			now := time.Now()
 
+			now := time.Now()
 			formats := []string{
 				"2006-01-02 15:04:05",
 				"2006-01-02 15:04",
@@ -221,7 +244,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 					return t, true
 				}
 			}
-
 			timeFormats := []string{"15:04:05", "15:04"}
 			for _, f := range timeFormats {
 				if t, err := time.Parse(f, s); err == nil {
@@ -236,11 +258,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 		fallbackStartTime := time.Now()
 
 		stopClockChan := make(chan struct{})
-
 		go func() {
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
-
 			for {
 				select {
 				case <-stopClockChan:
@@ -301,7 +321,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			if currentPdfMgr == nil || totalPages == 0 {
 				return
 			}
-
 			pagesToShow = 1
 			if viewerSize.Width > viewerSize.Height && viewerSize.Width > 0 && currentPage+1 < totalPages {
 				pagesToShow = 2
@@ -310,7 +329,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			if pagesToShow == 2 {
 				img1, err1 := currentPdfMgr.GetPageImage(currentPage)
 				img2, err2 := currentPdfMgr.GetPageImage(currentPage + 1)
-
 				if err1 == nil && err2 == nil {
 					canvasImg1 := canvas.NewImageFromImage(img1)
 					canvasImg1.FillMode = canvas.ImageFillContain
@@ -320,7 +338,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 					grid := container.NewGridWithColumns(2, canvasImg1, canvasImg2)
 					pdfContainer.Objects = []fyne.CanvasObject{grid}
 					pdfContainer.Refresh()
-
 					pageLabel.SetText(fmt.Sprintf("Pages %d-%d / %d", currentPage+1, currentPage+2, totalPages))
 					return
 				}
@@ -337,10 +354,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 			canvasImg := canvas.NewImageFromImage(img)
 			canvasImg.FillMode = canvas.ImageFillContain
-
 			pdfContainer.Objects = []fyne.CanvasObject{canvasImg}
 			pdfContainer.Refresh()
-
 			pageLabel.SetText(fmt.Sprintf("Page %d / %d", currentPage+1, totalPages))
 		}
 
@@ -362,7 +377,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				currentPdfMgr.Close()
 				currentPdfMgr = nil
 			}
-
 			if currentSongIdx < 0 || currentSongIdx >= len(concert.Items) {
 				return
 			}
@@ -415,7 +429,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 									remainingSec--
 									timerClockLabel.Text = formatTimerText(remainingSec)
 									timerClockLabel.Refresh()
-
 									if remainingSec <= 0 {
 										isTimerRunning = false
 										timerStatusLabel.SetText("BREAK FINISHED!")
@@ -446,7 +459,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 					timerClockLabel.Text = formatTimerText(remainingSec)
 					timerClockLabel.Refresh()
 				})
-
 				subMinBtn := widget.NewButton("-1 Min", func() {
 					if remainingSec > 60 {
 						remainingSec -= 60
@@ -459,10 +471,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 				timerControls := container.NewHBox(
 					layout.NewSpacer(),
-					startPauseBtn,
-					resetBtn,
-					subMinBtn,
-					addMinBtn,
+					startPauseBtn, resetBtn, subMinBtn, addMinBtn,
 					layout.NewSpacer(),
 				)
 
@@ -486,6 +495,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			if item.ScoreName != nil {
 				title = *item.ScoreName
 			}
+
 			songTitleLabel.SetText(fmt.Sprintf("%d/%d: %s", currentSongIdx+1, len(concert.Items), title))
 
 			if item.ScoreID != nil && item.FilePath != nil && *item.FilePath != "" {
@@ -499,10 +509,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 					pageLabel.SetText("Page 0/0")
 					return
 				}
-
 				currentPdfMgr = pdfMgr
 				totalPages = pdfMgr.GetPageCount()
-
 				if startAtEnd && totalPages > 0 {
 					currentPage = totalPages - 1
 					if viewerSize.Width > viewerSize.Height && totalPages >= 2 {
@@ -525,12 +533,10 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 		exitConcertBtn := widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
 			stopCurrentTimer()
 			close(stopClockChan)
-
 			if metroAudio != nil {
 				metroAudio.Stop()
 				metroAudio.Close()
 			}
-
 			if currentPdfMgr != nil {
 				currentPdfMgr.Close()
 			}
@@ -544,7 +550,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				loadCurrentSong(false)
 			}
 		})
-
 		nextSongBtn := widget.NewButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() {
 			if currentSongIdx < len(concert.Items)-1 {
 				currentSongIdx++
@@ -558,7 +563,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			for i, item := range concert.Items {
 				idx := i
 				var title string
-
 				if item.ScoreName != nil {
 					title = *item.ScoreName
 				} else if item.BreakMin != nil {
@@ -574,18 +578,14 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 						setlistDialog.Hide()
 					}
 				})
-
 				if idx == currentSongIdx {
 					btn.Importance = widget.HighImportance
 					btn.SetIcon(theme.MediaPlayIcon())
 				}
-
 				items = append(items, btn)
 			}
-
 			scroll := container.NewVScroll(container.NewVBox(items...))
 			scroll.SetMinSize(fyne.NewSize(350, 400))
-
 			setlistDialog = dialog.NewCustom("Concert Setlist", "Close", scroll, w)
 			setlistDialog.Show()
 		})
@@ -636,7 +636,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			prevSongBtn,
 			nextSongBtn,
 		)
-
 		topBar := container.NewBorder(nil, nil, exitConcertBtn, topRightControls, songTitleLabel)
 
 		viewer := NewResponsiveViewer(func(size fyne.Size) {

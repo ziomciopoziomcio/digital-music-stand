@@ -14,8 +14,8 @@ import (
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/ziomciopoziomcio/digital-music-stand/client/audio"
 
+	"github.com/ziomciopoziomcio/digital-music-stand/client/audio"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
@@ -24,8 +24,8 @@ import (
 
 func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onScoresChanged func(), goBack func()) *fyne.Container {
 	contentWrapper := container.NewMax()
-
 	editMode := false
+
 	var showLibrary func()
 	var updateGrid func()
 
@@ -35,13 +35,11 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 
 	showScore := func(score localdb.Score) {
 		metroAudio, _ := audio.NewMetronomeAudio()
-
 		metroIndicator := canvas.NewRectangle(theme.DisabledColor())
 		metroIndicator.SetMinSize(fyne.NewSize(20, 20))
 		metroIndicatorContainer := container.NewCenter(metroIndicator)
 
 		var dialogBeatCb func(bool)
-
 		if metroAudio != nil {
 			metroAudio.OnBeat = func(isAccent bool) {
 				if isAccent {
@@ -55,16 +53,16 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 					metroIndicator.FillColor = theme.DisabledColor()
 					metroIndicator.Refresh()
 				})
-
 				if dialogBeatCb != nil {
 					dialogBeatCb(isAccent)
 				}
 			}
 		}
-		pdfMgr, err := pdf.NewManager(score.FilePath)
 
+		pdfMgr, err := pdf.NewManager(score.FilePath)
 		currentPage := 0
 		totalPages := 0
+
 		if err == nil {
 			totalPages = pdfMgr.GetPageCount()
 		}
@@ -95,7 +93,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 			if pagesToShow == 2 && currentPage+1 < totalPages {
 				img1, err1 := pdfMgr.GetPageImage(currentPage)
 				img2, err2 := pdfMgr.GetPageImage(currentPage + 1)
-
 				if err1 == nil && err2 == nil {
 					canvasImg1 := canvas.NewImageFromImage(img1)
 					canvasImg1.FillMode = canvas.ImageFillContain
@@ -105,7 +102,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 					grid := container.NewGridWithColumns(2, canvasImg1, canvasImg2)
 					pdfContainer.Objects = []fyne.CanvasObject{grid}
 					pdfContainer.Refresh()
-
 					pageLabel.SetText(fmt.Sprintf("Pages %d-%d / %d", currentPage+1, currentPage+2, totalPages))
 					return
 				}
@@ -117,13 +113,11 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 				pdfContainer.Refresh()
 				return
 			}
-
 			canvasImg := canvas.NewImageFromImage(img)
 			canvasImg.FillMode = canvas.ImageFillContain
 
 			pdfContainer.Objects = []fyne.CanvasObject{canvasImg}
 			pdfContainer.Refresh()
-
 			pageLabel.SetText(fmt.Sprintf("Page %d / %d", currentPage+1, totalPages))
 		}
 
@@ -158,7 +152,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		})
 		exitBtn.Importance = widget.DangerImportance
 
-		titleLabel := widget.NewLabelWithStyle(score.Title, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+		titleLabel := widget.NewLabelWithStyle(score.DisplayTitle(), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 		topBarControls := container.NewHBox(exitBtn, widget.NewLabel("  "), metroIndicatorContainer)
 		topBar := container.NewBorder(nil, nil, topBarControls, nil, titleLabel)
@@ -199,7 +193,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 
 	updateGrid = func() {
 		isLoggedIn := app.Preferences().String("jwt_token") != ""
-
 		scores, err := db.GetScores()
 		if err != nil {
 			dialog.ShowError(err, w)
@@ -212,12 +205,12 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		for _, s := range scores {
 			score := s
 
-			if len(query) >= 3 && !strings.Contains(strings.ToLower(score.Title), query) {
+			if len(query) >= 3 && !strings.Contains(strings.ToLower(score.DisplayTitle()), query) {
 				continue
 			}
 
 			cardContent := container.NewVBox(
-				widget.NewLabelWithStyle(score.Title, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+				widget.NewLabelWithStyle(score.DisplayTitle(), fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 				layout.NewSpacer(),
 			)
 			card := widget.NewCard("", "", cardContent)
@@ -235,7 +228,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 								return err
 							}
 							defer conn.Close()
-
 							client := scorepb.NewScoreServiceClient(conn)
 							_, err = client.ShareScore(context.Background(), &scorepb.ShareScoreRequest{
 								ScoreId:      score.ID,
@@ -255,7 +247,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 								return err
 							}
 							defer conn.Close()
-
 							client := scorepb.NewScoreServiceClient(conn)
 							_, err = client.RevokeScoreAccess(context.Background(), &scorepb.RevokeScoreAccessRequest{
 								ScoreId:      score.ID,
@@ -275,7 +266,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 					editTitleBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
 						entry := NewAutoKeyboardEntry()
 						entry.SetText(score.Title)
-
 						var d dialog.Dialog
 						formContent := container.NewVBox(
 							widget.NewLabel("Edit Score Title:"),
@@ -293,7 +283,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 								widget.NewButton("Cancel", func() { d.Hide() }),
 							),
 						)
-
 						d = dialog.NewCustomWithoutButtons("Edit Score", formContent, w)
 						d.Show()
 						w.Canvas().Focus(entry)
@@ -313,7 +302,35 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 					editControls = container.NewHBox(shareBtn, revokeBtn, editTitleBtn, deleteBtn)
 				} else {
 					readOnlyLabel := widget.NewLabelWithStyle("Shared with you", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
-					editControls = container.NewHBox(readOnlyLabel)
+					setAliasBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
+						entry := NewAutoKeyboardEntry()
+						entry.SetText(score.DisplayTitle())
+						var d dialog.Dialog
+						formContent := container.NewVBox(
+							widget.NewLabel("Set local alias (only visible to you):"),
+							entry,
+							container.NewHBox(
+								layout.NewSpacer(),
+								widget.NewButton("Save", func() {
+									_ = db.SetScoreAlias(score.ID, entry.Text)
+									onScoresChanged()
+									updateGrid()
+									d.Hide()
+								}),
+								widget.NewButton("Clear", func() {
+									_ = db.SetScoreAlias(score.ID, "")
+									onScoresChanged()
+									updateGrid()
+									d.Hide()
+								}),
+								widget.NewButton("Cancel", func() { d.Hide() }),
+							),
+						)
+						d = dialog.NewCustomWithoutButtons("Set Alias", formContent, w)
+						d.Show()
+						w.Canvas().Focus(entry)
+					})
+					editControls = container.NewHBox(readOnlyLabel, setAliasBtn)
 				}
 
 				item := container.NewBorder(nil, editControls, nil, nil, card)
@@ -351,17 +368,14 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 
 				filePath := reader.URI().Path()
 				title := reader.URI().Name()
-
 				_, err = db.AddScore(title, filePath)
 				if err != nil {
 					dialog.ShowError(err, w)
 					return
 				}
-
 				onScoresChanged()
 				updateGrid()
 			}, w)
-
 			fileDialog.SetFilter(storage.NewExtensionFileFilter([]string{".pdf"}))
 			fileDialog.Show()
 		})
@@ -379,6 +393,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		}
 
 		topControls := container.NewHBox(addBtn, editToggleBtn)
+
 		backToDashBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 		backToDashBtn.Importance = widget.WarningImportance
 
@@ -386,6 +401,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		header := container.NewBorder(nil, nil, backToDashBtn, topControls, searchContainer)
 
 		view := container.NewBorder(header, nil, nil, nil, gridWrapper)
+
 		contentWrapper.Objects = []fyne.CanvasObject{view}
 		contentWrapper.Refresh()
 	}
