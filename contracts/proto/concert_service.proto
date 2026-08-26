@@ -112,6 +112,7 @@ message Concert {
   optional uint32 band_id = 6;
   repeated ConcertItem items = 7;
   bool is_owner = 8;
+  bool can_edit = 9;
 }
 
 message ListMyConcertsResponse {
@@ -122,6 +123,7 @@ message ShareConcertRequest {
   string concert_id = 1;
   optional string target_email = 2;
   optional uint32 target_band_id = 3;
+  bool can_edit = 4;
 }
 
 message ShareConcertResponse {

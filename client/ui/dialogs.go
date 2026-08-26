@@ -31,7 +31,8 @@ func ShowAccessDialog(
 	dialogTitle string,
 	itemTitle string,
 	actionBtnText string,
-	actionFunc func(targetEmail *string, targetBandID *uint32) error,
+	showEditOption bool,
+	actionFunc func(targetEmail *string, targetBandID *uint32, canEdit bool) error,
 ) {
 	emailEntry := NewAutoKeyboardEntry()
 	emailEntry.SetPlaceHolder("user@example.com")
@@ -79,49 +80,66 @@ func ShowAccessDialog(
 	}()
 
 	var d dialog.Dialog
-	form := container.NewVBox(
+
+	var canEditCheck *widget.Check
+	if showEditOption {
+		canEditCheck = widget.NewCheck("Allow editing (full access)", nil)
+	}
+
+	formItems := []fyne.CanvasObject{
 		widget.NewLabel(fmt.Sprintf("%s '%s':", dialogTitle, itemTitle)),
 		targetType,
 		widget.NewLabel("Email address:"),
 		emailEntry,
 		widget.NewLabel("Select Band:"),
 		bandSelect,
-		container.NewHBox(
-			layout.NewSpacer(),
-			widget.NewButton(actionBtnText, func() {
-				isUser := targetType.Selected == "User (Email)"
-				if isUser && emailEntry.Text == "" {
-					return
+	}
+
+	if showEditOption {
+		formItems = append(formItems, canEditCheck)
+	}
+
+	formItems = append(formItems, container.NewHBox(
+		layout.NewSpacer(),
+		widget.NewButton(actionBtnText, func() {
+			isUser := targetType.Selected == "User (Email)"
+			if isUser && emailEntry.Text == "" {
+				return
+			}
+			if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
+				return
+			}
+
+			go func() {
+				var targetEmail *string
+				var targetBandID *uint32
+
+				if isUser {
+					targetEmail = &emailEntry.Text
+				} else {
+					bid := bandMap[bandSelect.Selected]
+					targetBandID = &bid
 				}
-				if !isUser && (bandSelect.Selected == "" || bandSelect.Selected == "Loading bands..." || bandSelect.Selected == "No bands available") {
-					return
+
+				canEdit := false
+				if canEditCheck != nil {
+					canEdit = canEditCheck.Checked
 				}
 
-				go func() {
-					var targetEmail *string
-					var targetBandID *uint32
+				if err := actionFunc(targetEmail, targetBandID, canEdit); err != nil {
+					dialog.ShowError(FormatAppError(err), w)
+				} else {
+					dialog.ShowInformation("Success", "Operation completed successfully!", w)
+					d.Hide()
+				}
+			}()
+		}),
+		widget.NewButton("Cancel", func() {
+			d.Hide()
+		}),
+	))
 
-					if isUser {
-						targetEmail = &emailEntry.Text
-					} else {
-						bid := bandMap[bandSelect.Selected]
-						targetBandID = &bid
-					}
-
-					if err := actionFunc(targetEmail, targetBandID); err != nil {
-						dialog.ShowError(FormatAppError(err), w)
-					} else {
-						dialog.ShowInformation("Success", "Operation completed successfully!", w)
-						d.Hide()
-					}
-				}()
-			}),
-			widget.NewButton("Cancel", func() {
-				d.Hide()
-			}),
-		),
-	)
-
+	form := container.NewVBox(formItems...)
 	d = dialog.NewCustomWithoutButtons(dialogTitle, form, w)
 	d.Show()
 }

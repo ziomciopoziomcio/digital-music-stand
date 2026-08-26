@@ -153,7 +153,20 @@ func (s *ConcertService) UpdateConcert(ctx context.Context, req *concertpb.Updat
 		}
 	}
 
+	canEdit := false
 	if !isOwner && !isBandManager {
+		var suc models.SharedUserConcert
+		if err := s.db.Where("concert_id = ? AND user_id = ? AND can_edit = ?", concert.ID, userID, true).First(&suc).Error; err == nil {
+			canEdit = true
+		} else {
+			var sbc models.SharedBandConcert
+			if err := s.db.Where("concert_id = ? AND can_edit = ? AND band_id IN (SELECT band_id FROM band_members WHERE user_id = ?)", concert.ID, true, userID).First(&sbc).Error; err == nil {
+				canEdit = true
+			}
+		}
+	}
+
+	if !isOwner && !isBandManager && !canEdit {
 		return nil, fmt.Errorf("permission denied: you cannot edit a concert owned by someone else")
 	}
 
@@ -308,6 +321,22 @@ func (s *ConcertService) ListMyConcerts(ctx context.Context, req *concertpb.List
 			}
 		}
 
+		canEdit := isOwner
+		if !isOwner {
+			var suc models.SharedUserConcert
+			if err := s.db.Where("concert_id = ? AND user_id = ?", concert.ID, userID).First(&suc).Error; err == nil {
+				if suc.CanEdit {
+					canEdit = true
+				}
+			}
+			if !canEdit {
+				var sbc models.SharedBandConcert
+				if err := s.db.Where("concert_id = ? AND can_edit = ? AND band_id IN (SELECT band_id FROM band_members WHERE user_id = ?)", concert.ID, true, userID).First(&sbc).Error; err == nil {
+					canEdit = true
+				}
+			}
+		}
+
 		var bandID *uint32
 		if concert.BandID != nil {
 			bid := uint32(*concert.BandID)
@@ -323,6 +352,7 @@ func (s *ConcertService) ListMyConcerts(ctx context.Context, req *concertpb.List
 			BandId:    bandID,
 			Items:     pbItems,
 			IsOwner:   isOwner,
+			CanEdit:   canEdit,
 		})
 	}
 
@@ -356,6 +386,7 @@ func (s *ConcertService) ShareConcert(ctx context.Context, req *concertpb.ShareC
 		sharedBand := models.SharedBandConcert{
 			ConcertID: concert.ID,
 			BandID:    uint(*req.TargetBandId),
+			CanEdit:   req.GetCanEdit(),
 		}
 		if err := s.db.Create(&sharedBand).Error; err != nil {
 			return nil, fmt.Errorf("failed to share concert with band: %v", err)
@@ -389,6 +420,7 @@ func (s *ConcertService) ShareConcert(ctx context.Context, req *concertpb.ShareC
 			ConcertID:    concert.ID,
 			InviteeEmail: email,
 			Status:       "pending",
+			CanEdit:      req.GetCanEdit(),
 		}
 
 		if err := s.db.Create(&invite).Error; err != nil {
@@ -507,6 +539,7 @@ func (s *ConcertService) RespondToConcertInvitation(ctx context.Context, req *co
 			sharedConcert := models.SharedUserConcert{
 				ConcertID: invite.ConcertID,
 				UserID:    userID,
+				CanEdit:   invite.CanEdit,
 			}
 			if err := tx.FirstOrCreate(&sharedConcert, sharedConcert).Error; err != nil {
 				return err

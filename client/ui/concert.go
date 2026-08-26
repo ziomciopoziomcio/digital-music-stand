@@ -63,7 +63,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 			if concert.IsOwner {
 				shareBtn := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
-					ShowAccessDialog(w, app, "Share Concert", concert.Name, "Share", func(email *string, bandID *uint32) error {
+					ShowAccessDialog(w, app, "Share Concert", concert.Name, "Share", true, func(email *string, bandID *uint32, canEdit bool) error {
 						token := app.Preferences().String("jwt_token")
 						server := app.Preferences().String("server_addr")
 						conn, err := network.NewGRPCClient(server, token)
@@ -77,13 +77,14 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 							ConcertId:    concert.ID,
 							TargetEmail:  email,
 							TargetBandId: bandID,
+							CanEdit:      canEdit,
 						})
 						return err
 					})
 				})
 
 				revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
-					ShowAccessDialog(w, app, "Revoke Concert Access", concert.Name, "Revoke", func(email *string, bandID *uint32) error {
+					ShowAccessDialog(w, app, "Revoke Concert Access", concert.Name, "Revoke", false, func(email *string, bandID *uint32, canEdit bool) error {
 						token := app.Preferences().String("jwt_token")
 						server := app.Preferences().String("server_addr")
 						conn, err := network.NewGRPCClient(server, token)
@@ -124,9 +125,41 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				deleteBtn.Importance = widget.DangerImportance
 
 				actionButtons = container.NewHBox(shareBtn, revokeBtn, editBtn, deleteBtn, openBtn)
+			} else if concert.CanEdit {
+				sharedBadge := widget.NewLabelWithStyle("Shared", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
+				setAliasBtn := widget.NewButtonWithIcon("Alias", theme.SettingsIcon(), func() {
+					entry := NewAutoKeyboardEntry()
+					entry.SetText(concert.DisplayName())
+					var d dialog.Dialog
+					formContent := container.NewVBox(
+						widget.NewLabel("Set local alias (only visible to you):"),
+						entry,
+						container.NewHBox(
+							layout.NewSpacer(),
+							widget.NewButton("Save", func() {
+								_ = db.SetConcertAlias(concert.ID, entry.Text)
+								updateGrid()
+								d.Hide()
+							}),
+							widget.NewButton("Clear", func() {
+								_ = db.SetConcertAlias(concert.ID, "")
+								updateGrid()
+								d.Hide()
+							}),
+							widget.NewButton("Cancel", func() { d.Hide() }),
+						),
+					)
+					d = dialog.NewCustomWithoutButtons("Set Alias", formContent, w)
+					d.Show()
+					w.Canvas().Focus(entry)
+				})
+				editBtn := widget.NewButtonWithIcon("Edit", theme.DocumentCreateIcon(), func() {
+					openSetup(&concert)
+				})
+				actionButtons = container.NewHBox(sharedBadge, setAliasBtn, editBtn, openBtn)
 			} else {
 				sharedBadge := widget.NewLabelWithStyle("Shared", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
-				setAliasBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
+				setAliasBtn := widget.NewButtonWithIcon("Alias", theme.SettingsIcon(), func() {
 					entry := NewAutoKeyboardEntry()
 					entry.SetText(concert.DisplayName())
 					var d dialog.Dialog

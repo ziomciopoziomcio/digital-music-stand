@@ -883,6 +883,7 @@ type Concert struct {
 	BandId        *uint32                `protobuf:"varint,6,opt,name=band_id,json=bandId,proto3,oneof" json:"band_id,omitempty"`
 	Items         []*ConcertItem         `protobuf:"bytes,7,rep,name=items,proto3" json:"items,omitempty"`
 	IsOwner       bool                   `protobuf:"varint,8,opt,name=is_owner,json=isOwner,proto3" json:"is_owner,omitempty"`
+	CanEdit       bool                   `protobuf:"varint,9,opt,name=can_edit,json=canEdit,proto3" json:"can_edit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -973,6 +974,13 @@ func (x *Concert) GetIsOwner() bool {
 	return false
 }
 
+func (x *Concert) GetCanEdit() bool {
+	if x != nil {
+		return x.CanEdit
+	}
+	return false
+}
+
 type ListMyConcertsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Concerts      []*Concert             `protobuf:"bytes,1,rep,name=concerts,proto3" json:"concerts,omitempty"`
@@ -1022,6 +1030,7 @@ type ShareConcertRequest struct {
 	ConcertId     string                 `protobuf:"bytes,1,opt,name=concert_id,json=concertId,proto3" json:"concert_id,omitempty"`
 	TargetEmail   *string                `protobuf:"bytes,2,opt,name=target_email,json=targetEmail,proto3,oneof" json:"target_email,omitempty"`
 	TargetBandId  *uint32                `protobuf:"varint,3,opt,name=target_band_id,json=targetBandId,proto3,oneof" json:"target_band_id,omitempty"`
+	CanEdit       bool                   `protobuf:"varint,4,opt,name=can_edit,json=canEdit,proto3" json:"can_edit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1075,6 +1084,13 @@ func (x *ShareConcertRequest) GetTargetBandId() uint32 {
 		return *x.TargetBandId
 	}
 	return 0
+}
+
+func (x *ShareConcertRequest) GetCanEdit() bool {
+	if x != nil {
+		return x.CanEdit
+	}
+	return false
 }
 
 type ShareConcertResponse struct {
@@ -1553,7 +1569,7 @@ const file_contracts_proto_concert_service_proto_rawDesc = "" +
 	"\v_start_time\"_\n" +
 	"\x14ListConcertsResponse\x12G\n" +
 	"\bconcerts\x18\x01 \x03(\v2+.digital_music_stand.concert.ConcertSummaryR\bconcerts\"\x17\n" +
-	"\x15ListMyConcertsRequest\"\x89\x02\n" +
+	"\x15ListMyConcertsRequest\"\xa4\x02\n" +
 	"\aConcert\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -1563,16 +1579,18 @@ const file_contracts_proto_concert_service_proto_rawDesc = "" +
 	"\bchecksum\x18\x05 \x01(\tR\bchecksum\x12\x1c\n" +
 	"\aband_id\x18\x06 \x01(\rH\x00R\x06bandId\x88\x01\x01\x12>\n" +
 	"\x05items\x18\a \x03(\v2(.digital_music_stand.concert.ConcertItemR\x05items\x12\x19\n" +
-	"\bis_owner\x18\b \x01(\bR\aisOwnerB\n" +
+	"\bis_owner\x18\b \x01(\bR\aisOwner\x12\x19\n" +
+	"\bcan_edit\x18\t \x01(\bR\acanEditB\n" +
 	"\n" +
 	"\b_band_id\"Z\n" +
 	"\x16ListMyConcertsResponse\x12@\n" +
-	"\bconcerts\x18\x01 \x03(\v2$.digital_music_stand.concert.ConcertR\bconcerts\"\xab\x01\n" +
+	"\bconcerts\x18\x01 \x03(\v2$.digital_music_stand.concert.ConcertR\bconcerts\"\xc6\x01\n" +
 	"\x13ShareConcertRequest\x12\x1d\n" +
 	"\n" +
 	"concert_id\x18\x01 \x01(\tR\tconcertId\x12&\n" +
 	"\ftarget_email\x18\x02 \x01(\tH\x00R\vtargetEmail\x88\x01\x01\x12)\n" +
-	"\x0etarget_band_id\x18\x03 \x01(\rH\x01R\ftargetBandId\x88\x01\x01B\x0f\n" +
+	"\x0etarget_band_id\x18\x03 \x01(\rH\x01R\ftargetBandId\x88\x01\x01\x12\x19\n" +
+	"\bcan_edit\x18\x04 \x01(\bR\acanEditB\x0f\n" +
 	"\r_target_emailB\x11\n" +
 	"\x0f_target_band_id\"0\n" +
 	"\x14ShareConcertResponse\x12\x18\n" +
