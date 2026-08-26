@@ -55,20 +55,20 @@ type SharedUserConcert struct {
 	ID        uint      `gorm:"primaryKey"`
 	ConcertID string    `gorm:"not null;uniqueIndex:idx_shared_user_concert"`
 	UserID    uint      `gorm:"not null;uniqueIndex:idx_shared_user_concert"`
+	CanEdit   bool      `gorm:"not null;default:false"`
 	CreatedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP"`
-
-	Concert Concert `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	User    User    `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Concert   Concert   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	User      User      `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 type SharedBandConcert struct {
 	ID        uint      `gorm:"primaryKey"`
 	ConcertID string    `gorm:"not null;uniqueIndex:idx_shared_band_concert"`
 	BandID    uint      `gorm:"not null;uniqueIndex:idx_shared_band_concert"`
+	CanEdit   bool      `gorm:"not null;default:false"`
 	CreatedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP"`
-
-	Concert Concert `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Band    Band    `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Concert   Concert   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Band      Band      `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 type ShareConcertInvitation struct {
@@ -76,7 +76,7 @@ type ShareConcertInvitation struct {
 	ConcertID    string    `gorm:"not null;uniqueIndex:idx_concert_invite"`
 	InviteeEmail string    `gorm:"not null;uniqueIndex:idx_concert_invite"`
 	Status       string    `gorm:"not null;default:'pending'"`
+	CanEdit      bool      `gorm:"not null;default:false"`
 	CreatedAt    time.Time `gorm:"not null;default:CURRENT_TIMESTAMP"`
-
-	Concert Concert `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Concert      Concert   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
