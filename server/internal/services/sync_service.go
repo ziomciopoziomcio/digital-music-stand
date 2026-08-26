@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 	"io"
-	"log"
 	"sync"
 	"time"
 
@@ -13,39 +12,29 @@ import (
 
 type LiveSyncService struct {
 	syncpb.UnimplementedLiveSyncServiceServer
-
 	mu          sync.RWMutex
-	connections map[uint32]map[string]syncpb.LiveSyncService_SyncConcertStreamServer
+	connections map[string]map[string]syncpb.LiveSyncService_SyncConcertStreamServer
 }
 
 func NewLiveSyncService() *LiveSyncService {
 	return &LiveSyncService{
-		connections: make(map[uint32]map[string]syncpb.LiveSyncService_SyncConcertStreamServer),
+		connections: make(map[string]map[string]syncpb.LiveSyncService_SyncConcertStreamServer),
 	}
 }
 
 func (s *LiveSyncService) SyncConcertStream(stream syncpb.LiveSyncService_SyncConcertStreamServer) error {
-	var concertID uint32
-	var userID uint32
-
 	req, err := stream.Recv()
 	if err != nil {
-		if err == io.EOF {
-			return nil
-		}
-		log.Printf("error receiving concert from stream: %v", err)
 		return err
 	}
 
-	concertID = req.GetConcertId()
-
+	concertID := req.GetConcertId()
 	authUserID, err := auth.GetUserIDFromContext(stream.Context())
 	if err != nil {
-		return fmt.Errorf("failed to get user id from context: %v", err)
+		return err
 	}
-	userID = uint32(authUserID)
 
-	connID := fmt.Sprintf("concert-%d-user-%d", concertID, userID)
+	connID := fmt.Sprintf("%s-%d-%d", concertID, authUserID, time.Now().UnixNano())
 
 	s.mu.Lock()
 	if s.connections[concertID] == nil {
@@ -61,12 +50,9 @@ func (s *LiveSyncService) SyncConcertStream(stream syncpb.LiveSyncService_SyncCo
 			delete(s.connections, concertID)
 		}
 		s.mu.Unlock()
-		log.Printf("disconnected from concert %d, user %d", concertID, userID)
 	}()
 
-	log.Printf("connected to concert %d, user %d", concertID, userID)
-
-	s.broadcast(concertID, userID, req)
+	s.broadcast(concertID, uint32(authUserID), req)
 
 	for {
 		req, err := stream.Recv()
@@ -74,14 +60,13 @@ func (s *LiveSyncService) SyncConcertStream(stream syncpb.LiveSyncService_SyncCo
 			return nil
 		}
 		if err != nil {
-			log.Printf("error receiving from stream: %v", err)
 			return err
 		}
-		s.broadcast(concertID, userID, req)
+		s.broadcast(concertID, uint32(authUserID), req)
 	}
 }
 
-func (s *LiveSyncService) broadcast(concertID uint32, senderID uint32, req *syncpb.SyncRequest) {
+func (s *LiveSyncService) broadcast(concertID string, senderID uint32, req *syncpb.SyncRequest) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -91,17 +76,18 @@ func (s *LiveSyncService) broadcast(concertID uint32, senderID uint32, req *sync
 	}
 
 	resp := &syncpb.SyncResponse{
-		ConcertId:     req.GetConcertId(),
-		SenderId:      senderID,
-		Action:        req.GetAction(),
-		PageNumber:    req.PageNumber,
-		MeasureNumber: req.MeasureNumber,
-		TimestampMs:   time.Now().UnixMilli(),
+		ConcertId:    req.GetConcertId(),
+		SenderId:     senderID,
+		Action:       req.GetAction(),
+		PageNumber:   req.GetPageNumber(),
+		ItemIndex:    req.GetItemIndex(),
+		TimerSeconds: req.GetTimerSeconds(),
+		IsAccent:     req.GetIsAccent(),
+		IsLeader:     req.GetIsLeader(),
+		TimestampMs:  time.Now().UnixMilli(),
 	}
 
-	for id, stream := range streams {
-		if err := stream.Send(resp); err != nil {
-			log.Printf("error sending to stream %s: %v", id, err)
-		}
+	for _, stream := range streams {
+		_ = stream.Send(resp)
 	}
 }
