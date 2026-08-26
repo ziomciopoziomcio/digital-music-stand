@@ -220,7 +220,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 
 				if score.IsOwner {
 					shareBtn := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
-						ShowAccessDialog(w, app, "Share Score", score.Title, "Share", func(email *string, bandID *uint32) error {
+						ShowAccessDialog(w, app, "Share Score", score.Title, "Share", false, func(email *string, bandID *uint32, canEdit bool) error {
 							token := app.Preferences().String("jwt_token")
 							server := app.Preferences().String("server_addr")
 							conn, err := network.NewGRPCClient(server, token)
@@ -239,7 +239,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 					})
 
 					revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
-						ShowAccessDialog(w, app, "Revoke Score Access", score.Title, "Revoke", func(email *string, bandID *uint32) error {
+						ShowAccessDialog(w, app, "Revoke Score Access", score.Title, "Revoke", false, func(email *string, bandID *uint32, canEdit bool) error {
 							token := app.Preferences().String("jwt_token")
 							server := app.Preferences().String("server_addr")
 							conn, err := network.NewGRPCClient(server, token)
