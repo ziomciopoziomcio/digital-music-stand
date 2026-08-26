@@ -141,7 +141,7 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 			loc := remoteConcert.GetLocation()
 			startTime := remoteConcert.GetStartTime()
 
-			err = dbMgr.SyncConcertFromServer(remoteConcert.Id, remoteConcert.Name, loc, startTime, remoteConcert.Checksum, remoteItems, remoteConcert.IsOwner)
+			err = dbMgr.SyncConcertFromServer(remoteConcert.Id, remoteConcert.Name, loc, startTime, remoteConcert.Checksum, remoteItems, remoteConcert.IsOwner, remoteConcert.CanEdit)
 			if err != nil {
 				log.Printf("Failed to save concert %s to local database: %v", remoteConcert.Id, err)
 			}

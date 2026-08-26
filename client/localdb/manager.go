@@ -48,6 +48,7 @@ type Concert struct {
 	StartTime  string
 	Checksum   string
 	IsOwner    bool
+	CanEdit    bool
 	IsDeleted  bool
 	Items      []ConcertItem
 	LocalAlias string
@@ -124,6 +125,7 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 
 	_, _ = db.Exec("ALTER TABLE scores ADD COLUMN local_alias TEXT NOT NULL DEFAULT ''")
 	_, _ = db.Exec("ALTER TABLE concerts ADD COLUMN local_alias TEXT NOT NULL DEFAULT ''")
+	_, _ = db.Exec("ALTER TABLE concerts ADD COLUMN can_edit INTEGER NOT NULL DEFAULT 0")
 
 	return &DBManager{db: db}, nil
 }
@@ -308,7 +310,7 @@ func (m *DBManager) HardDeleteConcert(id string) error {
 	return err
 }
 
-func (m *DBManager) SyncConcertFromServer(concertID string, name, location, startTime, checksum string, remoteItems []ConcertItem, isOwner bool) error {
+func (m *DBManager) SyncConcertFromServer(concertID string, name, location, startTime, checksum string, remoteItems []ConcertItem, isOwner bool, canEdit bool) error {
 	tx, err := m.db.Begin()
 	if err != nil {
 		return err
@@ -319,18 +321,23 @@ func (m *DBManager) SyncConcertFromServer(concertID string, name, location, star
 	if isOwner {
 		ownerVal = 1
 	}
+	editVal := 0
+	if canEdit {
+		editVal = 1
+	}
 
 	_, err = tx.Exec(`
-		INSERT INTO concerts (id, name, location, start_time, checksum, is_owner, is_deleted) 
-		VALUES (?, ?, ?, ?, ?, ?, 0)
+		INSERT INTO concerts (id, name, location, start_time, checksum, is_owner, can_edit, is_deleted) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, 0)
 		ON CONFLICT(id) DO UPDATE SET 
 		name = excluded.name,
 		location = excluded.location,
 		start_time = excluded.start_time,
 		checksum = excluded.checksum,
 		is_owner = excluded.is_owner,
+		can_edit = excluded.can_edit,
 		is_deleted = 0`,
-		concertID, name, location, startTime, checksum, ownerVal,
+		concertID, name, location, startTime, checksum, ownerVal, editVal,
 	)
 	if err != nil {
 		return err
@@ -356,7 +363,7 @@ func (m *DBManager) SyncConcertFromServer(concertID string, name, location, star
 }
 
 func (m *DBManager) GetConcerts() ([]Concert, error) {
-	rows, err := m.db.Query("SELECT id, name, COALESCE(location, ''), COALESCE(start_time, ''), checksum, is_owner, local_alias FROM concerts WHERE is_deleted = 0 ORDER BY rowid DESC")
+	rows, err := m.db.Query("SELECT id, name, COALESCE(location, ''), COALESCE(start_time, ''), checksum, is_owner, local_alias, can_edit FROM concerts WHERE is_deleted = 0 ORDER BY rowid DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -366,10 +373,12 @@ func (m *DBManager) GetConcerts() ([]Concert, error) {
 	for rows.Next() {
 		var c Concert
 		var isOwner int
-		if err := rows.Scan(&c.ID, &c.Name, &c.Location, &c.StartTime, &c.Checksum, &isOwner, &c.LocalAlias); err != nil {
+		var canEdit int
+		if err := rows.Scan(&c.ID, &c.Name, &c.Location, &c.StartTime, &c.Checksum, &isOwner, &c.LocalAlias, &canEdit); err != nil {
 			return nil, err
 		}
 		c.IsOwner = isOwner == 1
+		c.CanEdit = canEdit == 1
 
 		itemRows, err := m.db.Query(`
 			SELECT ci.id, ci.sort_order, ci.score_id, ci.break_min, COALESCE(NULLIF(s.local_alias, ''), s.title), s.file_path 
