@@ -1,41 +1,37 @@
 syntax = "proto3";
 
 package digital_music_stand.sync;
-option go_package = "github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb";
 
+option go_package = "github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb";
 
 service LiveSyncService {
   rpc SyncConcertStream (stream SyncRequest) returns (stream SyncResponse);
 }
 
-
 enum ActionType {
   UNKNOWN_ACTION = 0;
-  TURN_PAGE = 1;
-  JUMP_TO_MEASURE = 2;
-  METRONOME_TICK = 3;
-  START_CONCERT = 4;
-  STOP_CONCERT = 5;
+  STATE_UPDATE = 1;
+  METRONOME_TICK = 2;
 }
 
 message SyncRequest {
-  uint32 concert_id = 1;
-  ActionType action = 3;
-
-  optional uint32 page_number = 4;
-  optional uint32 measure_number = 5;
-
-  reserved 2;
-  reserved "user_id";
+  string concert_id = 1;
+  ActionType action = 2;
+  uint32 page_number = 3;
+  uint32 item_index = 4;
+  uint32 timer_seconds = 5;
+  bool is_accent = 6;
+  bool is_leader = 7;
 }
 
 message SyncResponse {
-  uint32 concert_id = 1;
+  string concert_id = 1;
   uint32 sender_id = 2;
   ActionType action = 3;
-
-  optional uint32 page_number = 4;
-  optional uint32 measure_number = 5;
-
-  int64 timestamp_ms = 6;
+  uint32 page_number = 4;
+  uint32 item_index = 5;
+  uint32 timer_seconds = 6;
+  bool is_accent = 7;
+  bool is_leader = 8;
+  int64 timestamp_ms = 9;
 }
