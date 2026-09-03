@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -14,6 +15,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/audio"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
@@ -23,7 +25,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
 )
 
-func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func()) *fyne.Container {
+func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func(), forceSync func(), prefToken string, prefServer string) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var showConcertList func()
@@ -36,7 +38,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 	searchEntry.SetPlaceHolder("Search concerts (min. 3 chars)...")
 
 	updateGrid = func() {
-		isLoggedIn := app.Preferences().String("jwt_token") != ""
+		isLoggedIn := app.Preferences().String(prefToken) != ""
 		concerts, err := db.GetConcerts()
 		if err != nil {
 			dialog.ShowError(err, w)
@@ -66,8 +68,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			if concert.IsOwner {
 				shareBtn := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
 					ShowAccessDialog(w, app, "Share Concert", concert.Name, "Share", true, func(email *string, bandID *uint32, canEdit bool) error {
-						token := app.Preferences().String("jwt_token")
-						server := app.Preferences().String("server_addr")
+						token := app.Preferences().String(prefToken)
+						server := app.Preferences().String(prefServer)
 						conn, err := network.NewGRPCClient(server, token)
 						if err != nil {
 							return err
@@ -87,8 +89,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 				revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
 					ShowAccessDialog(w, app, "Revoke Concert Access", concert.Name, "Revoke", false, func(email *string, bandID *uint32, canEdit bool) error {
-						token := app.Preferences().String("jwt_token")
-						server := app.Preferences().String("server_addr")
+						token := app.Preferences().String(prefToken)
+						server := app.Preferences().String(prefServer)
 						conn, err := network.NewGRPCClient(server, token)
 						if err != nil {
 							return err
@@ -239,6 +241,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 		var syncStream syncpb.LiveSyncService_SyncConcertStreamClient
 		var syncCtx context.Context
 		var syncCancel context.CancelFunc
+		var streamMu sync.Mutex
 
 		var isConnected bool
 		var syncMode int
@@ -262,7 +265,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 		var startSyncBackground func()
 		var sendStateUpdate func()
-		var updateSyncUI func()
+		var updateSyncUI func(err error)
 		var loadCurrentSong func(startAtEnd bool)
 		var renderPage func()
 
@@ -300,12 +303,14 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 				if syncMode == 2 && isConnected && !previewMode {
 					if syncStream != nil {
-						syncStream.Send(&syncpb.SyncRequest{
+						streamMu.Lock()
+						_ = syncStream.Send(&syncpb.SyncRequest{
 							ConcertId: concert.ID,
 							Action:    syncpb.ActionType_METRONOME_TICK,
 							IsAccent:  isAccent,
 							IsLeader:  true,
 						})
+						streamMu.Unlock()
 					}
 				}
 			}
@@ -325,7 +330,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				return
 			}
 			if syncStream != nil {
-				syncStream.Send(&syncpb.SyncRequest{
+				streamMu.Lock()
+				_ = syncStream.Send(&syncpb.SyncRequest{
 					ConcertId:    concert.ID,
 					Action:       syncpb.ActionType_STATE_UPDATE,
 					PageNumber:   uint32(currentPage),
@@ -333,10 +339,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 					TimerSeconds: uint32(remainingSec),
 					IsLeader:     true,
 				})
+				streamMu.Unlock()
 			}
 		}
 
-		updateSyncUI = func() {
+		updateSyncUI = func(err error) {
 			syncStatusBtn.Hide()
 			joinBtn.Hide()
 			leadBtn.Hide()
@@ -347,7 +354,15 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			cancelBtn.Hide()
 
 			if !isConnected {
-				syncStatusBtn.SetText("Offline")
+				if err != nil {
+					cleanErr := FormatAppError(err).Error()
+					if len(cleanErr) > 22 {
+						cleanErr = cleanErr[:19] + "..."
+					}
+					syncStatusBtn.SetText(fmt.Sprintf("Offline (%s)", cleanErr))
+				} else {
+					syncStatusBtn.SetText("Offline")
+				}
 				syncStatusBtn.Show()
 				return
 			}
@@ -396,42 +411,46 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 		}
 
 		startSyncBackground = func() {
-			token := app.Preferences().String("jwt_token")
-			server := app.Preferences().String("server_addr")
+			token := app.Preferences().String(prefToken)
+			server := app.Preferences().String(prefServer)
 			if token == "" || server == "" {
 				isConnected = false
-				updateSyncUI()
+				updateSyncUI(fmt.Errorf("not logged in"))
 				return
 			}
 			conn, err := network.NewGRPCClient(server, token)
 			if err != nil {
 				isConnected = false
-				updateSyncUI()
+				updateSyncUI(err)
 				return
 			}
 			syncConn = conn
 			syncClient := syncpb.NewLiveSyncServiceClient(conn)
 			syncCtx, syncCancel = context.WithCancel(context.Background())
 
+			syncCtx = metadata.AppendToOutgoingContext(syncCtx, "authorization", "Bearer "+token)
+
 			stream, err := syncClient.SyncConcertStream(syncCtx)
 			if err != nil {
 				syncCancel()
 				syncConn.Close()
 				isConnected = false
-				updateSyncUI()
+				updateSyncUI(err)
 				return
 			}
 
 			syncStream = stream
 			isConnected = true
 
-			syncStream.Send(&syncpb.SyncRequest{
+			streamMu.Lock()
+			_ = syncStream.Send(&syncpb.SyncRequest{
 				ConcertId: concert.ID,
 				Action:    syncpb.ActionType_UNKNOWN_ACTION,
 				IsLeader:  false,
 			})
+			streamMu.Unlock()
 
-			updateSyncUI()
+			updateSyncUI(nil)
 
 			for {
 				msg, err := syncStream.Recv()
@@ -439,7 +458,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 					isConnected = false
 					syncMode = 0
 					leaderAvailable = false
-					updateSyncUI()
+					updateSyncUI(err)
 					break
 				}
 
@@ -449,7 +468,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 						syncMode = 0
 						autoFollow = false
 					}
-					updateSyncUI()
+					updateSyncUI(nil)
 					continue
 				}
 
@@ -503,7 +522,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 								timerClockLabel.Refresh()
 							}
 						}
-						updateSyncUI()
+						updateSyncUI(nil)
 					}
 				}
 			}
@@ -513,19 +532,21 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			syncMode = 2
 			previewMode = false
 			sendStateUpdate()
-			updateSyncUI()
+			updateSyncUI(nil)
 		}
 
 		stopLeadBtn.OnTapped = func() {
 			if syncStream != nil {
-				syncStream.Send(&syncpb.SyncRequest{
+				streamMu.Lock()
+				_ = syncStream.Send(&syncpb.SyncRequest{
 					ConcertId: concert.ID,
 					Action:    syncpb.ActionType_STOP_LEADING,
 				})
+				streamMu.Unlock()
 			}
 			syncMode = 0
 			leaderAvailable = false
-			updateSyncUI()
+			updateSyncUI(nil)
 		}
 
 		joinBtn.OnTapped = func() {
@@ -552,13 +573,13 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				timerClockLabel.Text = fmt.Sprintf("%02d:%02d", remainingSec/60, remainingSec%60)
 				timerClockLabel.Refresh()
 			}
-			updateSyncUI()
+			updateSyncUI(nil)
 		}
 
 		leaveBtn.OnTapped = func() {
 			syncMode = 0
 			autoFollow = false
-			updateSyncUI()
+			updateSyncUI(nil)
 		}
 
 		previewBtn.OnTapped = func() {
@@ -566,13 +587,13 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			savedItemIdx = currentSongIdx
 			savedPage = currentPage
 			savedTimer = remainingSec
-			updateSyncUI()
+			updateSyncUI(nil)
 		}
 
 		pushBtn.OnTapped = func() {
 			previewMode = false
 			sendStateUpdate()
-			updateSyncUI()
+			updateSyncUI(nil)
 		}
 
 		cancelBtn.OnTapped = func() {
@@ -581,7 +602,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			currentPage = savedPage
 			remainingSec = savedTimer
 			loadCurrentSong(false)
-			updateSyncUI()
+			updateSyncUI(nil)
 		}
 
 		syncStatusBtn.OnTapped = func() {
@@ -602,7 +623,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 					timerClockLabel.Text = fmt.Sprintf("%02d:%02d", remainingSec/60, remainingSec%60)
 					timerClockLabel.Refresh()
 				}
-				updateSyncUI()
+				updateSyncUI(nil)
 			}
 		}
 
@@ -619,6 +640,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 		syncMode = 0
 		leaderAvailable = false
+		updateSyncUI(nil)
 		go startSyncBackground()
 
 		concertClockLabel := canvas.NewText("--:--:--", theme.ForegroundColor())
@@ -790,7 +812,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				startPauseBtn = widget.NewButtonWithIcon("Start", theme.MediaPlayIcon(), func() {
 					if syncMode == 1 {
 						autoFollow = false
-						updateSyncUI()
+						updateSyncUI(nil)
 					}
 					if isTimerRunning {
 						isTimerRunning = false
@@ -850,7 +872,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				resetBtn := widget.NewButtonWithIcon("Reset", theme.ViewRefreshIcon(), func() {
 					if syncMode == 1 {
 						autoFollow = false
-						updateSyncUI()
+						updateSyncUI(nil)
 					}
 					isTimerRunning = false
 					stopCurrentTimer()
@@ -866,7 +888,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				addMinBtn := widget.NewButton("+1 Min", func() {
 					if syncMode == 1 {
 						autoFollow = false
-						updateSyncUI()
+						updateSyncUI(nil)
 					}
 					remainingSec += 60
 					timerClockLabel.Text = formatTimerText(remainingSec)
@@ -876,7 +898,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				subMinBtn := widget.NewButton("-1 Min", func() {
 					if syncMode == 1 {
 						autoFollow = false
-						updateSyncUI()
+						updateSyncUI(nil)
 					}
 					if remainingSec > 60 {
 						remainingSec -= 60
@@ -951,10 +973,12 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 
 		exitConcertBtn := widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
 			if syncMode == 2 && syncStream != nil {
-				syncStream.Send(&syncpb.SyncRequest{
+				streamMu.Lock()
+				_ = syncStream.Send(&syncpb.SyncRequest{
 					ConcertId: concert.ID,
 					Action:    syncpb.ActionType_STOP_LEADING,
 				})
+				streamMu.Unlock()
 			}
 			stopCurrentTimer()
 			close(stopClockChan)
@@ -982,7 +1006,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				loadCurrentSong(false)
 			}
 			sendStateUpdate()
-			updateSyncUI()
+			updateSyncUI(nil)
 		})
 		nextSongBtn := widget.NewButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() {
 			if syncMode == 1 {
@@ -993,7 +1017,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				loadCurrentSong(false)
 			}
 			sendStateUpdate()
-			updateSyncUI()
+			updateSyncUI(nil)
 		})
 
 		var setlistDialog dialog.Dialog
@@ -1017,7 +1041,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 					currentSongIdx = idx
 					loadCurrentSong(false)
 					sendStateUpdate()
-					updateSyncUI()
+					updateSyncUI(nil)
 					if setlistDialog != nil {
 						setlistDialog.Hide()
 					}
@@ -1056,7 +1080,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				loadCurrentSong(true)
 			}
 			sendStateUpdate()
-			updateSyncUI()
+			updateSyncUI(nil)
 		})
 		prevPageBtn.Importance = widget.HighImportance
 
@@ -1072,7 +1096,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				loadCurrentSong(false)
 			}
 			sendStateUpdate()
-			updateSyncUI()
+			updateSyncUI(nil)
 		})
 		nextPageBtn.Importance = widget.HighImportance
 

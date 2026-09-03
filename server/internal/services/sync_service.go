@@ -10,15 +10,20 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/server/internal/auth"
 )
 
+type streamWrapper struct {
+	stream syncpb.LiveSyncService_SyncConcertStreamServer
+	mu     sync.Mutex
+}
+
 type LiveSyncService struct {
 	syncpb.UnimplementedLiveSyncServiceServer
 	mu          sync.RWMutex
-	connections map[string]map[string]syncpb.LiveSyncService_SyncConcertStreamServer
+	connections map[string]map[string]*streamWrapper
 }
 
 func NewLiveSyncService() *LiveSyncService {
 	return &LiveSyncService{
-		connections: make(map[string]map[string]syncpb.LiveSyncService_SyncConcertStreamServer),
+		connections: make(map[string]map[string]*streamWrapper),
 	}
 }
 
@@ -35,12 +40,13 @@ func (s *LiveSyncService) SyncConcertStream(stream syncpb.LiveSyncService_SyncCo
 	}
 
 	connID := fmt.Sprintf("%s-%d-%d", concertID, authUserID, time.Now().UnixNano())
+	wrapper := &streamWrapper{stream: stream}
 
 	s.mu.Lock()
 	if s.connections[concertID] == nil {
-		s.connections[concertID] = make(map[string]syncpb.LiveSyncService_SyncConcertStreamServer)
+		s.connections[concertID] = make(map[string]*streamWrapper)
 	}
-	s.connections[concertID][connID] = stream
+	s.connections[concertID][connID] = wrapper
 	s.mu.Unlock()
 
 	defer func() {
@@ -87,7 +93,9 @@ func (s *LiveSyncService) broadcast(concertID string, senderID uint32, req *sync
 		TimestampMs:  time.Now().UnixMilli(),
 	}
 
-	for _, stream := range streams {
-		_ = stream.Send(resp)
+	for _, w := range streams {
+		w.mu.Lock()
+		_ = w.stream.Send(resp)
+		w.mu.Unlock()
 	}
 }
