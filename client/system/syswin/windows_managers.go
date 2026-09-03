@@ -4,6 +4,7 @@ package syswin
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strconv"
@@ -12,6 +13,16 @@ import (
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system"
 )
+
+func newHiddenCmd(name string, arg ...string) *exec.Cmd {
+	cmd := exec.Command(name, arg...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	return cmd
+}
+
+func newPSCmd(script string) *exec.Cmd {
+	return newHiddenCmd("powershell", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", script)
+}
 
 type WindowsNetworkManager struct {
 	status system.NetworkStatus
@@ -22,10 +33,12 @@ func NewWindowsNetworkManager() *WindowsNetworkManager {
 }
 
 func (m *WindowsNetworkManager) GetAvailableNetworks() ([]system.Network, error) {
-	cmd := exec.Command("netsh", "wlan", "show", "networks", "mode=bssid")
+	log.Println("Scanning for WiFi networks (Windows)...")
+
+	cmd := newHiddenCmd("netsh", "wlan", "show", "networks", "mode=bssid")
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to scan networks: %v", err)
 	}
 
 	var networks []system.Network
@@ -80,12 +93,18 @@ func (m *WindowsNetworkManager) GetAvailableNetworks() ([]system.Network, error)
 		})
 	}
 
+	log.Printf("Found %d networks.", len(networks))
 	return networks, nil
 }
 
 func (m *WindowsNetworkManager) ConnectWiFi(ssid, password string) error {
-	if password != "" {
-		xmlProfile := fmt.Sprintf(`<?xml version="1.0"?>
+	log.Printf("Attempting to connect to WiFi: %s...", ssid)
+
+	errChan := make(chan error, 1)
+
+	go func() {
+		if password != "" {
+			xmlProfile := fmt.Sprintf(`<?xml version="1.0"?>
 <WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
     <name>%[1]s</name>
     <SSIDConfig>
@@ -111,43 +130,55 @@ func (m *WindowsNetworkManager) ConnectWiFi(ssid, password string) error {
     </MSM>
 </WLANProfile>`, ssid, password)
 
-		tmpFile, err := os.CreateTemp("", "wifi-*.xml")
-		if err != nil {
-			return fmt.Errorf("could not create temp xml file: %v", err)
-		}
-		tmpName := tmpFile.Name()
-		defer os.Remove(tmpName)
+			tmpFile, err := os.CreateTemp("", "wifi-*.xml")
+			if err != nil {
+				errChan <- fmt.Errorf("could not create temp xml file: %v", err)
+				return
+			}
+			tmpName := tmpFile.Name()
+			defer os.Remove(tmpName)
 
-		if _, err := tmpFile.WriteString(xmlProfile); err != nil {
+			if _, err := tmpFile.WriteString(xmlProfile); err != nil {
+				tmpFile.Close()
+				errChan <- err
+				return
+			}
 			tmpFile.Close()
-			return err
+
+			addCmd := newHiddenCmd("netsh", "wlan", "add", "profile", fmt.Sprintf("filename=%s", tmpName))
+			if err := addCmd.Run(); err != nil {
+				errChan <- fmt.Errorf("failed to add wifi profile via netsh: %v", err)
+				return
+			}
 		}
-		tmpFile.Close()
 
-		addCmd := exec.Command("netsh", "wlan", "add", "profile", fmt.Sprintf("filename=%s", tmpName))
-		if err := addCmd.Run(); err != nil {
-			return fmt.Errorf("failed to add wifi profile via netsh: %v", err)
+		connCmd := newHiddenCmd("netsh", "wlan", "connect", fmt.Sprintf("name=%s", ssid))
+		if err := connCmd.Run(); err != nil {
+			errChan <- fmt.Errorf("failed to execute connection: %v", err)
+			return
 		}
-	}
 
-	connCmd := exec.Command("netsh", "wlan", "connect", fmt.Sprintf("name=%s", ssid))
-	if err := connCmd.Run(); err != nil {
-		return fmt.Errorf("failed to execute connection: %v", err)
-	}
+		m.status = system.StatusConnected
+		log.Printf("Successfully connected to WiFi: %s", ssid)
+		errChan <- nil
+	}()
 
-	m.status = system.StatusConnected
-	return nil
+	return <-errChan
 }
 
 func (m *WindowsNetworkManager) Disconnect() error {
-	cmd := exec.Command("netsh", "wlan", "disconnect")
-	_ = cmd.Run()
-	m.status = system.StatusDisconnected
+	log.Println("Disconnecting from WiFi...")
+	go func() {
+		cmd := newHiddenCmd("netsh", "wlan", "disconnect")
+		_ = cmd.Run()
+		m.status = system.StatusDisconnected
+		log.Println("Disconnected from WiFi.")
+	}()
 	return nil
 }
 
 func (m *WindowsNetworkManager) GetNetworkStatus() system.NetworkStatus {
-	cmd := exec.Command("netsh", "wlan", "show", "interfaces")
+	cmd := newHiddenCmd("netsh", "wlan", "show", "interfaces")
 	out, err := cmd.Output()
 	outStr := strings.ToLower(string(out))
 	if err == nil && (strings.Contains(outStr, "connected") || strings.Contains(outStr, "połącz")) {
@@ -163,7 +194,7 @@ func NewWindowsPowerManager() *WindowsPowerManager {
 }
 
 func (m *WindowsPowerManager) GetBatteryPercentage() (int, error) {
-	cmd := exec.Command("powershell", "-Command", "(Get-CimInstance -ClassName Win32_Battery).EstimatedChargeRemaining")
+	cmd := newPSCmd("(Get-CimInstance -ClassName Win32_Battery).EstimatedChargeRemaining")
 	out, err := cmd.Output()
 	if err != nil {
 		return 100, nil
@@ -176,7 +207,7 @@ func (m *WindowsPowerManager) GetBatteryPercentage() (int, error) {
 }
 
 func (m *WindowsPowerManager) IsCharging() (bool, error) {
-	cmd := exec.Command("powershell", "-Command", "(Get-CimInstance -ClassName Win32_Battery).BatteryStatus")
+	cmd := newPSCmd("(Get-CimInstance -ClassName Win32_Battery).BatteryStatus")
 	out, err := cmd.Output()
 	if err != nil {
 		return true, nil
@@ -203,7 +234,7 @@ func (m *WindowsMediaManager) SetVolume(level int) error {
 }
 
 func (m *WindowsMediaManager) GetBrightness() (int, error) {
-	cmd := exec.Command("powershell", "-Command", "(Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness).CurrentBrightness")
+	cmd := newPSCmd("(Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness).CurrentBrightness")
 	out, err := cmd.Output()
 	if err != nil {
 		return 100, nil
@@ -216,8 +247,14 @@ func (m *WindowsMediaManager) GetBrightness() (int, error) {
 }
 
 func (m *WindowsMediaManager) SetBrightness(level int) error {
-	cmd := exec.Command("powershell", "-Command", fmt.Sprintf("(Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods).WmiSetBrightness(1, %d)", level))
-	return cmd.Run()
+	go func() {
+		log.Printf("Setting brightness to %d%%...", level)
+		cmd := newPSCmd(fmt.Sprintf("(Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods).WmiSetBrightness(1, %d)", level))
+		if err := cmd.Run(); err != nil {
+			log.Printf("Failed to set brightness: %v", err)
+		}
+	}()
+	return nil
 }
 
 type WindowsDeviceManager struct {
@@ -229,30 +266,33 @@ func NewWindowsDeviceManager() *WindowsDeviceManager {
 }
 
 func (m *WindowsDeviceManager) Reboot() error {
-	return exec.Command("shutdown", "/r", "/t", "0").Run()
+	go newHiddenCmd("shutdown", "/r", "/t", "0").Run()
+	return nil
 }
 
 func (m *WindowsDeviceManager) Shutdown() error {
-	return exec.Command("shutdown", "/s", "/t", "0").Run()
+	go newHiddenCmd("shutdown", "/s", "/t", "0").Run()
+	return nil
 }
 
 func (m *WindowsDeviceManager) SetKeepAwake(awake bool) error {
 	m.keepAwake = awake
+	go func() {
+		kernel32 := syscall.NewLazyDLL("kernel32.dll")
+		setThreadExecutionState := kernel32.NewProc("SetThreadExecutionState")
 
-	kernel32 := syscall.NewLazyDLL("kernel32.dll")
-	setThreadExecutionState := kernel32.NewProc("SetThreadExecutionState")
+		const (
+			ES_CONTINUOUS       = 0x80000000
+			ES_SYSTEM_REQUIRED  = 0x00000001
+			ES_DISPLAY_REQUIRED = 0x00000002
+		)
 
-	const (
-		ES_CONTINUOUS       = 0x80000000
-		ES_SYSTEM_REQUIRED  = 0x00000001
-		ES_DISPLAY_REQUIRED = 0x00000002
-	)
-
-	if awake {
-		setThreadExecutionState.Call(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED)
-	} else {
-		setThreadExecutionState.Call(ES_CONTINUOUS)
-	}
+		if awake {
+			setThreadExecutionState.Call(ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED)
+		} else {
+			setThreadExecutionState.Call(ES_CONTINUOUS)
+		}
+	}()
 	return nil
 }
 
@@ -267,7 +307,7 @@ func NewWindowsStorageManager() *WindowsStorageManager {
 }
 
 func (m *WindowsStorageManager) GetMountedUSBDrives() ([]string, error) {
-	cmd := exec.Command("powershell", "-Command", "Get-CimInstance Win32_LogicalDisk | Where-Object DriveType -eq 2 | Select-Object -ExpandProperty DeviceID")
+	cmd := newPSCmd("Get-CimInstance Win32_LogicalDisk | Where-Object DriveType -eq 2 | Select-Object -ExpandProperty DeviceID")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err

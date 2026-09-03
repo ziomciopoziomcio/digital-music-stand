@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,6 +25,8 @@ func NewLinuxNetworkManager() *LinuxNetworkManager {
 }
 
 func (m *LinuxNetworkManager) GetAvailableNetworks() ([]system.Network, error) {
+	log.Println("Scanning for WiFi networks (Linux)...")
+
 	cmd := exec.Command("nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY", "dev", "wifi", "list")
 	out, err := cmd.Output()
 	if err != nil {
@@ -54,24 +57,40 @@ func (m *LinuxNetworkManager) GetAvailableNetworks() ([]system.Network, error) {
 			})
 		}
 	}
+	log.Printf("Found %d networks.", len(networks))
 	return networks, nil
 }
 
 func (m *LinuxNetworkManager) ConnectWiFi(ssid, password string) error {
-	cmd := exec.Command("nmcli", "dev", "wifi", "connect", ssid, "password", password)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to connect to %s: %v", ssid, err)
-	}
-	m.status = system.StatusConnected
-	return nil
+	log.Printf("Attempting to connect to WiFi: %s...", ssid)
+
+	errChan := make(chan error, 1)
+
+	go func() {
+		cmd := exec.Command("nmcli", "dev", "wifi", "connect", ssid, "password", password)
+		if err := cmd.Run(); err != nil {
+			errChan <- fmt.Errorf("failed to connect to %s: %v", ssid, err)
+			return
+		}
+		m.status = system.StatusConnected
+		log.Printf("Successfully connected to WiFi: %s", ssid)
+		errChan <- nil
+	}()
+
+	return <-errChan
 }
 
 func (m *LinuxNetworkManager) Disconnect() error {
-	cmd := exec.Command("nmcli", "dev", "disconnect", "wlan0")
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	m.status = system.StatusDisconnected
+	log.Println("Disconnecting from WiFi...")
+	go func() {
+		cmd := exec.Command("nmcli", "dev", "disconnect", "wlan0")
+		if err := cmd.Run(); err != nil {
+			log.Printf("Failed to disconnect: %v", err)
+		} else {
+			m.status = system.StatusDisconnected
+			log.Println("Disconnected from WiFi.")
+		}
+	}()
 	return nil
 }
 
@@ -147,8 +166,11 @@ func (m *LinuxMediaManager) GetVolume() (int, error) {
 }
 
 func (m *LinuxMediaManager) SetVolume(level int) error {
-	cmd := exec.Command("amixer", "sset", "Master", fmt.Sprintf("%d%%", level))
-	return cmd.Run()
+	go func() {
+		cmd := exec.Command("amixer", "sset", "Master", fmt.Sprintf("%d%%", level))
+		cmd.Run()
+	}()
+	return nil
 }
 
 func (m *LinuxMediaManager) GetBrightness() (int, error) {
@@ -171,8 +193,12 @@ func (m *LinuxMediaManager) GetBrightness() (int, error) {
 }
 
 func (m *LinuxMediaManager) SetBrightness(level int) error {
-	cmd := exec.Command("brightnessctl", "set", fmt.Sprintf("%d%%", level))
-	return cmd.Run()
+	go func() {
+		log.Printf("Setting brightness to %d%% (Linux)...", level)
+		cmd := exec.Command("brightnessctl", "set", fmt.Sprintf("%d%%", level))
+		cmd.Run()
+	}()
+	return nil
 }
 
 type LinuxDeviceManager struct {
@@ -184,22 +210,26 @@ func NewLinuxDeviceManager() *LinuxDeviceManager {
 }
 
 func (m *LinuxDeviceManager) Reboot() error {
-	return exec.Command("sudo", "systemctl", "reboot").Run()
+	go exec.Command("sudo", "systemctl", "reboot").Run()
+	return nil
 }
 
 func (m *LinuxDeviceManager) Shutdown() error {
-	return exec.Command("sudo", "systemctl", "poweroff").Run()
+	go exec.Command("sudo", "systemctl", "poweroff").Run()
+	return nil
 }
 
 func (m *LinuxDeviceManager) SetKeepAwake(awake bool) error {
 	m.keepAwake = awake
-	if awake {
-		exec.Command("xset", "s", "off").Run()
-		exec.Command("xset", "-dpms").Run()
-	} else {
-		exec.Command("xset", "s", "on").Run()
-		exec.Command("xset", "+dpms").Run()
-	}
+	go func() {
+		if awake {
+			exec.Command("xset", "s", "off").Run()
+			exec.Command("xset", "-dpms").Run()
+		} else {
+			exec.Command("xset", "s", "on").Run()
+			exec.Command("xset", "+dpms").Run()
+		}
+	}()
 	return nil
 }
 
