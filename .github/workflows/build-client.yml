@@ -35,17 +35,17 @@ jobs:
       # 1. Windows (64-bit)
       - name: Build Windows amd64
         run: |
-          fyne-cross windows -arch=amd64 -dir=client -name=dms-windows-amd64 -debug -app-id=com.digitalmusicstand.client -ldflags="-X=main.AppVersion=${{ github.ref_name }}"
+          fyne-cross windows -arch=amd64 -dir=client -name=dms-windows-amd64 -debug -app-id=com.digitalmusicstand.client -ldflags="-X main.AppVersion=${{ github.ref_name }}"
 
       # 2. LLinux (64-bit)
       - name: Build Linux amd64
         run: |
-          fyne-cross linux -arch=amd64 -dir=client -name=dms-linux-amd64 -debug -app-id=com.digitalmusicstand.client -ldflags="-X=main.AppVersion=${{ github.ref_name }}"
+          fyne-cross linux -arch=amd64 -dir=client -name=dms-linux-amd64 -debug -app-id=com.digitalmusicstand.client -ldflags="-X main.AppVersion=${{ github.ref_name }}"
 
       # 3. Linux (ARM 64-bit)
       - name: Build Linux arm64
         run: |
-          fyne-cross linux -arch=arm64 -dir=client -name=dms-linux-arm64 -debug -app-id=com.digitalmusicstand.client -ldflags="-X=main.AppVersion=${{ github.ref_name }}"
+          fyne-cross linux -arch=arm64 -dir=client -name=dms-linux-arm64 -debug -app-id=com.digitalmusicstand.client -ldflags="-X main.AppVersion=${{ github.ref_name }}"
           
       - name: Extract raw Linux binaries
         run: |
