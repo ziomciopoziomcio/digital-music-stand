@@ -12,6 +12,7 @@ enum ActionType {
   UNKNOWN_ACTION = 0;
   STATE_UPDATE = 1;
   METRONOME_TICK = 2;
+  STOP_LEADING = 3;
 }
 
 message SyncRequest {
