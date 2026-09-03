@@ -339,7 +339,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 								"Session expiring soon.",
 								func(confirm bool) {
 									if confirm {
-										concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, forceSync)
+										concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, forceSync, forceSync, prefToken, prefServer)
 										mainWrapper.Objects = []fyne.CanvasObject{concertView}
 										mainWrapper.Refresh()
 									}
@@ -351,7 +351,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 			}
 		}
 
-		concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, forceSync)
+		concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, forceSync, forceSync, prefToken, prefServer)
 		mainWrapper.Objects = []fyne.CanvasObject{concertView}
 		mainWrapper.Refresh()
 	}

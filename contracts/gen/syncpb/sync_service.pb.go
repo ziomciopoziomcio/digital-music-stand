@@ -24,31 +24,25 @@ const (
 type ActionType int32
 
 const (
-	ActionType_UNKNOWN_ACTION  ActionType = 0
-	ActionType_TURN_PAGE       ActionType = 1
-	ActionType_JUMP_TO_MEASURE ActionType = 2
-	ActionType_METRONOME_TICK  ActionType = 3
-	ActionType_START_CONCERT   ActionType = 4
-	ActionType_STOP_CONCERT    ActionType = 5
+	ActionType_UNKNOWN_ACTION ActionType = 0
+	ActionType_STATE_UPDATE   ActionType = 1
+	ActionType_METRONOME_TICK ActionType = 2
+	ActionType_STOP_LEADING   ActionType = 3
 )
 
 // Enum value maps for ActionType.
 var (
 	ActionType_name = map[int32]string{
 		0: "UNKNOWN_ACTION",
-		1: "TURN_PAGE",
-		2: "JUMP_TO_MEASURE",
-		3: "METRONOME_TICK",
-		4: "START_CONCERT",
-		5: "STOP_CONCERT",
+		1: "STATE_UPDATE",
+		2: "METRONOME_TICK",
+		3: "STOP_LEADING",
 	}
 	ActionType_value = map[string]int32{
-		"UNKNOWN_ACTION":  0,
-		"TURN_PAGE":       1,
-		"JUMP_TO_MEASURE": 2,
-		"METRONOME_TICK":  3,
-		"START_CONCERT":   4,
-		"STOP_CONCERT":    5,
+		"UNKNOWN_ACTION": 0,
+		"STATE_UPDATE":   1,
+		"METRONOME_TICK": 2,
+		"STOP_LEADING":   3,
 	}
 )
 
@@ -81,10 +75,13 @@ func (ActionType) EnumDescriptor() ([]byte, []int) {
 
 type SyncRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ConcertId     uint32                 `protobuf:"varint,1,opt,name=concert_id,json=concertId,proto3" json:"concert_id,omitempty"`
-	Action        ActionType             `protobuf:"varint,3,opt,name=action,proto3,enum=digital_music_stand.sync.ActionType" json:"action,omitempty"`
-	PageNumber    *uint32                `protobuf:"varint,4,opt,name=page_number,json=pageNumber,proto3,oneof" json:"page_number,omitempty"`
-	MeasureNumber *uint32                `protobuf:"varint,5,opt,name=measure_number,json=measureNumber,proto3,oneof" json:"measure_number,omitempty"`
+	ConcertId     string                 `protobuf:"bytes,1,opt,name=concert_id,json=concertId,proto3" json:"concert_id,omitempty"`
+	Action        ActionType             `protobuf:"varint,2,opt,name=action,proto3,enum=digital_music_stand.sync.ActionType" json:"action,omitempty"`
+	PageNumber    uint32                 `protobuf:"varint,3,opt,name=page_number,json=pageNumber,proto3" json:"page_number,omitempty"`
+	ItemIndex     uint32                 `protobuf:"varint,4,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
+	TimerSeconds  uint32                 `protobuf:"varint,5,opt,name=timer_seconds,json=timerSeconds,proto3" json:"timer_seconds,omitempty"`
+	IsAccent      bool                   `protobuf:"varint,6,opt,name=is_accent,json=isAccent,proto3" json:"is_accent,omitempty"`
+	IsLeader      bool                   `protobuf:"varint,7,opt,name=is_leader,json=isLeader,proto3" json:"is_leader,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -119,11 +116,11 @@ func (*SyncRequest) Descriptor() ([]byte, []int) {
 	return file_contracts_proto_sync_service_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *SyncRequest) GetConcertId() uint32 {
+func (x *SyncRequest) GetConcertId() string {
 	if x != nil {
 		return x.ConcertId
 	}
-	return 0
+	return ""
 }
 
 func (x *SyncRequest) GetAction() ActionType {
@@ -134,27 +131,51 @@ func (x *SyncRequest) GetAction() ActionType {
 }
 
 func (x *SyncRequest) GetPageNumber() uint32 {
-	if x != nil && x.PageNumber != nil {
-		return *x.PageNumber
+	if x != nil {
+		return x.PageNumber
 	}
 	return 0
 }
 
-func (x *SyncRequest) GetMeasureNumber() uint32 {
-	if x != nil && x.MeasureNumber != nil {
-		return *x.MeasureNumber
+func (x *SyncRequest) GetItemIndex() uint32 {
+	if x != nil {
+		return x.ItemIndex
 	}
 	return 0
+}
+
+func (x *SyncRequest) GetTimerSeconds() uint32 {
+	if x != nil {
+		return x.TimerSeconds
+	}
+	return 0
+}
+
+func (x *SyncRequest) GetIsAccent() bool {
+	if x != nil {
+		return x.IsAccent
+	}
+	return false
+}
+
+func (x *SyncRequest) GetIsLeader() bool {
+	if x != nil {
+		return x.IsLeader
+	}
+	return false
 }
 
 type SyncResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ConcertId     uint32                 `protobuf:"varint,1,opt,name=concert_id,json=concertId,proto3" json:"concert_id,omitempty"`
+	ConcertId     string                 `protobuf:"bytes,1,opt,name=concert_id,json=concertId,proto3" json:"concert_id,omitempty"`
 	SenderId      uint32                 `protobuf:"varint,2,opt,name=sender_id,json=senderId,proto3" json:"sender_id,omitempty"`
 	Action        ActionType             `protobuf:"varint,3,opt,name=action,proto3,enum=digital_music_stand.sync.ActionType" json:"action,omitempty"`
-	PageNumber    *uint32                `protobuf:"varint,4,opt,name=page_number,json=pageNumber,proto3,oneof" json:"page_number,omitempty"`
-	MeasureNumber *uint32                `protobuf:"varint,5,opt,name=measure_number,json=measureNumber,proto3,oneof" json:"measure_number,omitempty"`
-	TimestampMs   int64                  `protobuf:"varint,6,opt,name=timestamp_ms,json=timestampMs,proto3" json:"timestamp_ms,omitempty"`
+	PageNumber    uint32                 `protobuf:"varint,4,opt,name=page_number,json=pageNumber,proto3" json:"page_number,omitempty"`
+	ItemIndex     uint32                 `protobuf:"varint,5,opt,name=item_index,json=itemIndex,proto3" json:"item_index,omitempty"`
+	TimerSeconds  uint32                 `protobuf:"varint,6,opt,name=timer_seconds,json=timerSeconds,proto3" json:"timer_seconds,omitempty"`
+	IsAccent      bool                   `protobuf:"varint,7,opt,name=is_accent,json=isAccent,proto3" json:"is_accent,omitempty"`
+	IsLeader      bool                   `protobuf:"varint,8,opt,name=is_leader,json=isLeader,proto3" json:"is_leader,omitempty"`
+	TimestampMs   int64                  `protobuf:"varint,9,opt,name=timestamp_ms,json=timestampMs,proto3" json:"timestamp_ms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -189,11 +210,11 @@ func (*SyncResponse) Descriptor() ([]byte, []int) {
 	return file_contracts_proto_sync_service_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *SyncResponse) GetConcertId() uint32 {
+func (x *SyncResponse) GetConcertId() string {
 	if x != nil {
 		return x.ConcertId
 	}
-	return 0
+	return ""
 }
 
 func (x *SyncResponse) GetSenderId() uint32 {
@@ -211,17 +232,38 @@ func (x *SyncResponse) GetAction() ActionType {
 }
 
 func (x *SyncResponse) GetPageNumber() uint32 {
-	if x != nil && x.PageNumber != nil {
-		return *x.PageNumber
+	if x != nil {
+		return x.PageNumber
 	}
 	return 0
 }
 
-func (x *SyncResponse) GetMeasureNumber() uint32 {
-	if x != nil && x.MeasureNumber != nil {
-		return *x.MeasureNumber
+func (x *SyncResponse) GetItemIndex() uint32 {
+	if x != nil {
+		return x.ItemIndex
 	}
 	return 0
+}
+
+func (x *SyncResponse) GetTimerSeconds() uint32 {
+	if x != nil {
+		return x.TimerSeconds
+	}
+	return 0
+}
+
+func (x *SyncResponse) GetIsAccent() bool {
+	if x != nil {
+		return x.IsAccent
+	}
+	return false
+}
+
+func (x *SyncResponse) GetIsLeader() bool {
+	if x != nil {
+		return x.IsLeader
+	}
+	return false
 }
 
 func (x *SyncResponse) GetTimestampMs() int64 {
@@ -235,35 +277,37 @@ var File_contracts_proto_sync_service_proto protoreflect.FileDescriptor
 
 const file_contracts_proto_sync_service_proto_rawDesc = "" +
 	"\n" +
-	"\"contracts/proto/sync_service.proto\x12\x18digital_music_stand.sync\"\xee\x01\n" +
+	"\"contracts/proto/sync_service.proto\x12\x18digital_music_stand.sync\"\x89\x02\n" +
 	"\vSyncRequest\x12\x1d\n" +
 	"\n" +
-	"concert_id\x18\x01 \x01(\rR\tconcertId\x12<\n" +
-	"\x06action\x18\x03 \x01(\x0e2$.digital_music_stand.sync.ActionTypeR\x06action\x12$\n" +
-	"\vpage_number\x18\x04 \x01(\rH\x00R\n" +
-	"pageNumber\x88\x01\x01\x12*\n" +
-	"\x0emeasure_number\x18\x05 \x01(\rH\x01R\rmeasureNumber\x88\x01\x01B\x0e\n" +
-	"\f_page_numberB\x11\n" +
-	"\x0f_measure_numberJ\x04\b\x02\x10\x03R\auser_id\"\xa0\x02\n" +
+	"concert_id\x18\x01 \x01(\tR\tconcertId\x12<\n" +
+	"\x06action\x18\x02 \x01(\x0e2$.digital_music_stand.sync.ActionTypeR\x06action\x12\x1f\n" +
+	"\vpage_number\x18\x03 \x01(\rR\n" +
+	"pageNumber\x12\x1d\n" +
+	"\n" +
+	"item_index\x18\x04 \x01(\rR\titemIndex\x12#\n" +
+	"\rtimer_seconds\x18\x05 \x01(\rR\ftimerSeconds\x12\x1b\n" +
+	"\tis_accent\x18\x06 \x01(\bR\bisAccent\x12\x1b\n" +
+	"\tis_leader\x18\a \x01(\bR\bisLeader\"\xca\x02\n" +
 	"\fSyncResponse\x12\x1d\n" +
 	"\n" +
-	"concert_id\x18\x01 \x01(\rR\tconcertId\x12\x1b\n" +
+	"concert_id\x18\x01 \x01(\tR\tconcertId\x12\x1b\n" +
 	"\tsender_id\x18\x02 \x01(\rR\bsenderId\x12<\n" +
-	"\x06action\x18\x03 \x01(\x0e2$.digital_music_stand.sync.ActionTypeR\x06action\x12$\n" +
-	"\vpage_number\x18\x04 \x01(\rH\x00R\n" +
-	"pageNumber\x88\x01\x01\x12*\n" +
-	"\x0emeasure_number\x18\x05 \x01(\rH\x01R\rmeasureNumber\x88\x01\x01\x12!\n" +
-	"\ftimestamp_ms\x18\x06 \x01(\x03R\vtimestampMsB\x0e\n" +
-	"\f_page_numberB\x11\n" +
-	"\x0f_measure_number*}\n" +
+	"\x06action\x18\x03 \x01(\x0e2$.digital_music_stand.sync.ActionTypeR\x06action\x12\x1f\n" +
+	"\vpage_number\x18\x04 \x01(\rR\n" +
+	"pageNumber\x12\x1d\n" +
+	"\n" +
+	"item_index\x18\x05 \x01(\rR\titemIndex\x12#\n" +
+	"\rtimer_seconds\x18\x06 \x01(\rR\ftimerSeconds\x12\x1b\n" +
+	"\tis_accent\x18\a \x01(\bR\bisAccent\x12\x1b\n" +
+	"\tis_leader\x18\b \x01(\bR\bisLeader\x12!\n" +
+	"\ftimestamp_ms\x18\t \x01(\x03R\vtimestampMs*X\n" +
 	"\n" +
 	"ActionType\x12\x12\n" +
-	"\x0eUNKNOWN_ACTION\x10\x00\x12\r\n" +
-	"\tTURN_PAGE\x10\x01\x12\x13\n" +
-	"\x0fJUMP_TO_MEASURE\x10\x02\x12\x12\n" +
-	"\x0eMETRONOME_TICK\x10\x03\x12\x11\n" +
-	"\rSTART_CONCERT\x10\x04\x12\x10\n" +
-	"\fSTOP_CONCERT\x10\x052y\n" +
+	"\x0eUNKNOWN_ACTION\x10\x00\x12\x10\n" +
+	"\fSTATE_UPDATE\x10\x01\x12\x12\n" +
+	"\x0eMETRONOME_TICK\x10\x02\x12\x10\n" +
+	"\fSTOP_LEADING\x10\x032y\n" +
 	"\x0fLiveSyncService\x12f\n" +
 	"\x11SyncConcertStream\x12%.digital_music_stand.sync.SyncRequest\x1a&.digital_music_stand.sync.SyncResponse(\x010\x01BFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpbb\x06proto3"
 
@@ -303,8 +347,6 @@ func file_contracts_proto_sync_service_proto_init() {
 	if File_contracts_proto_sync_service_proto != nil {
 		return
 	}
-	file_contracts_proto_sync_service_proto_msgTypes[0].OneofWrappers = []any{}
-	file_contracts_proto_sync_service_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

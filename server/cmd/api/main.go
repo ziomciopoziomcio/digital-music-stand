@@ -130,7 +130,10 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(auth.NewAuthInterceptor(jwtSecret, db)))
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(auth.NewAuthInterceptor(jwtSecret, db)),
+		grpc.StreamInterceptor(auth.NewStreamAuthInterceptor(jwtSecret, db)),
+	)
 
 	userpb.RegisterUserServiceServer(grpcServer, services.NewUserService(db, jwtSecret, jwtExpHours))
 	scorepb.RegisterScoreServiceServer(grpcServer, services.NewScoreService(db, minioClient, minioBucket))
