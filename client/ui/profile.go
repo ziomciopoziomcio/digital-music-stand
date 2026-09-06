@@ -170,8 +170,20 @@ func BuildProfile(
 					}
 
 					scroll := container.NewVScroll(membersBox)
-					scroll.SetMinSize(fyne.NewSize(400, 250))
 					d := dialog.NewCustom(fmt.Sprintf("Members of %s", band.Name), "Close", scroll, w)
+
+					winSize := w.Canvas().Size()
+					targetWidth := float32(400)
+					targetHeight := float32(350)
+
+					if winSize.Width < targetWidth {
+						targetWidth = winSize.Width * 0.95
+					}
+					if winSize.Height < targetHeight {
+						targetHeight = winSize.Height * 0.95
+					}
+
+					d.Resize(fyne.NewSize(targetWidth, targetHeight))
 					d.Show()
 				}
 

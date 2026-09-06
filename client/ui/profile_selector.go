@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -123,31 +124,60 @@ func ShowProfileSelector(w fyne.Window, a fyne.App, pm *profiles.Manager, onProf
 }
 
 func showCreateProfileDialog(w fyne.Window, a fyne.App, pm *profiles.Manager, refresh func()) {
-	nameEntry := widget.NewEntry()
+	nameEntry := NewAutoKeyboardEntry()
 	nameEntry.SetPlaceHolder("Name")
 
-	pinEntry := widget.NewPasswordEntry()
+	pinEntry := NewAutoKeyboardPasswordEntry()
 	pinEntry.SetPlaceHolder("Optional PIN")
 
 	colorSelect := widget.NewSelect([]string{"blue", "red", "green", "purple", "orange", "yellow"}, nil)
 	colorSelect.SetSelected("blue")
 
-	items := []*widget.FormItem{
+	form := widget.NewForm(
 		widget.NewFormItem("Name", nameEntry),
 		widget.NewFormItem("PIN", pinEntry),
 		widget.NewFormItem("Tile Color", colorSelect),
-	}
+	)
 
-	dialog.ShowForm("Create Profile", "Add", "Cancel", items, func(confirm bool) {
-		if confirm && nameEntry.Text != "" {
+	var d dialog.Dialog
+
+	saveBtn := widget.NewButtonWithIcon("Create", theme.ConfirmIcon(), func() {
+		if nameEntry.Text != "" {
 			newProfile, err := pm.CreateProfile(nameEntry.Text, pinEntry.Text, colorSelect.Selected)
 			if err != nil {
 				dialog.ShowError(err, w)
 				return
 			}
-
 			a.Preferences().SetString(newProfile.ID+"_theme_color", colorSelect.Selected)
 			refresh()
+			d.Hide()
+		} else {
+			dialog.ShowInformation("Error", "Name cannot be empty", w)
 		}
-	}, w)
+	})
+	saveBtn.Importance = widget.HighImportance
+
+	cancelBtn := widget.NewButtonWithIcon("Cancel", theme.CancelIcon(), func() {
+		d.Hide()
+	})
+
+	buttons := container.NewHBox(layout.NewSpacer(), cancelBtn, saveBtn, layout.NewSpacer())
+	content := container.NewVBox(form, widget.NewSeparator(), buttons)
+
+	scrollContent := container.NewVScroll(container.NewPadded(content))
+	d = dialog.NewCustomWithoutButtons("Create Profile", scrollContent, w)
+
+	winSize := w.Canvas().Size()
+	targetWidth := float32(400)
+	targetHeight := float32(350)
+
+	if winSize.Width < targetWidth {
+		targetWidth = winSize.Width * 0.95
+	}
+	if winSize.Height < targetHeight {
+		targetHeight = winSize.Height * 0.95
+	}
+
+	d.Resize(fyne.NewSize(targetWidth, targetHeight))
+	d.Show()
 }

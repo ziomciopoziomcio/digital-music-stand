@@ -151,7 +151,20 @@ func ShowMetronomeDialog(w fyne.Window, metroAudio *audio.MetronomeAudio, setDia
 		closeBtn,
 	)
 
-	d = dialog.NewCustomWithoutButtons("Metronome", container.NewPadded(content), w)
-	d.Resize(fyne.NewSize(400, 550))
+	scrollContent := container.NewVScroll(container.NewPadded(content))
+	d = dialog.NewCustomWithoutButtons("Metronome", scrollContent, w)
+
+	winSize := w.Canvas().Size()
+	targetWidth := float32(400)
+	targetHeight := float32(550)
+
+	if winSize.Width < targetWidth {
+		targetWidth = winSize.Width * 0.95
+	}
+	if winSize.Height < targetHeight {
+		targetHeight = winSize.Height * 0.95
+	}
+
+	d.Resize(fyne.NewSize(targetWidth, targetHeight))
 	d.Show()
 }
