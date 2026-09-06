@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -160,20 +161,18 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		volLabel := widget.NewLabel(fmt.Sprintf("Volume: %d%%", vol))
 		volSlider := widget.NewSlider(0, 100)
 		volSlider.SetValue(float64(vol))
-		volSlider.OnChanged = func(val float64) {
-			newVol := int(val)
-			_ = medMgr.SetVolume(newVol)
-			volLabel.SetText(fmt.Sprintf("Volume: %d%%", newVol))
-		}
+		volSlider.OnChanged = ThrottledSliderHandler(100*time.Millisecond, func(val int) {
+			_ = medMgr.SetVolume(val)
+			volLabel.SetText(fmt.Sprintf("Volume: %d%%", val))
+		})
 
 		brightLabel := widget.NewLabel(fmt.Sprintf("Brightness: %d%%", bright))
 		brightSlider := widget.NewSlider(0, 100)
 		brightSlider.SetValue(float64(bright))
-		brightSlider.OnChanged = func(val float64) {
-			newBright := int(val)
-			_ = medMgr.SetBrightness(newBright)
-			brightLabel.SetText(fmt.Sprintf("Brightness: %d%%", newBright))
-		}
+		brightSlider.OnChanged = ThrottledSliderHandler(200*time.Millisecond, func(val int) {
+			_ = medMgr.SetBrightness(val)
+			brightLabel.SetText(fmt.Sprintf("Brightness: %d%%", val))
+		})
 
 		return container.NewVBox(
 			volLabel,
