@@ -28,6 +28,11 @@ const (
 	ActionType_STATE_UPDATE   ActionType = 1
 	ActionType_METRONOME_TICK ActionType = 2
 	ActionType_STOP_LEADING   ActionType = 3
+	ActionType_NEXT_PAGE      ActionType = 4
+	ActionType_PREV_PAGE      ActionType = 5
+	ActionType_NEXT_ITEM      ActionType = 6
+	ActionType_PREV_ITEM      ActionType = 7
+	ActionType_TOGGLE_TIMER   ActionType = 8
 )
 
 // Enum value maps for ActionType.
@@ -37,12 +42,22 @@ var (
 		1: "STATE_UPDATE",
 		2: "METRONOME_TICK",
 		3: "STOP_LEADING",
+		4: "NEXT_PAGE",
+		5: "PREV_PAGE",
+		6: "NEXT_ITEM",
+		7: "PREV_ITEM",
+		8: "TOGGLE_TIMER",
 	}
 	ActionType_value = map[string]int32{
 		"UNKNOWN_ACTION": 0,
 		"STATE_UPDATE":   1,
 		"METRONOME_TICK": 2,
 		"STOP_LEADING":   3,
+		"NEXT_PAGE":      4,
+		"PREV_PAGE":      5,
+		"NEXT_ITEM":      6,
+		"PREV_ITEM":      7,
+		"TOGGLE_TIMER":   8,
 	}
 )
 
@@ -301,13 +316,18 @@ const file_contracts_proto_sync_service_proto_rawDesc = "" +
 	"\rtimer_seconds\x18\x06 \x01(\rR\ftimerSeconds\x12\x1b\n" +
 	"\tis_accent\x18\a \x01(\bR\bisAccent\x12\x1b\n" +
 	"\tis_leader\x18\b \x01(\bR\bisLeader\x12!\n" +
-	"\ftimestamp_ms\x18\t \x01(\x03R\vtimestampMs*X\n" +
+	"\ftimestamp_ms\x18\t \x01(\x03R\vtimestampMs*\xa6\x01\n" +
 	"\n" +
 	"ActionType\x12\x12\n" +
 	"\x0eUNKNOWN_ACTION\x10\x00\x12\x10\n" +
 	"\fSTATE_UPDATE\x10\x01\x12\x12\n" +
 	"\x0eMETRONOME_TICK\x10\x02\x12\x10\n" +
-	"\fSTOP_LEADING\x10\x032y\n" +
+	"\fSTOP_LEADING\x10\x03\x12\r\n" +
+	"\tNEXT_PAGE\x10\x04\x12\r\n" +
+	"\tPREV_PAGE\x10\x05\x12\r\n" +
+	"\tNEXT_ITEM\x10\x06\x12\r\n" +
+	"\tPREV_ITEM\x10\a\x12\x10\n" +
+	"\fTOGGLE_TIMER\x10\b2y\n" +
 	"\x0fLiveSyncService\x12f\n" +
 	"\x11SyncConcertStream\x12%.digital_music_stand.sync.SyncRequest\x1a&.digital_music_stand.sync.SyncResponse(\x010\x01BFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpbb\x06proto3"
 
