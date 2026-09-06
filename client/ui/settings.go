@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -107,25 +108,30 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 						icon := theme.ComputerIcon()
 
 						btn := widget.NewButtonWithIcon(fmt.Sprintf("%s (%d%%)", net.SSID, net.Strength), icon, func() {
+							connectAction := func(password string) {
+								progress := dialog.NewCustomWithoutButtons("Connecting to "+net.SSID+"...", container.NewPadded(widget.NewProgressBarInfinite()), w)
+								progress.Show()
+
+								go func() {
+									err := netMgr.ConnectWiFi(net.SSID, password)
+									progress.Hide()
+									if err != nil {
+										dialog.ShowError(fmt.Errorf("Failed to connect: %v", err), w)
+									}
+									statusLabel.SetText(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
+								}()
+							}
+
 							if net.Secure {
 								passEntry := NewAutoKeyboardPasswordEntry()
 								passEntry.SetPlaceHolder("Wi-Fi Password")
-
 								dialog.ShowCustomConfirm("Connect to "+net.SSID, "Connect", "Cancel", passEntry, func(confirm bool) {
 									if confirm {
-										err := netMgr.ConnectWiFi(net.SSID, passEntry.Text)
-										if err != nil {
-											dialog.ShowError(fmt.Errorf("Failed to connect: %v", err), w)
-										}
-										statusLabel.SetText(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
+										connectAction(passEntry.Text)
 									}
 								}, w)
 							} else {
-								err := netMgr.ConnectWiFi(net.SSID, "")
-								if err != nil {
-									dialog.ShowError(fmt.Errorf("Failed to connect: %v", err), w)
-								}
-								statusLabel.SetText(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
+								connectAction("")
 							}
 						})
 						objs = append(objs, btn)
@@ -160,20 +166,18 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		volLabel := widget.NewLabel(fmt.Sprintf("Volume: %d%%", vol))
 		volSlider := widget.NewSlider(0, 100)
 		volSlider.SetValue(float64(vol))
-		volSlider.OnChanged = func(val float64) {
-			newVol := int(val)
-			_ = medMgr.SetVolume(newVol)
-			volLabel.SetText(fmt.Sprintf("Volume: %d%%", newVol))
-		}
+		volSlider.OnChanged = ThrottledSliderHandler(100*time.Millisecond, func(val int) {
+			_ = medMgr.SetVolume(val)
+			volLabel.SetText(fmt.Sprintf("Volume: %d%%", val))
+		})
 
 		brightLabel := widget.NewLabel(fmt.Sprintf("Brightness: %d%%", bright))
 		brightSlider := widget.NewSlider(0, 100)
 		brightSlider.SetValue(float64(bright))
-		brightSlider.OnChanged = func(val float64) {
-			newBright := int(val)
-			_ = medMgr.SetBrightness(newBright)
-			brightLabel.SetText(fmt.Sprintf("Brightness: %d%%", newBright))
-		}
+		brightSlider.OnChanged = ThrottledSliderHandler(200*time.Millisecond, func(val int) {
+			_ = medMgr.SetBrightness(val)
+			brightLabel.SetText(fmt.Sprintf("Brightness: %d%%", val))
+		})
 
 		return container.NewVBox(
 			volLabel,
