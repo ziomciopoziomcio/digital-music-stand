@@ -108,25 +108,30 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 						icon := theme.ComputerIcon()
 
 						btn := widget.NewButtonWithIcon(fmt.Sprintf("%s (%d%%)", net.SSID, net.Strength), icon, func() {
+							connectAction := func(password string) {
+								progress := dialog.NewCustomWithoutButtons("Connecting to "+net.SSID+"...", container.NewPadded(widget.NewProgressBarInfinite()), w)
+								progress.Show()
+
+								go func() {
+									err := netMgr.ConnectWiFi(net.SSID, password)
+									progress.Hide()
+									if err != nil {
+										dialog.ShowError(fmt.Errorf("Failed to connect: %v", err), w)
+									}
+									statusLabel.SetText(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
+								}()
+							}
+
 							if net.Secure {
 								passEntry := NewAutoKeyboardPasswordEntry()
 								passEntry.SetPlaceHolder("Wi-Fi Password")
-
 								dialog.ShowCustomConfirm("Connect to "+net.SSID, "Connect", "Cancel", passEntry, func(confirm bool) {
 									if confirm {
-										err := netMgr.ConnectWiFi(net.SSID, passEntry.Text)
-										if err != nil {
-											dialog.ShowError(fmt.Errorf("Failed to connect: %v", err), w)
-										}
-										statusLabel.SetText(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
+										connectAction(passEntry.Text)
 									}
 								}, w)
 							} else {
-								err := netMgr.ConnectWiFi(net.SSID, "")
-								if err != nil {
-									dialog.ShowError(fmt.Errorf("Failed to connect: %v", err), w)
-								}
-								statusLabel.SetText(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
+								connectAction("")
 							}
 						})
 						objs = append(objs, btn)
