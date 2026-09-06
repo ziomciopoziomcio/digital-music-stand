@@ -66,7 +66,20 @@ func ShowPairingDialog(w fyne.Window, wsMgr *webserver.Manager) {
 		statusLabel,
 	)
 
-	d := dialog.NewCustom("Device Pairing", "Close", content, w)
-	d.Resize(fyne.NewSize(380, 450))
+	scrollContent := container.NewVScroll(container.NewPadded(content))
+	d := dialog.NewCustom("Device Pairing", "Close", scrollContent, w)
+
+	winSize := w.Canvas().Size()
+	targetWidth := float32(380)
+	targetHeight := float32(450)
+
+	if winSize.Width < targetWidth {
+		targetWidth = winSize.Width * 0.95
+	}
+	if winSize.Height < targetHeight {
+		targetHeight = winSize.Height * 0.95
+	}
+
+	d.Resize(fyne.NewSize(targetWidth, targetHeight))
 	d.Show()
 }

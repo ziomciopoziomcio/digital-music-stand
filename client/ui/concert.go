@@ -1053,8 +1053,20 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				items = append(items, btn)
 			}
 			scroll := container.NewVScroll(container.NewVBox(items...))
-			scroll.SetMinSize(fyne.NewSize(350, 400))
 			setlistDialog = dialog.NewCustom("Concert Setlist", "Close", scroll, w)
+
+			winSize := w.Canvas().Size()
+			targetWidth := float32(350)
+			targetHeight := float32(400)
+
+			if winSize.Width < targetWidth {
+				targetWidth = winSize.Width * 0.95
+			}
+			if winSize.Height < targetHeight {
+				targetHeight = winSize.Height * 0.95
+			}
+
+			setlistDialog.Resize(fyne.NewSize(targetWidth, targetHeight))
 			setlistDialog.Show()
 		})
 		setlistBtn.Importance = widget.HighImportance

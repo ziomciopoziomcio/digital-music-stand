@@ -211,7 +211,20 @@ func ShowTunerDialog(w fyne.Window) {
 		closeBtn,
 	)
 
-	d = dialog.NewCustomWithoutButtons("Instrument Tuner", container.NewPadded(content), w)
-	d.Resize(fyne.NewSize(500, 750))
+	scrollContent := container.NewVScroll(container.NewPadded(content))
+	d = dialog.NewCustomWithoutButtons("Instrument Tuner", scrollContent, w)
+
+	winSize := w.Canvas().Size()
+	targetWidth := float32(500)
+	targetHeight := float32(750)
+
+	if winSize.Width < targetWidth {
+		targetWidth = winSize.Width * 0.95
+	}
+	if winSize.Height < targetHeight {
+		targetHeight = winSize.Height * 0.95
+	}
+
+	d.Resize(fyne.NewSize(targetWidth, targetHeight))
 	d.Show()
 }
