@@ -2,11 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,112 +18,179 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpb"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
+
+type ScoreItem struct {
+	ID      string
+	Title   string
+	OnLAN   bool
+	OnCloud bool
+}
 
 func main() {
 	myApp := app.NewWithID("com.digitalmusicstand.mobile")
-	myWindow := myApp.NewWindow("Remote Control")
+	myWindow := myApp.NewWindow("DMS Remote")
 	myWindow.Resize(fyne.NewSize(360, 800))
 
-	var showConnect func()
-	var showMain func(ip, pin string)
-	var showScoreViewer func(ip, pin, scoreID, title string)
+	var showLogin func()
+	var showMain func(server, token string)
+	var viewScore func(ip, pin, server, token, scoreID, title string, useLAN bool)
 
-	httpClient := &http.Client{Timeout: 3 * time.Second}
+	showLogin = func() {
+		serverEntry := widget.NewEntry()
+		serverEntry.SetText(myApp.Preferences().StringWithFallback("server", "localhost:50051"))
+		emailEntry := widget.NewEntry()
+		emailEntry.SetText(myApp.Preferences().String("email"))
+		passEntry := widget.NewPasswordEntry()
 
-	discoverTablet := func() (string, string) {
-		conn, err := net.ListenPacket("udp4", ":0")
-		if err != nil {
-			return "", ""
-		}
-		defer conn.Close()
+		loginBtn := widget.NewButtonWithIcon("Login", theme.LoginIcon(), func() {
+			server := serverEntry.Text
+			myApp.Preferences().SetString("server", server)
+			myApp.Preferences().SetString("email", emailEntry.Text)
 
-		addr, _ := net.ResolveUDPAddr("udp4", "255.255.255.255:8090")
-		conn.WriteTo([]byte("DMS_DISCOVER"), addr)
-		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+			progress := dialog.NewCustomWithoutButtons("", container.NewPadded(widget.NewProgressBarInfinite()), myWindow)
+			progress.Show()
 
-		buf := make([]byte, 1024)
-		n, srvAddr, err := conn.ReadFrom(buf)
-		if err == nil {
-			ip := strings.Split(srvAddr.String(), ":")[0]
-			return ip, string(buf[:n])
-		}
-		return "", ""
-	}
-
-	showConnect = func() {
-		ipEntry := widget.NewEntry()
-		ipEntry.SetPlaceHolder("192.168.1.50")
-		ipEntry.SetText(myApp.Preferences().String("local_ip"))
-
-		pinEntry := widget.NewEntry()
-		pinEntry.SetPlaceHolder("PIN")
-		pinEntry.SetText(myApp.Preferences().String("local_pin"))
-
-		connectManualBtn := widget.NewButton("Connect Manually", func() {
-			myApp.Preferences().SetString("local_ip", ipEntry.Text)
-			myApp.Preferences().SetString("local_pin", pinEntry.Text)
-			showMain(ipEntry.Text, pinEntry.Text)
-		})
-
-		autoBtn := widget.NewButtonWithIcon("Auto Discover Tablet", theme.SearchIcon(), func() {
-			prog := dialog.NewCustomWithoutButtons("Searching...", container.NewPadded(widget.NewProgressBarInfinite()), myWindow)
-			prog.Show()
 			go func() {
-				ip, pin := discoverTablet()
-				prog.Hide()
-				if ip != "" && pin != "" {
-					myApp.Preferences().SetString("local_ip", ip)
-					myApp.Preferences().SetString("local_pin", pin)
-					showMain(ip, pin)
-				} else {
-					dialog.ShowInformation("Not Found", "Tablet not found on local network.", myWindow)
+				conn, err := grpc.NewClient(server, grpc.WithTransportCredentials(insecure.NewCredentials()))
+				if err != nil {
+					progress.Hide()
+					dialog.ShowError(err, myWindow)
+					return
 				}
+				defer conn.Close()
+
+				client := userpb.NewUserServiceClient(conn)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+
+				resp, err := client.LoginUser(ctx, &userpb.LoginUserRequest{
+					Email:    emailEntry.Text,
+					Password: passEntry.Text,
+				})
+				progress.Hide()
+
+				if err != nil {
+					dialog.ShowError(err, myWindow)
+					return
+				}
+
+				myApp.Preferences().SetString("token", resp.GetToken())
+				showMain(server, resp.GetToken())
 			}()
 		})
-		autoBtn.Importance = widget.HighImportance
+		loginBtn.Importance = widget.HighImportance
 
-		form := container.NewVBox(
-			widget.NewLabelWithStyle("Remote Control", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		skipBtn := widget.NewButton("Skip Login (LAN Only)", func() {
+			showMain("", "")
+		})
+
+		form := container.NewVScroll(container.NewVBox(
+			widget.NewLabelWithStyle("Digital Music Stand", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 			widget.NewSeparator(),
+			widget.NewLabel("Server:"), serverEntry,
+			widget.NewLabel("Email:"), emailEntry,
+			widget.NewLabel("Password:"), passEntry,
 			widget.NewLabel(""),
-			autoBtn,
+			loginBtn,
 			widget.NewLabel(""),
-			widget.NewSeparator(),
-			widget.NewLabel("Manual Connection:"),
-			ipEntry,
-			pinEntry,
-			connectManualBtn,
-		)
+			skipBtn,
+		))
 		myWindow.SetContent(container.NewPadded(form))
 	}
 
-	showScoreViewer = func(ip, pin, scoreID, title string) {
+	viewScore = func(ip, pin, server, token, scoreID, title string, useLAN bool) {
 		page := 0
 		imgCanvas := canvas.NewImageFromResource(nil)
 		imgCanvas.FillMode = canvas.ImageFillContain
+		pageLabel := widget.NewLabelWithStyle("Loading...", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-		pageLabel := widget.NewLabelWithStyle(fmt.Sprintf("Page %d", page+1), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+		var pdfMgr *pdf.Manager
+		var totalPages int
 
 		loadPage := func() {
-			url := fmt.Sprintf("http://%s:8089/api/render?id=%s&page=%d", ip, scoreID, page)
-			req, _ := http.NewRequest("GET", url, nil)
-			req.Header.Set("X-Remote-PIN", pin)
+			if useLAN {
+				httpClient := &http.Client{Timeout: 3 * time.Second}
+				url := fmt.Sprintf("http://%s:8089/api/render?id=%s&page=%d", ip, scoreID, page)
+				req, _ := http.NewRequest("GET", url, nil)
+				req.Header.Set("X-Remote-PIN", pin)
 
-			resp, err := httpClient.Do(req)
-			if err != nil || resp.StatusCode != 200 {
-				if page > 0 {
-					page--
+				resp, err := httpClient.Do(req)
+				if err != nil || resp.StatusCode != 200 {
+					if page > 0 {
+						page--
+					}
+					return
 				}
-				return
+				defer resp.Body.Close()
+				data, _ := io.ReadAll(resp.Body)
+				imgCanvas.Resource = fyne.NewStaticResource("page.png", data)
+				imgCanvas.Refresh()
+				pageLabel.SetText(fmt.Sprintf("Page %d", page+1))
+			} else {
+				if pdfMgr != nil && totalPages > 0 {
+					img, err := pdfMgr.GetPageImage(page)
+					if err == nil {
+						imgCanvas.Image = img
+						imgCanvas.Refresh()
+						pageLabel.SetText(fmt.Sprintf("Page %d of %d", page+1, totalPages))
+					}
+				}
 			}
-			defer resp.Body.Close()
-			data, _ := io.ReadAll(resp.Body)
-			imgCanvas.Resource = fyne.NewStaticResource("page.png", data)
-			imgCanvas.Refresh()
-			pageLabel.SetText(fmt.Sprintf("Page %d", page+1))
+		}
+
+		if !useLAN && server != "" && token != "" {
+			progress := dialog.NewCustomWithoutButtons("Downloading...", container.NewPadded(widget.NewProgressBarInfinite()), myWindow)
+			progress.Show()
+
+			go func() {
+				conn, _ := grpc.NewClient(server, grpc.WithTransportCredentials(insecure.NewCredentials()))
+				defer conn.Close()
+
+				client := scorepb.NewScoreServiceClient(conn)
+				ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+token)
+				stream, err := client.DownloadScore(ctx, &scorepb.DownloadScoreRequest{ScoreId: scoreID})
+				if err != nil {
+					progress.Hide()
+					showMain(server, token)
+					return
+				}
+
+				tmpFile := filepath.Join(os.TempDir(), scoreID+".pdf")
+				f, _ := os.Create(tmpFile)
+				for {
+					chunk, err := stream.Recv()
+					if err == io.EOF {
+						break
+					}
+					f.Write(chunk.GetChunkData())
+				}
+				f.Close()
+
+				mgr, err := pdf.NewManager(tmpFile)
+				progress.Hide()
+
+				if err == nil {
+					pdfMgr = mgr
+					totalPages = mgr.GetPageCount()
+					loadPage()
+				} else {
+					showMain(server, token)
+				}
+			}()
+		} else {
+			loadPage()
 		}
 
 		prevBtn := widget.NewButtonWithIcon("", theme.NavigateBackIcon(), func() {
@@ -130,63 +200,150 @@ func main() {
 			}
 		})
 		nextBtn := widget.NewButtonWithIcon("", theme.NavigateNextIcon(), func() {
-			page++
-			loadPage()
+			if !useLAN {
+				if page < totalPages-1 {
+					page++
+					loadPage()
+				}
+			} else {
+				page++
+				loadPage()
+			}
 		})
-		closeBtn := widget.NewButtonWithIcon("Back", theme.CancelIcon(), func() { showMain(ip, pin) })
+		closeBtn := widget.NewButtonWithIcon("Close", theme.CancelIcon(), func() {
+			if pdfMgr != nil {
+				pdfMgr.Close()
+				os.Remove(filepath.Join(os.TempDir(), scoreID+".pdf"))
+			}
+			showMain(server, token)
+		})
 
 		topBar := container.NewBorder(nil, nil, closeBtn, nil, widget.NewLabelWithStyle(title, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
 		bottomBar := container.NewBorder(nil, nil, prevBtn, nextBtn, pageLabel)
 
-		loadPage()
 		myWindow.SetContent(container.NewBorder(topBar, bottomBar, nil, nil, imgCanvas))
 	}
 
-	showMain = func(ip, pin string) {
-		fastClient := &http.Client{Timeout: 500 * time.Millisecond}
+	showMain = func(server, token string) {
+		var localIP, localPIN string
+		var syncConn *grpc.ClientConn
+		var syncClient syncpb.LiveSyncServiceClient
+		var activeConcertID string
 
-		sendCommand := func(action string) {
-			url := fmt.Sprintf("http://%s:8089/api/command", ip)
-			payload, _ := json.Marshal(map[string]interface{}{"action": action, "value": 0})
-			req, _ := http.NewRequest("POST", url, bytes.NewBuffer(payload))
-			req.Header.Set("X-Remote-PIN", pin)
-			fastClient.Do(req)
+		httpClient := &http.Client{Timeout: 500 * time.Millisecond}
+		stopBackground := make(chan struct{})
+
+		infoLabel := widget.NewLabelWithStyle("Searching for tablet...", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+		pageInfoLabel := widget.NewLabelWithStyle("-", fyne.TextAlignCenter, fyne.TextStyle{})
+		connStatusLabel := canvas.NewText("Link: Offline", theme.ErrorColor())
+		connStatusLabel.Alignment = fyne.TextAlignCenter
+
+		if server != "" && token != "" {
+			syncConn, _ = grpc.NewClient(server, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if syncConn != nil {
+				syncClient = syncpb.NewLiveSyncServiceClient(syncConn)
+			}
 		}
 
-		infoLabel := widget.NewLabelWithStyle("Fetching state...", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-		pageInfoLabel := widget.NewLabelWithStyle("-", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
-		stopPolling := make(chan struct{})
+		sendCommand := func(actionStr string, grpcAction syncpb.ActionType) {
+			if localIP != "" && localPIN != "" {
+				url := fmt.Sprintf("http://%s:8089/api/command", localIP)
+				payload, _ := json.Marshal(map[string]interface{}{"action": actionStr, "value": 0})
+				req, _ := http.NewRequest("POST", url, bytes.NewBuffer(payload))
+				req.Header.Set("X-Remote-PIN", localPIN)
+
+				resp, err := httpClient.Do(req)
+				if err == nil && resp.StatusCode == 200 {
+					return
+				}
+			}
+
+			if syncClient != nil && activeConcertID != "" {
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				defer cancel()
+				ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token)
+
+				stream, err := syncClient.SyncConcertStream(ctx)
+				if err == nil {
+					_ = stream.Send(&syncpb.SyncRequest{
+						ConcertId: activeConcertID,
+						Action:    grpcAction,
+						IsLeader:  true,
+					})
+				}
+			}
+		}
 
 		go func() {
-			ticker := time.NewTicker(1 * time.Second)
-			defer ticker.Stop()
+			udpTicker := time.NewTicker(3 * time.Second)
+			pollTicker := time.NewTicker(1 * time.Second)
+			defer udpTicker.Stop()
+			defer pollTicker.Stop()
+
 			for {
 				select {
-				case <-stopPolling:
+				case <-stopBackground:
 					return
-				case <-ticker.C:
-					url := fmt.Sprintf("http://%s:8089/api/state", ip)
-					req, _ := http.NewRequest("GET", url, nil)
-					req.Header.Set("X-Remote-PIN", pin)
+				case <-udpTicker.C:
+					connUDP, err := net.ListenPacket("udp4", ":0")
+					if err == nil {
+						addr, _ := net.ResolveUDPAddr("udp4", "255.255.255.255:8090")
+						connUDP.WriteTo([]byte("DMS_DISCOVER"), addr)
+						connUDP.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+						buf := make([]byte, 1024)
+						n, srvAddr, err := connUDP.ReadFrom(buf)
+						if err == nil {
+							localIP = strings.Split(srvAddr.String(), ":")[0]
+							localPIN = string(buf[:n])
+						}
+						connUDP.Close()
+					}
+				case <-pollTicker.C:
+					connected := false
+					if localIP != "" && localPIN != "" {
+						url := fmt.Sprintf("http://%s:8089/api/state", localIP)
+						req, _ := http.NewRequest("GET", url, nil)
+						req.Header.Set("X-Remote-PIN", localPIN)
 
-					if resp, err := fastClient.Do(req); err == nil && resp.StatusCode == 200 {
-						var state map[string]interface{}
-						if json.NewDecoder(resp.Body).Decode(&state) == nil {
-							name := state["concert_name"].(string)
-							page := int(state["current_page"].(float64))
-							total := int(state["total_pages"].(float64))
+						if resp, err := httpClient.Do(req); err == nil && resp.StatusCode == 200 {
+							var state map[string]interface{}
+							if json.NewDecoder(resp.Body).Decode(&state) == nil {
+								name := state["concert_name"].(string)
+								page := int(state["current_page"].(float64))
+								total := int(state["total_pages"].(float64))
 
-							if name == "" {
-								infoLabel.SetText("Tablet is idle")
-								pageInfoLabel.SetText("")
-							} else {
-								infoLabel.SetText(name)
-								if total > 0 {
-									pageInfoLabel.SetText(fmt.Sprintf("Page %d of %d", page+1, total))
+								if name == "" {
+									infoLabel.SetText("Tablet is idle")
+									pageInfoLabel.SetText("")
 								} else {
-									pageInfoLabel.SetText("Break / No Score")
+									infoLabel.SetText(name)
+									if total > 0 {
+										pageInfoLabel.SetText(fmt.Sprintf("Page %d of %d", page+1, total))
+									} else {
+										pageInfoLabel.SetText("Break / No Score")
+									}
 								}
+								connStatusLabel.Text = "Link: Wi-Fi"
+								connStatusLabel.Color = theme.SuccessColor()
+								connStatusLabel.Refresh()
+								connected = true
 							}
+						}
+					}
+
+					if !connected {
+						if server != "" && token != "" {
+							connStatusLabel.Text = "Link: Cloud Ready"
+							connStatusLabel.Color = theme.WarningColor()
+							connStatusLabel.Refresh()
+							infoLabel.SetText("Waiting for stage data...")
+							pageInfoLabel.SetText("")
+						} else {
+							connStatusLabel.Text = "Link: Offline"
+							connStatusLabel.Color = theme.ErrorColor()
+							connStatusLabel.Refresh()
+							infoLabel.SetText("No connection")
+							pageInfoLabel.SetText("")
 						}
 					}
 				}
@@ -198,16 +355,18 @@ func main() {
 			widget.NewSeparator(),
 			widget.NewLabel(""),
 			container.NewGridWithColumns(2,
-				widget.NewButtonWithIcon("Prev Item", theme.MediaSkipPreviousIcon(), func() { sendCommand("PREV_ITEM") }),
-				widget.NewButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() { sendCommand("NEXT_ITEM") }),
-				widget.NewButtonWithIcon("Prev Page", theme.NavigateBackIcon(), func() { sendCommand("PREV_PAGE") }),
-				widget.NewButtonWithIcon("Next Page", theme.NavigateNextIcon(), func() { sendCommand("NEXT_PAGE") }),
+				widget.NewButtonWithIcon("Previous Item", theme.MediaSkipPreviousIcon(), func() { sendCommand("PREV_ITEM", syncpb.ActionType_PREV_ITEM) }),
+				widget.NewButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() { sendCommand("NEXT_ITEM", syncpb.ActionType_NEXT_ITEM) }),
+				widget.NewButtonWithIcon("Previous Page", theme.NavigateBackIcon(), func() { sendCommand("PREV_PAGE", syncpb.ActionType_PREV_PAGE) }),
+				widget.NewButtonWithIcon("Next Page", theme.NavigateNextIcon(), func() { sendCommand("NEXT_PAGE", syncpb.ActionType_NEXT_PAGE) }),
 			),
 			widget.NewLabel(""),
 			container.NewGridWithColumns(2,
-				widget.NewButtonWithIcon("Toggle Timer", theme.HistoryIcon(), func() { sendCommand("TOGGLE_TIMER") }),
-				widget.NewButtonWithIcon("Lock Tablet", theme.LogoutIcon(), func() { sendCommand("LOCK_SCREEN") }),
+				widget.NewButtonWithIcon("Play/Pause Timer", theme.HistoryIcon(), func() { sendCommand("TOGGLE_TIMER", syncpb.ActionType_TOGGLE_TIMER) }),
+				widget.NewButtonWithIcon("Lock Screen", theme.LogoutIcon(), func() { sendCommand("LOCK_SCREEN", syncpb.ActionType_UNKNOWN_ACTION) }),
 			),
+			layout.NewSpacer(),
+			container.NewCenter(connStatusLabel),
 		)
 
 		libraryList := widget.NewList(
@@ -218,50 +377,99 @@ func main() {
 
 		libraryContent := container.NewBorder(
 			widget.NewButtonWithIcon("Refresh Scores", theme.ViewRefreshIcon(), func() {
-				url := fmt.Sprintf("http://%s:8089/api/scores", ip)
-				req, _ := http.NewRequest("GET", url, nil)
-				req.Header.Set("X-Remote-PIN", pin)
+				go func() {
+					scoresMap := make(map[string]ScoreItem)
 
-				if resp, err := httpClient.Do(req); err == nil && resp.StatusCode == 200 {
-					var scores []map[string]interface{}
-					json.NewDecoder(resp.Body).Decode(&scores)
-
-					libraryList.Length = func() int { return len(scores) }
-					libraryList.CreateItem = func() fyne.CanvasObject {
-						return widget.NewButton("", nil)
+					if server != "" && token != "" {
+						conn, err := grpc.NewClient(server, grpc.WithTransportCredentials(insecure.NewCredentials()))
+						if err == nil {
+							client := scorepb.NewScoreServiceClient(conn)
+							ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+token)
+							if resp, err := client.ListMyScores(ctx, &scorepb.ListMyScoresRequest{}); err == nil {
+								for _, s := range resp.GetScores() {
+									scoresMap[s.Id] = ScoreItem{ID: s.Id, Title: s.Name, OnCloud: true}
+								}
+							}
+							conn.Close()
+						}
 					}
+
+					if localIP != "" && localPIN != "" {
+						url := fmt.Sprintf("http://%s:8089/api/scores", localIP)
+						req, _ := http.NewRequest("GET", url, nil)
+						req.Header.Set("X-Remote-PIN", localPIN)
+						if resp, err := httpClient.Do(req); err == nil && resp.StatusCode == 200 {
+							var localScores []map[string]interface{}
+							if json.NewDecoder(resp.Body).Decode(&localScores) == nil {
+								for _, ls := range localScores {
+									id := ls["ID"].(string)
+									title := ls["Title"].(string)
+									if alias, ok := ls["LocalAlias"].(string); ok && alias != "" {
+										title = alias
+									}
+									if existing, exists := scoresMap[id]; exists {
+										existing.OnLAN = true
+										existing.Title = title
+										scoresMap[id] = existing
+									} else {
+										scoresMap[id] = ScoreItem{ID: id, Title: title, OnLAN: true}
+									}
+								}
+							}
+						}
+					}
+
+					var fetched []ScoreItem
+					for _, v := range scoresMap {
+						fetched = append(fetched, v)
+					}
+
+					libraryList.Length = func() int { return len(fetched) }
+					libraryList.CreateItem = func() fyne.CanvasObject { return widget.NewButton("", nil) }
 					libraryList.UpdateItem = func(i widget.ListItemID, o fyne.CanvasObject) {
 						btn := o.(*widget.Button)
-						scoreID := scores[i]["ID"].(string)
-						title := scores[i]["Title"].(string)
-						btn.SetText(title)
+						s := fetched[i]
+
+						icon := theme.DocumentIcon()
+						if s.OnLAN {
+							icon = theme.ComputerIcon()
+						} else if s.OnCloud {
+							icon = theme.StorageIcon()
+						}
+
+						btn.SetText(s.Title)
+						btn.SetIcon(icon)
 						btn.OnTapped = func() {
-							close(stopPolling)
-							showScoreViewer(ip, pin, scoreID, title)
+							close(stopBackground)
+							useLAN := s.OnLAN && localIP != ""
+							viewScore(localIP, localPIN, server, token, s.ID, s.Title, useLAN)
 						}
 					}
 					libraryList.Refresh()
-				}
+				}()
 			}),
 			nil, nil, nil,
 			libraryList,
 		)
 
 		tabs := container.NewAppTabs(
-			container.NewTabItemWithIcon("Remote", theme.ComputerIcon(), container.NewPadded(remoteContent)),
+			container.NewTabItemWithIcon("Control", theme.SettingsIcon(), container.NewPadded(remoteContent)),
 			container.NewTabItemWithIcon("Library", theme.DocumentIcon(), container.NewPadded(libraryContent)),
 		)
 
-		disconnectBtn := widget.NewButtonWithIcon("Disconnect", theme.CancelIcon(), func() {
-			close(stopPolling)
-			showConnect()
+		logoutBtn := widget.NewButtonWithIcon("Logout", theme.LogoutIcon(), func() {
+			close(stopBackground)
+			if syncConn != nil {
+				syncConn.Close()
+			}
+			myApp.Preferences().SetString("token", "")
+			showLogin()
 		})
-		disconnectBtn.Importance = widget.DangerImportance
+		logoutBtn.Importance = widget.DangerImportance
 
-		mainLayout := container.NewBorder(nil, disconnectBtn, nil, nil, tabs)
-		myWindow.SetContent(mainLayout)
+		myWindow.SetContent(container.NewBorder(nil, logoutBtn, nil, nil, tabs))
 	}
 
-	showConnect()
+	showLogin()
 	myWindow.ShowAndRun()
 }
