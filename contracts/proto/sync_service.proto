@@ -13,12 +13,12 @@ enum ActionType {
   STATE_UPDATE = 1;
   METRONOME_TICK = 2;
   STOP_LEADING = 3;
-
   NEXT_PAGE = 4;
   PREV_PAGE = 5;
   NEXT_ITEM = 6;
   PREV_ITEM = 7;
   TOGGLE_TIMER = 8;
+  BROADCAST_INFO = 9;
 }
 
 message SyncRequest {
@@ -29,6 +29,7 @@ message SyncRequest {
   uint32 timer_seconds = 5;
   bool is_accent = 6;
   bool is_leader = 7;
+  string payload = 8;
 }
 
 message SyncResponse {
@@ -41,4 +42,5 @@ message SyncResponse {
   bool is_accent = 7;
   bool is_leader = 8;
   int64 timestamp_ms = 9;
+  string payload = 10;
 }
