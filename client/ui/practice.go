@@ -158,7 +158,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		topBar := container.NewBorder(nil, nil, topBarControls, nil, titleLabel)
 
 		toolsBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
-			ShowToolsMenu(w, metroAudio, func(cb func(bool)) {
+			ShowToolsMenu(w, metroAudio, nil, func(cb func(bool)) {
 				dialogBeatCb = cb
 			})
 		})
