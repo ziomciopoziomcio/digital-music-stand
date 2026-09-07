@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"image/color"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +28,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
 )
 
-func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remoteServer *remote.Server, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func(), forceSync func(), showLockScreen func(), prefToken string, prefServer string) *fyne.Container {
+func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remoteServer *remote.Server, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func(), forceSync func(), showLockScreen func(), verifyPin func(string) bool, prefToken string, prefServer string) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var showConcertList func()
@@ -239,6 +240,15 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			return
 		}
 
+		for {
+			select {
+			case <-remoteServer.CommandChan:
+			default:
+				goto doneDraining
+			}
+		}
+	doneDraining:
+
 		var syncConn *grpc.ClientConn
 		var syncStream syncpb.LiveSyncService_SyncConcertStreamClient
 		var syncCtx context.Context
@@ -250,6 +260,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		var leaderAvailable bool
 		var previewMode bool
 		var autoFollow bool
+		var isLocked bool
 
 		var leaderItemIdx int
 		var leaderPage int
@@ -270,13 +281,14 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		var updateSyncUI func(err error)
 		var loadCurrentSong func(startAtEnd bool)
 		var renderPage func()
+		var updateRemoteState func()
 
 		var exitConcertBtn *widget.Button
 		var prevSongBtn *widget.Button
 		var nextSongBtn *widget.Button
 		var prevPageBtn *widget.Button
 		var nextPageBtn *widget.Button
-		var handleRemoteCommand func(action string)
+		var handleRemoteCommand func(cmd remote.Command)
 
 		var stopClockOnce sync.Once
 		stopClockChan := make(chan struct{})
@@ -353,6 +365,42 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				})
 				streamMu.Unlock()
 			}
+		}
+
+		var setlistTitles []string
+		for _, it := range concert.Items {
+			if it.ScoreName != nil {
+				setlistTitles = append(setlistTitles, *it.ScoreName)
+			} else if it.BreakMin != nil {
+				setlistTitles = append(setlistTitles, fmt.Sprintf("Break (%d min)", *it.BreakMin))
+			} else {
+				setlistTitles = append(setlistTitles, "Unknown Item")
+			}
+		}
+
+		updateRemoteState = func() {
+			path := ""
+			scoreID := ""
+			if currentPdfMgr != nil && currentSongIdx < len(concert.Items) {
+				if concert.Items[currentSongIdx].FilePath != nil {
+					path = *concert.Items[currentSongIdx].FilePath
+				}
+				if concert.Items[currentSongIdx].ScoreID != nil {
+					scoreID = *concert.Items[currentSongIdx].ScoreID
+				}
+			}
+			remoteServer.SetState(remote.ConcertState{
+				ConcertName:    concert.Name,
+				CurrentItemIdx: currentSongIdx,
+				CurrentPage:    currentPage,
+				TotalPages:     totalPages,
+				IsTimerRunning: isTimerRunning,
+				TimerSeconds:   remainingSec,
+				IsLocked:       isLocked,
+				Setlist:        setlistTitles,
+				CurrentScoreID: scoreID,
+				CurrentPDFPath: path,
+			})
 		}
 
 		updateSyncUI = func(err error) {
@@ -493,23 +541,35 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					switch msg.GetAction() {
 					case syncpb.ActionType_NEXT_PAGE:
 						if handleRemoteCommand != nil {
-							handleRemoteCommand("NEXT_PAGE")
+							handleRemoteCommand(remote.Command{Action: "NEXT_PAGE"})
 						}
 					case syncpb.ActionType_PREV_PAGE:
 						if handleRemoteCommand != nil {
-							handleRemoteCommand("PREV_PAGE")
+							handleRemoteCommand(remote.Command{Action: "PREV_PAGE"})
 						}
 					case syncpb.ActionType_NEXT_ITEM:
 						if handleRemoteCommand != nil {
-							handleRemoteCommand("NEXT_ITEM")
+							handleRemoteCommand(remote.Command{Action: "NEXT_ITEM"})
 						}
 					case syncpb.ActionType_PREV_ITEM:
 						if handleRemoteCommand != nil {
-							handleRemoteCommand("PREV_ITEM")
+							handleRemoteCommand(remote.Command{Action: "PREV_ITEM"})
 						}
 					case syncpb.ActionType_TOGGLE_TIMER:
 						if handleRemoteCommand != nil {
-							handleRemoteCommand("TOGGLE_TIMER")
+							handleRemoteCommand(remote.Command{Action: "TOGGLE_TIMER"})
+						}
+					case syncpb.ActionType_LOCK_SCREEN:
+						if handleRemoteCommand != nil {
+							handleRemoteCommand(remote.Command{Action: "LOCK_SCREEN"})
+						}
+					case syncpb.ActionType_UNLOCK_SCREEN:
+						if handleRemoteCommand != nil {
+							handleRemoteCommand(remote.Command{Action: "UNLOCK_SCREEN", Payload: msg.GetPayload()})
+						}
+					case syncpb.ActionType_JUMP_TO_ITEM:
+						if handleRemoteCommand != nil {
+							handleRemoteCommand(remote.Command{Action: "JUMP_TO_ITEM", Value: int(msg.GetItemIndex())})
 						}
 					}
 				}
@@ -695,8 +755,39 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		updateSyncUI(nil)
 		go startSyncBackground()
 
-		handleRemoteCommand = func(action string) {
-			switch action {
+		lockOverlay := container.NewMax()
+		lockBg := canvas.NewRectangle(color.Black)
+
+		unlockBtn := widget.NewButtonWithIcon("Unlock Screen", theme.LoginIcon(), func() {
+			pinEntry := widget.NewPasswordEntry()
+			dialog.ShowCustomConfirm("Unlock Device", "Unlock", "Cancel", pinEntry, func(ok bool) {
+				if ok {
+					if verifyPin != nil && verifyPin(pinEntry.Text) {
+						isLocked = false
+						lockOverlay.Hide()
+						updateRemoteState()
+					} else {
+						dialog.ShowInformation("Error", "Invalid Profile PIN", w)
+					}
+				}
+			}, w)
+		})
+		unlockBtn.Importance = widget.HighImportance
+
+		lockOverlay.Objects = []fyne.CanvasObject{
+			lockBg,
+			container.NewCenter(container.NewVBox(
+				widget.NewLabelWithStyle("DEVICE LOCKED BY REMOTE", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+				unlockBtn,
+			)),
+		}
+		lockOverlay.Hide()
+
+		handleRemoteCommand = func(cmd remote.Command) {
+			if isLocked && cmd.Action != "UNLOCK_SCREEN" && cmd.Action != "TOGGLE_TIMER" {
+				return
+			}
+			switch cmd.Action {
 			case "NEXT_PAGE":
 				if nextPageBtn != nil {
 					nextPageBtn.OnTapped()
@@ -717,12 +808,22 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				if startPauseBtn != nil {
 					startPauseBtn.OnTapped()
 				}
-			case "LOCK_SCREEN":
-				if exitConcertBtn != nil {
-					exitConcertBtn.OnTapped()
+			case "JUMP_TO_ITEM":
+				if cmd.Value >= 0 && cmd.Value < len(concert.Items) {
+					currentSongIdx = cmd.Value
+					loadCurrentSong(false)
+					sendStateUpdate()
+					updateSyncUI(nil)
 				}
-				if showLockScreen != nil {
-					showLockScreen()
+			case "LOCK_SCREEN":
+				isLocked = true
+				lockOverlay.Show()
+				updateRemoteState()
+			case "UNLOCK_SCREEN":
+				if verifyPin != nil && verifyPin(cmd.Payload) {
+					isLocked = false
+					lockOverlay.Hide()
+					updateRemoteState()
 				}
 			}
 		}
@@ -733,7 +834,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				case <-stopClockChan:
 					return
 				case cmd := <-remoteServer.CommandChan:
-					handleRemoteCommand(cmd.Action)
+					handleRemoteCommand(cmd)
 				}
 			}
 		}()
@@ -842,39 +943,23 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					pdfContainer.Objects = []fyne.CanvasObject{grid}
 					pdfContainer.Refresh()
 					pageLabel.SetText(fmt.Sprintf("Pages %d-%d / %d", currentPage+1, currentPage+2, totalPages))
-					return
+				}
+			} else {
+				img, err := currentPdfMgr.GetPageImage(currentPage)
+				if err != nil {
+					pdfContainer.Objects = []fyne.CanvasObject{
+						widget.NewLabelWithStyle(fmt.Sprintf("Error rendering page %d", currentPage+1), fyne.TextAlignCenter, fyne.TextStyle{}),
+					}
+					pdfContainer.Refresh()
+				} else {
+					canvasImg := canvas.NewImageFromImage(img)
+					canvasImg.FillMode = canvas.ImageFillContain
+					pdfContainer.Objects = []fyne.CanvasObject{canvasImg}
+					pdfContainer.Refresh()
+					pageLabel.SetText(fmt.Sprintf("Page %d / %d", currentPage+1, totalPages))
 				}
 			}
-
-			img, err := currentPdfMgr.GetPageImage(currentPage)
-			if err != nil {
-				pdfContainer.Objects = []fyne.CanvasObject{
-					widget.NewLabelWithStyle(fmt.Sprintf("Error rendering page %d", currentPage+1), fyne.TextAlignCenter, fyne.TextStyle{}),
-				}
-				pdfContainer.Refresh()
-				return
-			}
-
-			canvasImg := canvas.NewImageFromImage(img)
-			canvasImg.FillMode = canvas.ImageFillContain
-			pdfContainer.Objects = []fyne.CanvasObject{canvasImg}
-			pdfContainer.Refresh()
-			pageLabel.SetText(fmt.Sprintf("Page %d / %d", currentPage+1, totalPages))
-
-			path := ""
-			if currentPdfMgr != nil && currentSongIdx < len(concert.Items) {
-				if concert.Items[currentSongIdx].FilePath != nil {
-					path = *concert.Items[currentSongIdx].FilePath
-				}
-			}
-			remoteServer.SetState(remote.ConcertState{
-				ConcertName:    concert.Name,
-				CurrentItemIdx: currentSongIdx,
-				CurrentPage:    currentPage,
-				TotalPages:     totalPages,
-				IsTimerRunning: isTimerRunning,
-				CurrentPDFPath: path,
-			})
+			updateRemoteState()
 		}
 
 		formatTimerText := func(sec int) string {
@@ -930,6 +1015,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 						startPauseBtn.SetIcon(theme.MediaPlayIcon())
 						timerStatusLabel.SetText("PAUSED")
 						sendStateUpdate()
+						updateRemoteState()
 					} else {
 						if remainingSec <= 0 {
 							return
@@ -939,6 +1025,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 						startPauseBtn.SetIcon(theme.MediaPauseIcon())
 						timerStatusLabel.SetText("COUNTDOWN IN PROGRESS")
 						sendStateUpdate()
+						updateRemoteState()
 
 						stopCh := make(chan struct{})
 						activeTimerStopChan = stopCh
@@ -957,6 +1044,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 											timerClockLabel.Text = formatTimerText(remainingSec)
 											timerClockLabel.Refresh()
 										}
+										updateRemoteState()
+
 										if remainingSec <= 0 {
 											isTimerRunning = false
 											if timerStatusLabel != nil {
@@ -992,6 +1081,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					startPauseBtn.SetText("Start")
 					startPauseBtn.SetIcon(theme.MediaPlayIcon())
 					sendStateUpdate()
+					updateRemoteState()
 				})
 
 				addMinBtn := widget.NewButton("+1 Min", func() {
@@ -1003,6 +1093,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					timerClockLabel.Text = formatTimerText(remainingSec)
 					timerClockLabel.Refresh()
 					sendStateUpdate()
+					updateRemoteState()
 				})
 				subMinBtn := widget.NewButton("-1 Min", func() {
 					if syncMode == 1 {
@@ -1017,6 +1108,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					timerClockLabel.Text = formatTimerText(remainingSec)
 					timerClockLabel.Refresh()
 					sendStateUpdate()
+					updateRemoteState()
 				})
 
 				timerControls := container.NewHBox(
@@ -1038,6 +1130,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				pdfContainer.Objects = []fyne.CanvasObject{container.NewCenter(breakView)}
 				pdfContainer.Refresh()
 				totalPages = 0
+				updateRemoteState()
 				return
 			}
 
@@ -1057,6 +1150,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					pdfContainer.Refresh()
 					totalPages = 0
 					pageLabel.SetText("Page 0/0")
+					updateRemoteState()
 					return
 				}
 				currentPdfMgr = pdfMgr
@@ -1077,22 +1171,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				pdfContainer.Refresh()
 				totalPages = 0
 				pageLabel.SetText("No File")
+				updateRemoteState()
 			}
-
-			path := ""
-			if currentPdfMgr != nil && currentSongIdx < len(concert.Items) {
-				if concert.Items[currentSongIdx].FilePath != nil {
-					path = *concert.Items[currentSongIdx].FilePath
-				}
-			}
-			remoteServer.SetState(remote.ConcertState{
-				ConcertName:    concert.Name,
-				CurrentItemIdx: currentSongIdx,
-				CurrentPage:    currentPage,
-				TotalPages:     totalPages,
-				IsTimerRunning: isTimerRunning,
-				CurrentPDFPath: path,
-			})
 		}
 
 		exitConcertBtn = widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
@@ -1151,17 +1231,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		var setlistDialog dialog.Dialog
 		setlistBtn := widget.NewButtonWithIcon("Setlist", theme.ListIcon(), func() {
 			var items []fyne.CanvasObject
-			for i, item := range concert.Items {
+			for i, title := range setlistTitles {
 				idx := i
-				var title string
-				if item.ScoreName != nil {
-					title = *item.ScoreName
-				} else if item.BreakMin != nil {
-					title = fmt.Sprintf("Break (%d min)", *item.BreakMin)
-				} else {
-					title = "Unknown Item"
-				}
-
 				btn := widget.NewButton(fmt.Sprintf("%d. %s", idx+1, title), func() {
 					if syncMode == 1 {
 						autoFollow = false
@@ -1247,14 +1318,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		)
 
 		topRightControls := container.NewHBox(
-			topSyncControls,
-			widget.NewSeparator(),
-			metroIndicatorContainer,
-			widget.NewLabel(" "),
-			concertClockLabel,
-			widget.NewLabel(" "),
-			prevSongBtn,
-			nextSongBtn,
+			topSyncControls, widget.NewSeparator(), metroIndicatorContainer,
+			widget.NewLabel(" "), concertClockLabel, widget.NewLabel(" "),
+			prevSongBtn, nextSongBtn,
 		)
 		topBar := container.NewBorder(nil, nil, exitConcertBtn, topRightControls, songTitleLabel)
 
@@ -1264,11 +1330,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		})
 		viewer.Content.Objects = []fyne.CanvasObject{pdfContainer}
 
-		mainView := container.NewBorder(
-			container.NewPadded(topBar),
-			nil, nil,
-			container.NewPadded(rightSidebar),
-			viewer,
+		mainView := container.NewMax(
+			container.NewBorder(container.NewPadded(topBar), nil, nil, container.NewPadded(rightSidebar), viewer),
+			lockOverlay,
 		)
 
 		contentWrapper.Objects = []fyne.CanvasObject{mainView}

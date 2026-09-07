@@ -19,6 +19,9 @@ enum ActionType {
   PREV_ITEM = 7;
   TOGGLE_TIMER = 8;
   BROADCAST_INFO = 9;
+  LOCK_SCREEN = 10;
+  UNLOCK_SCREEN = 11;
+  JUMP_TO_ITEM = 12;
 }
 
 message SyncRequest {

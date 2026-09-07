@@ -34,21 +34,27 @@ const (
 	ActionType_PREV_ITEM      ActionType = 7
 	ActionType_TOGGLE_TIMER   ActionType = 8
 	ActionType_BROADCAST_INFO ActionType = 9
+	ActionType_LOCK_SCREEN    ActionType = 10
+	ActionType_UNLOCK_SCREEN  ActionType = 11
+	ActionType_JUMP_TO_ITEM   ActionType = 12
 )
 
 // Enum value maps for ActionType.
 var (
 	ActionType_name = map[int32]string{
-		0: "UNKNOWN_ACTION",
-		1: "STATE_UPDATE",
-		2: "METRONOME_TICK",
-		3: "STOP_LEADING",
-		4: "NEXT_PAGE",
-		5: "PREV_PAGE",
-		6: "NEXT_ITEM",
-		7: "PREV_ITEM",
-		8: "TOGGLE_TIMER",
-		9: "BROADCAST_INFO",
+		0:  "UNKNOWN_ACTION",
+		1:  "STATE_UPDATE",
+		2:  "METRONOME_TICK",
+		3:  "STOP_LEADING",
+		4:  "NEXT_PAGE",
+		5:  "PREV_PAGE",
+		6:  "NEXT_ITEM",
+		7:  "PREV_ITEM",
+		8:  "TOGGLE_TIMER",
+		9:  "BROADCAST_INFO",
+		10: "LOCK_SCREEN",
+		11: "UNLOCK_SCREEN",
+		12: "JUMP_TO_ITEM",
 	}
 	ActionType_value = map[string]int32{
 		"UNKNOWN_ACTION": 0,
@@ -61,6 +67,9 @@ var (
 		"PREV_ITEM":      7,
 		"TOGGLE_TIMER":   8,
 		"BROADCAST_INFO": 9,
+		"LOCK_SCREEN":    10,
+		"UNLOCK_SCREEN":  11,
+		"JUMP_TO_ITEM":   12,
 	}
 )
 
@@ -338,7 +347,7 @@ const file_contracts_proto_sync_service_proto_rawDesc = "" +
 	"\tis_leader\x18\b \x01(\bR\bisLeader\x12!\n" +
 	"\ftimestamp_ms\x18\t \x01(\x03R\vtimestampMs\x12\x18\n" +
 	"\apayload\x18\n" +
-	" \x01(\tR\apayload*\xba\x01\n" +
+	" \x01(\tR\apayload*\xf0\x01\n" +
 	"\n" +
 	"ActionType\x12\x12\n" +
 	"\x0eUNKNOWN_ACTION\x10\x00\x12\x10\n" +
@@ -350,7 +359,11 @@ const file_contracts_proto_sync_service_proto_rawDesc = "" +
 	"\tNEXT_ITEM\x10\x06\x12\r\n" +
 	"\tPREV_ITEM\x10\a\x12\x10\n" +
 	"\fTOGGLE_TIMER\x10\b\x12\x12\n" +
-	"\x0eBROADCAST_INFO\x10\t2y\n" +
+	"\x0eBROADCAST_INFO\x10\t\x12\x0f\n" +
+	"\vLOCK_SCREEN\x10\n" +
+	"\x12\x11\n" +
+	"\rUNLOCK_SCREEN\x10\v\x12\x10\n" +
+	"\fJUMP_TO_ITEM\x10\f2y\n" +
 	"\x0fLiveSyncService\x12f\n" +
 	"\x11SyncConcertStream\x12%.digital_music_stand.sync.SyncRequest\x1a&.digital_music_stand.sync.SyncResponse(\x010\x01BFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpbb\x06proto3"
 
