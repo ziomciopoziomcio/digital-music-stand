@@ -80,7 +80,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	wsMgr := webserver.NewManager(scoresPath)
 	wsMgr.Start(8088)
 
-	remoteServer := remote.NewServer(8089)
+	remoteServer := remote.NewServer(8089, dbMgr)
 	remoteServer.Start()
 
 	netMgr, pwrMgr, medMgr, devMgr := InitManagers()
