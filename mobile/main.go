@@ -12,7 +12,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
@@ -41,9 +40,13 @@ func main() {
 
 	showLogin = func() {
 		serverEntry := widget.NewEntry()
+		serverEntry.SetPlaceHolder("localhost:50051")
 		serverEntry.SetText(myApp.Preferences().StringWithFallback("server", "localhost:50051"))
+
 		emailEntry := widget.NewEntry()
+		emailEntry.SetPlaceHolder("Email")
 		emailEntry.SetText(myApp.Preferences().String("email"))
+
 		passEntry := widget.NewPasswordEntry()
 		passEntry.SetPlaceHolder("Password")
 
@@ -59,7 +62,7 @@ func main() {
 				conn, err := grpc.NewClient(server, grpc.WithTransportCredentials(insecure.NewCredentials()))
 				if err != nil {
 					progress.Hide()
-					dialog.ShowError(err, myWindow)
+					dialog.ShowError(fmt.Errorf("connection failed: %v", err), myWindow)
 					return
 				}
 				defer conn.Close()
@@ -68,14 +71,19 @@ func main() {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
 
-				resp, err := client.LoginUser(ctx, &userpb.LoginUserRequest{Email: emailEntry.Text, Password: passEntry.Text})
+				resp, err := client.LoginUser(ctx, &userpb.LoginUserRequest{
+					Email:    emailEntry.Text,
+					Password: passEntry.Text,
+				})
 				progress.Hide()
+
 				if err != nil {
 					dialog.ShowInformation("Login Failed", "Invalid credentials or server unreachable.", myWindow)
 					return
 				}
 
 				myApp.Preferences().SetString("token", resp.GetToken())
+
 				autoDiscover(server, resp.GetToken())
 			}()
 		})
@@ -86,10 +94,13 @@ func main() {
 		})
 
 		form := container.NewVScroll(container.NewVBox(
-			widget.NewLabelWithStyle("DMS Pilot", fyne.TextAlignCenter, fyne.TextStyle{Bold: true, Italic: true}),
+			widget.NewLabelWithStyle("Digital Music Stand", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewLabelWithStyle("Remote Pilot", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
 			widget.NewSeparator(),
 			widget.NewLabelWithStyle("Cloud Auto-Discovery:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			serverEntry, emailEntry, passEntry,
+			widget.NewLabel("Server Address:"), serverEntry,
+			widget.NewLabel("Email:"), emailEntry,
+			widget.NewLabel("Password:"), passEntry,
 			widget.NewLabel(""),
 			loginBtn,
 			widget.NewSeparator(),
@@ -103,6 +114,7 @@ func main() {
 		ipEntry := widget.NewEntry()
 		ipEntry.SetPlaceHolder("e.g. 192.168.1.50")
 		ipEntry.SetText(myApp.Preferences().String("local_ip"))
+
 		pinEntry := widget.NewEntry()
 		pinEntry.SetPlaceHolder("4-digit PIN")
 		pinEntry.SetText(myApp.Preferences().String("local_pin"))
@@ -114,16 +126,15 @@ func main() {
 		})
 		connectBtn.Importance = widget.HighImportance
 
-		// POPRAWKA: Zmiana ikony na istniejącą w Fyne v2 (SearchIcon)
 		qrBtn := widget.NewButtonWithIcon("Scan QR Code (Camera)", theme.SearchIcon(), func() {
-			dialog.ShowInformation("QR Scanner", "Camera integration is coming soon. Use manual entry for now.", myWindow)
+			dialog.ShowInformation("QR Scanner", "Camera integration is coming soon. Use manual entry.", myWindow)
 		})
 
 		backBtn := widget.NewButtonWithIcon("Back to Login", theme.NavigateBackIcon(), showLogin)
 
 		form := container.NewVBox(
 			widget.NewLabelWithStyle("Manual Local Connection", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			widget.NewLabel("Check your tablet's 'Tools -> Mobile Pilot' for these details."),
+			widget.NewLabel("Check your tablet's 'Tools -> Pair Mobile Pilot' for details."),
 			widget.NewSeparator(),
 			widget.NewLabel("Tablet IP Address:"), ipEntry,
 			widget.NewLabel("PIN Code:"), pinEntry,
@@ -152,10 +163,11 @@ func main() {
 
 			concertClient := concertpb.NewConcertServiceClient(conn)
 			ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+token)
+
 			resp, err := concertClient.ListMyConcerts(ctx, &concertpb.ListMyConcertsRequest{})
 			if err != nil || len(resp.GetConcerts()) == 0 {
 				progress.Hide()
-				dialog.ShowInformation("No Concerts", "You don't have any concerts to connect to.", myWindow)
+				dialog.ShowInformation("No Concerts", "You don't have any active concerts to connect to.", myWindow)
 				return
 			}
 
@@ -217,19 +229,17 @@ func main() {
 					showPilot(server, token, res[0], res[1], res[2])
 				} else {
 					showManualConnect()
-					dialog.ShowInformation("Not Found", "No active tablet found on the server. Connect manually.", myWindow)
+					dialog.ShowInformation("Not Found", "No active tablet found on the server. Connect manually if on local network.", myWindow)
 				}
 			}
 		}()
 	}
 
-	showPilot = func(server, token, concertID, localIP, pin string) {
-		infoLabel := widget.NewLabelWithStyle("Connecting...", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	showPilot = func(server, token, concertID, localIP, localPIN string) {
+		concertInfoLabel := widget.NewLabelWithStyle("Fetching concert data...", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+		pageInfoLabel := widget.NewLabelWithStyle("Page - / -", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 
-		// POPRAWKA: Używamy canvas.Text do kolorowania zamiast widget.Label
-		connLabel := canvas.NewText("Route: Unknown", theme.DisabledColor())
-		connLabel.Alignment = fyne.TextAlignCenter
-		connLabel.TextStyle = fyne.TextStyle{Italic: true}
+		connStatusLabel := widget.NewLabelWithStyle("Status: Connecting...", fyne.TextAlignCenter, fyne.TextStyle{})
 
 		var syncConn *grpc.ClientConn
 		var syncClient syncpb.LiveSyncServiceClient
@@ -239,30 +249,30 @@ func main() {
 			if syncConn != nil {
 				syncClient = syncpb.NewLiveSyncServiceClient(syncConn)
 				ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+token)
-				// Połączenie z chmurą
 				syncClient.SyncConcertStream(ctx)
 			}
 		}
 
-		httpClient := &http.Client{Timeout: 500 * time.Millisecond}
+		httpClient := &http.Client{Timeout: 800 * time.Millisecond}
+		stopPolling := make(chan struct{})
 
 		sendCommand := func(actionStr string, grpcAction syncpb.ActionType) {
-			if localIP != "" && pin != "" {
+			success := false
+
+			if localIP != "" && localPIN != "" {
 				url := fmt.Sprintf("http://%s:8089/api/command", localIP)
 				payload, _ := json.Marshal(map[string]interface{}{"action": actionStr, "value": 0})
 				req, _ := http.NewRequest("POST", url, bytes.NewBuffer(payload))
-				req.Header.Set("X-Remote-PIN", pin)
+				req.Header.Set("X-Remote-PIN", localPIN)
 
 				resp, err := httpClient.Do(req)
 				if err == nil && resp.StatusCode == 200 {
-					connLabel.Text = "Route: Local Wi-Fi (Fast)"
-					connLabel.Color = theme.SuccessColor()
-					connLabel.Refresh()
-					return
+					success = true
+					connStatusLabel.SetText("Route: Local Wi-Fi (Fast)")
 				}
 			}
 
-			if syncClient != nil {
+			if !success && syncClient != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 				defer cancel()
 				ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token)
@@ -274,55 +284,68 @@ func main() {
 						Action:    grpcAction,
 						IsLeader:  true,
 					})
-					connLabel.Text = "Route: Cloud (Fallback)"
-					connLabel.Color = theme.WarningColor()
-					connLabel.Refresh()
-					return
+					success = true
+					connStatusLabel.SetText("Route: Cloud (Fallback)")
 				}
 			}
 
-			connLabel.Text = "Route: Offline / Unreachable"
-			connLabel.Color = theme.ErrorColor()
-			connLabel.Refresh()
+			if !success {
+				connStatusLabel.SetText("Route: Offline / Unreachable")
+			}
 		}
 
-		prevItemBtn := widget.NewButtonWithIcon("Prev Item", theme.MediaSkipPreviousIcon(), func() { sendCommand("PREV_ITEM", syncpb.ActionType_PREV_ITEM) })
-		nextItemBtn := widget.NewButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() { sendCommand("NEXT_ITEM", syncpb.ActionType_NEXT_ITEM) })
-		prevPageBtn := widget.NewButtonWithIcon("Prev Page", theme.NavigateBackIcon(), func() { sendCommand("PREV_PAGE", syncpb.ActionType_PREV_PAGE) })
-		nextPageBtn := widget.NewButtonWithIcon("Next Page", theme.NavigateNextIcon(), func() { sendCommand("NEXT_PAGE", syncpb.ActionType_NEXT_PAGE) })
-
+		prevPageBtn := widget.NewButtonWithIcon("PREV PAGE", theme.NavigateBackIcon(), func() { sendCommand("PREV_PAGE", syncpb.ActionType_PREV_PAGE) })
+		nextPageBtn := widget.NewButtonWithIcon("NEXT PAGE", theme.NavigateNextIcon(), func() { sendCommand("NEXT_PAGE", syncpb.ActionType_NEXT_PAGE) })
 		prevPageBtn.Importance = widget.HighImportance
 		nextPageBtn.Importance = widget.HighImportance
 
-		grid := container.NewGridWithColumns(2, prevItemBtn, nextItemBtn, prevPageBtn, nextPageBtn)
+		navGrid := container.NewGridWithColumns(2, prevPageBtn, nextPageBtn)
 
-		toolsGrid := container.NewGridWithColumns(2,
-			widget.NewButtonWithIcon("Timer", theme.HistoryIcon(), func() { sendCommand("TOGGLE_TIMER", syncpb.ActionType_TOGGLE_TIMER) }),
-			widget.NewButtonWithIcon("Lock Tablet", theme.LogoutIcon(), func() { sendCommand("LOCK_SCREEN", syncpb.ActionType_UNKNOWN_ACTION) }),
-		)
+		prevItemBtn := widget.NewButtonWithIcon("Prev Item", theme.MediaSkipPreviousIcon(), func() { sendCommand("PREV_ITEM", syncpb.ActionType_PREV_ITEM) })
+		nextItemBtn := widget.NewButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() { sendCommand("NEXT_ITEM", syncpb.ActionType_NEXT_ITEM) })
+		timerBtn := widget.NewButtonWithIcon("Toggle Timer", theme.HistoryIcon(), func() { sendCommand("TOGGLE_TIMER", syncpb.ActionType_TOGGLE_TIMER) })
+		lockBtn := widget.NewButtonWithIcon("Lock Tablet", theme.LogoutIcon(), func() { sendCommand("LOCK_SCREEN", syncpb.ActionType_UNKNOWN_ACTION) })
+
+		toolsGrid := container.NewGridWithColumns(2, prevItemBtn, nextItemBtn, timerBtn, lockBtn)
 
 		go func() {
-			for {
-				time.Sleep(1 * time.Second)
-				if localIP == "" {
-					continue
-				}
+			ticker := time.NewTicker(1 * time.Second)
+			defer ticker.Stop()
 
-				req, _ := http.NewRequest("GET", fmt.Sprintf("http://%s:8089/api/state", localIP), nil)
-				req.Header.Set("X-Remote-PIN", pin)
-				if resp, err := httpClient.Do(req); err == nil && resp.StatusCode == 200 {
-					var state map[string]interface{}
-					if json.NewDecoder(resp.Body).Decode(&state) == nil {
-						name := state["concert_name"].(string)
-						page := int(state["current_page"].(float64))
-						total := int(state["total_pages"].(float64))
-						infoLabel.SetText(fmt.Sprintf("%s\nPage %d / %d", name, page+1, total))
+			for {
+				select {
+				case <-stopPolling:
+					return
+				case <-ticker.C:
+					if localIP == "" || localPIN == "" {
+						continue
+					}
+
+					url := fmt.Sprintf("http://%s:8089/api/state", localIP)
+					req, _ := http.NewRequest("GET", url, nil)
+					req.Header.Set("X-Remote-PIN", localPIN)
+
+					if resp, err := httpClient.Do(req); err == nil && resp.StatusCode == 200 {
+						var state map[string]interface{}
+						if err := json.NewDecoder(resp.Body).Decode(&state); err == nil {
+							name := state["concert_name"].(string)
+							page := int(state["current_page"].(float64))
+							total := int(state["total_pages"].(float64))
+
+							concertInfoLabel.SetText(name)
+							if total > 0 {
+								pageInfoLabel.SetText(fmt.Sprintf("Page %d of %d", page+1, total))
+							} else {
+								pageInfoLabel.SetText("Break / No Score")
+							}
+						}
 					}
 				}
 			}
 		}()
 
 		disconnectBtn := widget.NewButtonWithIcon("Disconnect", theme.CancelIcon(), func() {
+			close(stopPolling)
 			if syncConn != nil {
 				syncConn.Close()
 			}
@@ -331,10 +354,18 @@ func main() {
 		disconnectBtn.Importance = widget.DangerImportance
 
 		layoutWrapper := container.NewVBox(
-			infoLabel, connLabel,
-			widget.NewSeparator(), widget.NewLabel(""),
-			grid, widget.NewLabel(""), toolsGrid,
-			layout.NewSpacer(), widget.NewSeparator(), disconnectBtn,
+			widget.NewLabelWithStyle("Current Concert & Score", fyne.TextAlignCenter, fyne.TextStyle{}),
+			concertInfoLabel,
+			pageInfoLabel,
+			widget.NewSeparator(),
+			connStatusLabel,
+			widget.NewLabel(""),
+			navGrid,
+			widget.NewLabel(""),
+			toolsGrid,
+			layout.NewSpacer(),
+			widget.NewSeparator(),
+			disconnectBtn,
 		)
 		myWindow.SetContent(container.NewPadded(layoutWrapper))
 	}
