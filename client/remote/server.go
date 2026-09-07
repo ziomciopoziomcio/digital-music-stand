@@ -17,17 +17,22 @@ import (
 )
 
 type ConcertState struct {
-	ConcertName    string `json:"concert_name"`
-	CurrentItemIdx int    `json:"current_item_idx"`
-	CurrentPage    int    `json:"current_page"`
-	TotalPages     int    `json:"total_pages"`
-	IsTimerRunning bool   `json:"is_timer_running"`
-	CurrentPDFPath string `json:"-"`
+	ConcertName    string   `json:"concert_name"`
+	CurrentItemIdx int      `json:"current_item_idx"`
+	CurrentPage    int      `json:"current_page"`
+	TotalPages     int      `json:"total_pages"`
+	IsTimerRunning bool     `json:"is_timer_running"`
+	TimerSeconds   int      `json:"timer_seconds"`
+	IsLocked       bool     `json:"is_locked"`
+	Setlist        []string `json:"setlist"`
+	CurrentScoreID string   `json:"current_score_id"`
+	CurrentPDFPath string   `json:"-"`
 }
 
 type Command struct {
-	Action string `json:"action"`
-	Value  int    `json:"value"`
+	Action  string `json:"action"`
+	Value   int    `json:"value"`
+	Payload string `json:"payload"`
 }
 
 type Server struct {
@@ -44,7 +49,7 @@ func NewServer(port int, db *localdb.DBManager) *Server {
 	rand.Seed(time.Now().UnixNano())
 	return &Server{
 		PIN:         fmt.Sprintf("%04d", rand.Intn(10000)),
-		CommandChan: make(chan Command),
+		CommandChan: make(chan Command, 20),
 		port:        port,
 		db:          db,
 	}
