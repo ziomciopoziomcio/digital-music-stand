@@ -44,7 +44,7 @@ func NewServer(port int, db *localdb.DBManager) *Server {
 	rand.Seed(time.Now().UnixNano())
 	return &Server{
 		PIN:         fmt.Sprintf("%04d", rand.Intn(10000)),
-		CommandChan: make(chan Command, 10),
+		CommandChan: make(chan Command),
 		port:        port,
 		db:          db,
 	}
