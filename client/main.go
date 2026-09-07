@@ -14,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/remote"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -78,6 +79,9 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 
 	wsMgr := webserver.NewManager(scoresPath)
 	wsMgr.Start(8088)
+
+	remoteServer := remote.NewServer(8089)
+	remoteServer.Start()
 
 	netMgr, pwrMgr, medMgr, devMgr := InitManagers()
 	mainWrapper := container.NewMax()
@@ -339,7 +343,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 								"Session expiring soon.",
 								func(confirm bool) {
 									if confirm {
-										concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, forceSync, forceSync, prefToken, prefServer)
+										concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, remoteServer, showDashboard, showConcertSetup, forceSync, forceSync, showLockScreen, prefToken, prefServer)
 										mainWrapper.Objects = []fyne.CanvasObject{concertView}
 										mainWrapper.Refresh()
 									}
@@ -351,7 +355,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 			}
 		}
 
-		concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, showDashboard, showConcertSetup, forceSync, forceSync, prefToken, prefServer)
+		concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, remoteServer, showDashboard, showConcertSetup, forceSync, forceSync, showLockScreen, prefToken, prefServer)
 		mainWrapper.Objects = []fyne.CanvasObject{concertView}
 		mainWrapper.Refresh()
 	}
