@@ -278,6 +278,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		var nextPageBtn *widget.Button
 		var handleRemoteCommand func(action string)
 
+		var stopClockOnce sync.Once
+		stopClockChan := make(chan struct{})
+
 		currentSongIdx := 0
 		currentPage := 0
 		totalPages := 0
@@ -725,8 +728,13 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		}
 
 		go func() {
-			for cmd := range remoteServer.CommandChan {
-				handleRemoteCommand(cmd.Action)
+			for {
+				select {
+				case <-stopClockChan:
+					return
+				case cmd := <-remoteServer.CommandChan:
+					handleRemoteCommand(cmd.Action)
+				}
 			}
 		}()
 
@@ -765,7 +773,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		startTime, hasValidStartTime := parseStartTime(concert.StartTime)
 		fallbackStartTime := time.Now()
 
-		stopClockChan := make(chan struct{})
 		go func() {
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
@@ -1098,7 +1105,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				streamMu.Unlock()
 			}
 			stopCurrentTimer()
-			close(stopClockChan)
+
+			stopClockOnce.Do(func() {
+				close(stopClockChan)
+			})
+
 			if metroAudio != nil {
 				metroAudio.Stop()
 				metroAudio.Close()
