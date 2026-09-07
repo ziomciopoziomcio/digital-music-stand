@@ -1,0 +1,50 @@
+name: Build and Release Mobile Pilot
+
+on:
+  push:
+    tags:
+      - 'mobile-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+
+      - name: Prepare monorepo for fyne-cross
+        run: |
+          cp -r contracts mobile/contracts
+          
+          sed -i 's/var AppVersion = .*/var AppVersion = "${{ github.ref_name }}"/g' mobile/main.go
+          
+          cd mobile
+          go mod edit -replace github.com/ziomciopoziomcio/digital-music-stand/contracts=./contracts
+          go mod tidy
+
+      - name: Install fyne-cross
+        run: go install github.com/fyne-io/fyne-cross@latest
+
+      - name: Build Android APK
+        run: |
+          fyne-cross android -dir=mobile -name=dms-pilot -app-id=com.digitalmusicstand.pilot
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            mobile/fyne-cross/bin/android/dms-pilot.apk
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

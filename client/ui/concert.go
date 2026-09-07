@@ -14,6 +14,8 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/remote"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/webserver"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
@@ -25,7 +27,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
 )
 
-func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func(), forceSync func(), prefToken string, prefServer string) *fyne.Container {
+func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remoteServer *remote.Server, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func(), forceSync func(), showLockScreen func(), prefToken string, prefServer string) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var showConcertList func()
@@ -269,6 +271,16 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 		var loadCurrentSong func(startAtEnd bool)
 		var renderPage func()
 
+		var exitConcertBtn *widget.Button
+		var prevSongBtn *widget.Button
+		var nextSongBtn *widget.Button
+		var prevPageBtn *widget.Button
+		var nextPageBtn *widget.Button
+		var handleRemoteCommand func(action string)
+
+		var stopClockOnce sync.Once
+		stopClockChan := make(chan struct{})
+
 		currentSongIdx := 0
 		currentPage := 0
 		totalPages := 0
@@ -462,6 +474,46 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 					break
 				}
 
+				if syncMode == 2 && !previewMode {
+					if msg.GetAction() == syncpb.ActionType_UNKNOWN_ACTION {
+						ip := webserver.GetLocalIP()
+						pin := remoteServer.GetPIN()
+						payload := fmt.Sprintf("%s|%s", ip, pin)
+
+						streamMu.Lock()
+						_ = syncStream.Send(&syncpb.SyncRequest{
+							ConcertId: concert.ID,
+							Action:    syncpb.ActionType_BROADCAST_INFO,
+							Payload:   payload,
+							IsLeader:  true,
+						})
+						streamMu.Unlock()
+					}
+
+					switch msg.GetAction() {
+					case syncpb.ActionType_NEXT_PAGE:
+						if handleRemoteCommand != nil {
+							handleRemoteCommand("NEXT_PAGE")
+						}
+					case syncpb.ActionType_PREV_PAGE:
+						if handleRemoteCommand != nil {
+							handleRemoteCommand("PREV_PAGE")
+						}
+					case syncpb.ActionType_NEXT_ITEM:
+						if handleRemoteCommand != nil {
+							handleRemoteCommand("NEXT_ITEM")
+						}
+					case syncpb.ActionType_PREV_ITEM:
+						if handleRemoteCommand != nil {
+							handleRemoteCommand("PREV_ITEM")
+						}
+					case syncpb.ActionType_TOGGLE_TIMER:
+						if handleRemoteCommand != nil {
+							handleRemoteCommand("TOGGLE_TIMER")
+						}
+					}
+				}
+
 				if msg.GetAction() == syncpb.ActionType_STOP_LEADING {
 					leaderAvailable = false
 					if syncMode == 1 {
@@ -643,6 +695,49 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 		updateSyncUI(nil)
 		go startSyncBackground()
 
+		handleRemoteCommand = func(action string) {
+			switch action {
+			case "NEXT_PAGE":
+				if nextPageBtn != nil {
+					nextPageBtn.OnTapped()
+				}
+			case "PREV_PAGE":
+				if prevPageBtn != nil {
+					prevPageBtn.OnTapped()
+				}
+			case "NEXT_ITEM":
+				if nextSongBtn != nil {
+					nextSongBtn.OnTapped()
+				}
+			case "PREV_ITEM":
+				if prevSongBtn != nil {
+					prevSongBtn.OnTapped()
+				}
+			case "TOGGLE_TIMER":
+				if startPauseBtn != nil {
+					startPauseBtn.OnTapped()
+				}
+			case "LOCK_SCREEN":
+				if exitConcertBtn != nil {
+					exitConcertBtn.OnTapped()
+				}
+				if showLockScreen != nil {
+					showLockScreen()
+				}
+			}
+		}
+
+		go func() {
+			for {
+				select {
+				case <-stopClockChan:
+					return
+				case cmd := <-remoteServer.CommandChan:
+					handleRemoteCommand(cmd.Action)
+				}
+			}
+		}()
+
 		concertClockLabel := canvas.NewText("--:--:--", theme.ForegroundColor())
 		concertClockLabel.Alignment = fyne.TextAlignCenter
 		concertClockLabel.TextStyle = fyne.TextStyle{Bold: true, Monospace: true}
@@ -678,7 +773,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 		startTime, hasValidStartTime := parseStartTime(concert.StartTime)
 		fallbackStartTime := time.Now()
 
-		stopClockChan := make(chan struct{})
 		go func() {
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
@@ -766,6 +860,21 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			pdfContainer.Objects = []fyne.CanvasObject{canvasImg}
 			pdfContainer.Refresh()
 			pageLabel.SetText(fmt.Sprintf("Page %d / %d", currentPage+1, totalPages))
+
+			path := ""
+			if currentPdfMgr != nil && currentSongIdx < len(concert.Items) {
+				if concert.Items[currentSongIdx].FilePath != nil {
+					path = *concert.Items[currentSongIdx].FilePath
+				}
+			}
+			remoteServer.SetState(remote.ConcertState{
+				ConcertName:    concert.Name,
+				CurrentItemIdx: currentSongIdx,
+				CurrentPage:    currentPage,
+				TotalPages:     totalPages,
+				IsTimerRunning: isTimerRunning,
+				CurrentPDFPath: path,
+			})
 		}
 
 		formatTimerText := func(sec int) string {
@@ -969,9 +1078,24 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				totalPages = 0
 				pageLabel.SetText("No File")
 			}
+
+			path := ""
+			if currentPdfMgr != nil && currentSongIdx < len(concert.Items) {
+				if concert.Items[currentSongIdx].FilePath != nil {
+					path = *concert.Items[currentSongIdx].FilePath
+				}
+			}
+			remoteServer.SetState(remote.ConcertState{
+				ConcertName:    concert.Name,
+				CurrentItemIdx: currentSongIdx,
+				CurrentPage:    currentPage,
+				TotalPages:     totalPages,
+				IsTimerRunning: isTimerRunning,
+				CurrentPDFPath: path,
+			})
 		}
 
-		exitConcertBtn := widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
+		exitConcertBtn = widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
 			if syncMode == 2 && syncStream != nil {
 				streamMu.Lock()
 				_ = syncStream.Send(&syncpb.SyncRequest{
@@ -981,7 +1105,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 				streamMu.Unlock()
 			}
 			stopCurrentTimer()
-			close(stopClockChan)
+
+			stopClockOnce.Do(func() {
+				close(stopClockChan)
+			})
+
 			if metroAudio != nil {
 				metroAudio.Stop()
 				metroAudio.Close()
@@ -997,7 +1125,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 		})
 		exitConcertBtn.Importance = widget.DangerImportance
 
-		prevSongBtn := widget.NewButtonWithIcon("Prev Item", theme.MediaSkipPreviousIcon(), func() {
+		prevSongBtn = widget.NewButtonWithIcon("Prev Item", theme.MediaSkipPreviousIcon(), func() {
 			if syncMode == 1 {
 				autoFollow = false
 			}
@@ -1008,7 +1136,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 			sendStateUpdate()
 			updateSyncUI(nil)
 		})
-		nextSongBtn := widget.NewButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() {
+		nextSongBtn = widget.NewButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() {
 			if syncMode == 1 {
 				autoFollow = false
 			}
@@ -1072,12 +1200,12 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 		setlistBtn.Importance = widget.HighImportance
 
 		toolsBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
-			ShowToolsMenu(w, metroAudio, func(cb func(bool)) {
+			ShowToolsMenu(w, metroAudio, remoteServer, func(cb func(bool)) {
 				dialogBeatCb = cb
 			})
 		})
 
-		prevPageBtn := widget.NewButtonWithIcon("PREV\nPAGE", theme.NavigateBackIcon(), func() {
+		prevPageBtn = widget.NewButtonWithIcon("PREV\nPAGE", theme.NavigateBackIcon(), func() {
 			if syncMode == 1 {
 				autoFollow = false
 			}
@@ -1096,7 +1224,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, goBack
 		})
 		prevPageBtn.Importance = widget.HighImportance
 
-		nextPageBtn := widget.NewButtonWithIcon("NEXT\nPAGE", theme.NavigateNextIcon(), func() {
+		nextPageBtn = widget.NewButtonWithIcon("NEXT\nPAGE", theme.NavigateNextIcon(), func() {
 			if syncMode == 1 {
 				autoFollow = false
 			}

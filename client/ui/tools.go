@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
@@ -8,9 +10,11 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/audio"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/remote"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/webserver"
 )
 
-func ShowToolsMenu(w fyne.Window, metroAudio *audio.MetronomeAudio, setDialogBeatCb func(func(bool))) {
+func ShowToolsMenu(w fyne.Window, metroAudio *audio.MetronomeAudio, remoteServer *remote.Server, setDialogBeatCb func(func(bool))) {
 	var d dialog.Dialog
 
 	tunerBtn := widget.NewButtonWithIcon("Tuner", theme.SettingsIcon(), func() {
@@ -25,6 +29,20 @@ func ShowToolsMenu(w fyne.Window, metroAudio *audio.MetronomeAudio, setDialogBea
 	})
 	metronomeBtn.Importance = widget.HighImportance
 
+	pilotBtn := widget.NewButtonWithIcon("Pair Mobile Pilot", theme.ComputerIcon(), func() {
+		if remoteServer == nil {
+			dialog.ShowInformation("Error", "Remote server is not running.", w)
+			return
+		}
+
+		ip := webserver.GetLocalIP()
+		pin := remoteServer.GetPIN()
+
+		msg := fmt.Sprintf("Enter these details in your mobile app:\n\nIP Address: %s\nPIN Code: %s", ip, pin)
+		dialog.ShowInformation("Mobile Pilot Pairing", msg, w)
+	})
+	pilotBtn.Importance = widget.HighImportance
+
 	closeBtn := widget.NewButtonWithIcon("Close", theme.CancelIcon(), func() {
 		d.Hide()
 	})
@@ -36,6 +54,8 @@ func ShowToolsMenu(w fyne.Window, metroAudio *audio.MetronomeAudio, setDialogBea
 		tunerBtn,
 		widget.NewLabel(""),
 		metronomeBtn,
+		widget.NewLabel(""),
+		pilotBtn,
 		widget.NewLabel(""),
 		widget.NewSeparator(),
 		closeBtn,

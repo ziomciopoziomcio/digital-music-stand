@@ -462,3 +462,9 @@ func (m *DBManager) ResolveNotification(id, newStatus string) error {
 	_, err := m.db.Exec("UPDATE notifications SET status = ? WHERE id = ?", newStatus, id)
 	return err
 }
+
+func (m *DBManager) GetScoreFilePath(id string) (string, error) {
+	var filePath string
+	err := m.db.QueryRow("SELECT file_path FROM scores WHERE id = ?", id).Scan(&filePath)
+	return filePath, err
+}

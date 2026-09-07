@@ -28,6 +28,12 @@ const (
 	ActionType_STATE_UPDATE   ActionType = 1
 	ActionType_METRONOME_TICK ActionType = 2
 	ActionType_STOP_LEADING   ActionType = 3
+	ActionType_NEXT_PAGE      ActionType = 4
+	ActionType_PREV_PAGE      ActionType = 5
+	ActionType_NEXT_ITEM      ActionType = 6
+	ActionType_PREV_ITEM      ActionType = 7
+	ActionType_TOGGLE_TIMER   ActionType = 8
+	ActionType_BROADCAST_INFO ActionType = 9
 )
 
 // Enum value maps for ActionType.
@@ -37,12 +43,24 @@ var (
 		1: "STATE_UPDATE",
 		2: "METRONOME_TICK",
 		3: "STOP_LEADING",
+		4: "NEXT_PAGE",
+		5: "PREV_PAGE",
+		6: "NEXT_ITEM",
+		7: "PREV_ITEM",
+		8: "TOGGLE_TIMER",
+		9: "BROADCAST_INFO",
 	}
 	ActionType_value = map[string]int32{
 		"UNKNOWN_ACTION": 0,
 		"STATE_UPDATE":   1,
 		"METRONOME_TICK": 2,
 		"STOP_LEADING":   3,
+		"NEXT_PAGE":      4,
+		"PREV_PAGE":      5,
+		"NEXT_ITEM":      6,
+		"PREV_ITEM":      7,
+		"TOGGLE_TIMER":   8,
+		"BROADCAST_INFO": 9,
 	}
 )
 
@@ -82,6 +100,7 @@ type SyncRequest struct {
 	TimerSeconds  uint32                 `protobuf:"varint,5,opt,name=timer_seconds,json=timerSeconds,proto3" json:"timer_seconds,omitempty"`
 	IsAccent      bool                   `protobuf:"varint,6,opt,name=is_accent,json=isAccent,proto3" json:"is_accent,omitempty"`
 	IsLeader      bool                   `protobuf:"varint,7,opt,name=is_leader,json=isLeader,proto3" json:"is_leader,omitempty"`
+	Payload       string                 `protobuf:"bytes,8,opt,name=payload,proto3" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -165,6 +184,13 @@ func (x *SyncRequest) GetIsLeader() bool {
 	return false
 }
 
+func (x *SyncRequest) GetPayload() string {
+	if x != nil {
+		return x.Payload
+	}
+	return ""
+}
+
 type SyncResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ConcertId     string                 `protobuf:"bytes,1,opt,name=concert_id,json=concertId,proto3" json:"concert_id,omitempty"`
@@ -176,6 +202,7 @@ type SyncResponse struct {
 	IsAccent      bool                   `protobuf:"varint,7,opt,name=is_accent,json=isAccent,proto3" json:"is_accent,omitempty"`
 	IsLeader      bool                   `protobuf:"varint,8,opt,name=is_leader,json=isLeader,proto3" json:"is_leader,omitempty"`
 	TimestampMs   int64                  `protobuf:"varint,9,opt,name=timestamp_ms,json=timestampMs,proto3" json:"timestamp_ms,omitempty"`
+	Payload       string                 `protobuf:"bytes,10,opt,name=payload,proto3" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -273,11 +300,18 @@ func (x *SyncResponse) GetTimestampMs() int64 {
 	return 0
 }
 
+func (x *SyncResponse) GetPayload() string {
+	if x != nil {
+		return x.Payload
+	}
+	return ""
+}
+
 var File_contracts_proto_sync_service_proto protoreflect.FileDescriptor
 
 const file_contracts_proto_sync_service_proto_rawDesc = "" +
 	"\n" +
-	"\"contracts/proto/sync_service.proto\x12\x18digital_music_stand.sync\"\x89\x02\n" +
+	"\"contracts/proto/sync_service.proto\x12\x18digital_music_stand.sync\"\xa3\x02\n" +
 	"\vSyncRequest\x12\x1d\n" +
 	"\n" +
 	"concert_id\x18\x01 \x01(\tR\tconcertId\x12<\n" +
@@ -288,7 +322,8 @@ const file_contracts_proto_sync_service_proto_rawDesc = "" +
 	"item_index\x18\x04 \x01(\rR\titemIndex\x12#\n" +
 	"\rtimer_seconds\x18\x05 \x01(\rR\ftimerSeconds\x12\x1b\n" +
 	"\tis_accent\x18\x06 \x01(\bR\bisAccent\x12\x1b\n" +
-	"\tis_leader\x18\a \x01(\bR\bisLeader\"\xca\x02\n" +
+	"\tis_leader\x18\a \x01(\bR\bisLeader\x12\x18\n" +
+	"\apayload\x18\b \x01(\tR\apayload\"\xe4\x02\n" +
 	"\fSyncResponse\x12\x1d\n" +
 	"\n" +
 	"concert_id\x18\x01 \x01(\tR\tconcertId\x12\x1b\n" +
@@ -301,13 +336,21 @@ const file_contracts_proto_sync_service_proto_rawDesc = "" +
 	"\rtimer_seconds\x18\x06 \x01(\rR\ftimerSeconds\x12\x1b\n" +
 	"\tis_accent\x18\a \x01(\bR\bisAccent\x12\x1b\n" +
 	"\tis_leader\x18\b \x01(\bR\bisLeader\x12!\n" +
-	"\ftimestamp_ms\x18\t \x01(\x03R\vtimestampMs*X\n" +
+	"\ftimestamp_ms\x18\t \x01(\x03R\vtimestampMs\x12\x18\n" +
+	"\apayload\x18\n" +
+	" \x01(\tR\apayload*\xba\x01\n" +
 	"\n" +
 	"ActionType\x12\x12\n" +
 	"\x0eUNKNOWN_ACTION\x10\x00\x12\x10\n" +
 	"\fSTATE_UPDATE\x10\x01\x12\x12\n" +
 	"\x0eMETRONOME_TICK\x10\x02\x12\x10\n" +
-	"\fSTOP_LEADING\x10\x032y\n" +
+	"\fSTOP_LEADING\x10\x03\x12\r\n" +
+	"\tNEXT_PAGE\x10\x04\x12\r\n" +
+	"\tPREV_PAGE\x10\x05\x12\r\n" +
+	"\tNEXT_ITEM\x10\x06\x12\r\n" +
+	"\tPREV_ITEM\x10\a\x12\x10\n" +
+	"\fTOGGLE_TIMER\x10\b\x12\x12\n" +
+	"\x0eBROADCAST_INFO\x10\t2y\n" +
 	"\x0fLiveSyncService\x12f\n" +
 	"\x11SyncConcertStream\x12%.digital_music_stand.sync.SyncRequest\x1a&.digital_music_stand.sync.SyncResponse(\x010\x01BFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpbb\x06proto3"
 
