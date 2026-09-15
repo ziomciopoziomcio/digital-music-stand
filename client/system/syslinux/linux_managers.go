@@ -263,3 +263,38 @@ func (m *LinuxStorageManager) GetMountedUSBDrives() ([]string, error) {
 	}
 	return drives, nil
 }
+
+func (m *LinuxNetworkManager) ConnectHiddenWiFi(ssid, password string) error {
+	var cmd *exec.Cmd
+	if password != "" {
+		cmd = exec.Command("nmcli", "device", "wifi", "connect", ssid, "password", password, "hidden", "yes")
+	} else {
+		cmd = exec.Command("nmcli", "device", "wifi", "connect", ssid, "hidden", "yes")
+	}
+	return cmd.Run()
+}
+
+func (m *LinuxNetworkManager) GetEthernetStatus() (bool, error) {
+	cmd := exec.Command("nmcli", "-t", "-f", "TYPE,STATE", "dev")
+	out, err := cmd.Output()
+	if err != nil {
+		return false, err
+	}
+
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "ethernet:connected") {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (m *LinuxNetworkManager) SetDHCP(interfaceName string, enabled bool) error {
+	method := "manual"
+	if enabled {
+		method = "auto"
+	}
+	cmd := exec.Command("nmcli", "con", "modify", interfaceName, "ipv4.method", method)
+	return cmd.Run()
+}
