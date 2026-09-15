@@ -166,6 +166,95 @@ func (m *WindowsNetworkManager) ConnectWiFi(ssid, password string) error {
 	return <-errChan
 }
 
+func (m *WindowsNetworkManager) ConnectHiddenWiFi(ssid, password string) error {
+	log.Printf("Attempting to connect to hidden WiFi: %s...", ssid)
+	errChan := make(chan error, 1)
+
+	go func() {
+		xmlProfile := fmt.Sprintf(`<?xml version="1.0"?>
+<WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
+    <name>%[1]s</name>
+    <SSIDConfig>
+        <SSID>
+            <name>%[1]s</name>
+        </SSID>
+        <nonBroadcast>true</nonBroadcast>
+    </SSIDConfig>
+    <connectionType>ESS</connectionType>
+    <connectionMode>auto</connectionMode>
+    <MSM>
+        <security>
+            <authEncryption>
+                <authentication>WPA2PSK</authentication>
+                <encryption>AES</encryption>
+                <useOneX>false</useOneX>
+            </authEncryption>
+            <sharedKey>
+                <keyType>passPhrase</keyType>
+                <protected>false</protected>
+                <keyMaterial>%[2]s</keyMaterial>
+            </sharedKey>
+        </security>
+    </MSM>
+</WLANProfile>`, ssid, password)
+
+		tmpFile, err := os.CreateTemp("", "hidden-wifi-*.xml")
+		if err != nil {
+			errChan <- fmt.Errorf("could not create temp xml file: %v", err)
+			return
+		}
+		tmpName := tmpFile.Name()
+		defer os.Remove(tmpName)
+
+		if _, err := tmpFile.WriteString(xmlProfile); err != nil {
+			tmpFile.Close()
+			errChan <- err
+			return
+		}
+		tmpFile.Close()
+
+		addCmd := newHiddenCmd("netsh", "wlan", "add", "profile", fmt.Sprintf("filename=%s", tmpName))
+		if err := addCmd.Run(); err != nil {
+			errChan <- fmt.Errorf("failed to add hidden wifi profile via netsh: %v", err)
+			return
+		}
+
+		connCmd := newHiddenCmd("netsh", "wlan", "connect", fmt.Sprintf("name=%s", ssid))
+		if err := connCmd.Run(); err != nil {
+			errChan <- fmt.Errorf("failed to execute hidden connection: %v", err)
+			return
+		}
+
+		m.status = system.StatusConnected
+		log.Printf("Successfully connected to hidden WiFi: %s", ssid)
+		errChan <- nil
+	}()
+
+	return <-errChan
+}
+
+func (m *WindowsNetworkManager) GetEthernetStatus() (bool, error) {
+	cmd := newHiddenCmd("netsh", "interface", "show", "interface")
+	out, err := cmd.Output()
+	if err != nil {
+		return false, err
+	}
+	outStr := strings.ToLower(string(out))
+	if strings.Contains(outStr, "ethernet") && (strings.Contains(outStr, "connected") || strings.Contains(outStr, "połączony")) {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (m *WindowsNetworkManager) SetDHCP(interfaceName string, enabled bool) error {
+	source := "static"
+	if enabled {
+		source = "dhcp"
+	}
+	cmd := newHiddenCmd("netsh", "interface", "ip", "set", "address", fmt.Sprintf("name=\"%s\"", interfaceName), source)
+	return cmd.Run()
+}
+
 func (m *WindowsNetworkManager) Disconnect() error {
 	log.Println("Disconnecting from WiFi...")
 	go func() {
@@ -322,4 +411,18 @@ func (m *WindowsStorageManager) GetMountedUSBDrives() ([]string, error) {
 		}
 	}
 	return drives, nil
+}
+
+func (m *WindowsNetworkManager) SetStaticIP(interfaceName, ip, mask, gateway, dns string) error {
+	cmdAddr := newHiddenCmd("netsh", "interface", "ip", "set", "address", fmt.Sprintf("name=\"%s\"", interfaceName), "static", ip, mask, gateway)
+	if err := cmdAddr.Run(); err != nil {
+		return err
+	}
+
+	if dns != "" {
+		cmdDNS := newHiddenCmd("netsh", "interface", "ip", "set", "dns", fmt.Sprintf("name=\"%s\"", interfaceName), "static", dns)
+		return cmdDNS.Run()
+	}
+
+	return nil
 }

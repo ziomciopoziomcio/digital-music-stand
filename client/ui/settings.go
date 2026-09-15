@@ -87,7 +87,14 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 	}
 
 	buildNetworkView := func() fyne.CanvasObject {
-		statusLabel := widget.NewLabel(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
+		ethConnected, _ := netMgr.GetEthernetStatus()
+		ethStatusText := "Ethernet: Disconnected"
+		if ethConnected {
+			ethStatusText = "Ethernet: Connected (Ready)"
+		}
+		ethLabel := widget.NewLabelWithStyle(ethStatusText, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+		statusLabel := widget.NewLabel(fmt.Sprintf("Wi-Fi Status: %s", netMgr.GetNetworkStatus()))
 		listContainer := container.NewVBox()
 
 		refreshNetworks := func() {
@@ -146,17 +153,108 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		refreshBtn := widget.NewButtonWithIcon("Scan Networks", theme.SearchIcon(), refreshNetworks)
 		refreshBtn.Importance = widget.HighImportance
 
+		addHiddenBtn := widget.NewButtonWithIcon("Add Hidden Wi-Fi", theme.ContentAddIcon(), func() {
+			ssidEntry := widget.NewEntry()
+			ssidEntry.SetPlaceHolder("Network Name (SSID)")
+
+			passEntry := NewAutoKeyboardPasswordEntry()
+			passEntry.SetPlaceHolder("Password")
+
+			form := container.NewVBox(
+				widget.NewLabel("Connect to a non-broadcasted network:"),
+				ssidEntry,
+				passEntry,
+			)
+
+			dialog.ShowCustomConfirm("Add Hidden Network", "Connect", "Cancel", form, func(confirm bool) {
+				if confirm && ssidEntry.Text != "" {
+					err := netMgr.ConnectHiddenWiFi(ssidEntry.Text, passEntry.Text)
+					if err != nil {
+						dialog.ShowError(fmt.Errorf("Failed to connect: %v", err), w)
+					}
+					refreshNetworks()
+				}
+			}, w)
+		})
+		addHiddenBtn.Importance = widget.WarningImportance
+
 		disconnectBtn := widget.NewButtonWithIcon("Disconnect", theme.CancelIcon(), func() {
 			_ = netMgr.Disconnect()
 			statusLabel.SetText(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
 		})
 		disconnectBtn.Importance = widget.DangerImportance
 
-		topBar := container.NewHBox(statusLabel, layout.NewSpacer(), disconnectBtn, refreshBtn)
+		dhcpCheckbox := widget.NewCheck("Enable DHCP", nil)
+		dhcpCheckbox.SetChecked(true)
+
+		ipEntry := widget.NewEntry()
+		ipEntry.SetPlaceHolder("192.168.1.100")
+		maskEntry := widget.NewEntry()
+		maskEntry.SetPlaceHolder("255.255.255.0")
+		gatewayEntry := widget.NewEntry()
+		gatewayEntry.SetPlaceHolder("192.168.1.1")
+		dnsEntry := widget.NewEntry()
+		dnsEntry.SetPlaceHolder("8.8.8.8")
+
+		ipEntry.Disable()
+		maskEntry.Disable()
+		gatewayEntry.Disable()
+		dnsEntry.Disable()
+
+		dhcpCheckbox.OnChanged = func(checked bool) {
+			if checked {
+				ipEntry.Disable()
+				maskEntry.Disable()
+				gatewayEntry.Disable()
+				dnsEntry.Disable()
+			} else {
+				ipEntry.Enable()
+				maskEntry.Enable()
+				gatewayEntry.Enable()
+				dnsEntry.Enable()
+			}
+		}
+
+		applyIpBtn := widget.NewButtonWithIcon("Apply IP Config", theme.DocumentSaveIcon(), func() {
+			if dhcpCheckbox.Checked {
+				err := netMgr.SetDHCP("wlan0", true)
+				if err != nil {
+					dialog.ShowError(fmt.Errorf("Failed to set DHCP: %v", err), w)
+				} else {
+					dialog.ShowInformation("Success", "DHCP enabled successfully.", w)
+				}
+			} else {
+				err := netMgr.SetStaticIP("wlan0", ipEntry.Text, maskEntry.Text, gatewayEntry.Text, dnsEntry.Text)
+				if err != nil {
+					dialog.ShowError(fmt.Errorf("Failed to set Static IP: %v", err), w)
+				} else {
+					dialog.ShowInformation("Success", "Static IP applied successfully.", w)
+				}
+			}
+		})
+		applyIpBtn.Importance = widget.HighImportance
+
+		advancedIpForm := container.NewVBox(
+			widget.NewLabelWithStyle("Advanced IP Configuration (wlan0)", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewSeparator(),
+			dhcpCheckbox,
+			widget.NewLabel("IP Address:"), ipEntry,
+			widget.NewLabel("Subnet Mask:"), maskEntry,
+			widget.NewLabel("Gateway:"), gatewayEntry,
+			widget.NewLabel("DNS:"), dnsEntry,
+			widget.NewLabel(""),
+			applyIpBtn,
+		)
+
+		topBar := container.NewVBox(
+			ethLabel,
+			container.NewHBox(statusLabel, layout.NewSpacer(), addHiddenBtn, disconnectBtn, refreshBtn),
+			widget.NewSeparator(),
+		)
 
 		refreshNetworks()
 
-		return container.NewBorder(topBar, nil, nil, nil, container.NewVScroll(listContainer))
+		return container.NewBorder(topBar, nil, nil, nil, container.NewVSplit(container.NewVScroll(listContainer), container.NewVScroll(container.NewPadded(advancedIpForm))))
 	}
 
 	buildMediaView := func() fyne.CanvasObject {

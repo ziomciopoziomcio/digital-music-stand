@@ -19,6 +19,11 @@ func (m *MockNetworkManager) ConnectWiFi(ssid, password string) error {
 	return nil
 }
 
+func (m *MockNetworkManager) ConnectHiddenWiFi(ssid, password string) error {
+	m.Status = system.StatusConnected
+	return nil
+}
+
 func (m *MockNetworkManager) Disconnect() error {
 	m.Status = system.StatusDisconnected
 	return nil
@@ -26,6 +31,18 @@ func (m *MockNetworkManager) Disconnect() error {
 
 func (m *MockNetworkManager) GetNetworkStatus() system.NetworkStatus {
 	return m.Status
+}
+
+func (m *MockNetworkManager) GetEthernetStatus() (bool, error) {
+	return true, nil
+}
+
+func (m *MockNetworkManager) SetDHCP(interfaceName string, enabled bool) error {
+	return nil
+}
+
+func (m *MockNetworkManager) SetStaticIP(interfaceName, ip, mask, gateway, dns string) error {
+	return nil
 }
 
 type MockPowerManager struct {
