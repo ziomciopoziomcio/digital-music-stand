@@ -16,8 +16,11 @@ type Network struct {
 type NetworkManager interface {
 	GetAvailableNetworks() ([]Network, error)
 	ConnectWiFi(ssid, password string) error
+	ConnectHiddenWiFi(ssid, password string) error
 	Disconnect() error
 	GetNetworkStatus() NetworkStatus
+	GetEthernetStatus() (bool, error)
+	SetDHCP(interfaceName string, enabled bool) error
 }
 
 type PowerManager interface {
