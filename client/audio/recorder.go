@@ -166,14 +166,8 @@ func (r *RecorderAudio) PlayRecording(filePath string, onFinish func()) error {
 			return
 		}
 
-		bytesToRead := int(framecount * 2)
+		bytesToRead := len(pOutputSample)
 		if r.playbackOffset >= len(r.playbackData) {
-			go func() {
-				r.StopPlayback()
-				if onFinish != nil {
-					onFinish()
-				}
-			}()
 			for i := range pOutputSample {
 				pOutputSample[i] = 0
 			}
@@ -191,12 +185,17 @@ func (r *RecorderAudio) PlayRecording(filePath string, onFinish func()) error {
 		r.playbackOffset = end
 	}
 
-	r.playDevice, _ = malgo.InitDevice(r.ctx.Context, playConfig, malgo.DeviceCallbacks{
+	device, err := malgo.InitDevice(r.ctx.Context, playConfig, malgo.DeviceCallbacks{
 		Data: onSendFrames,
 	})
 
-	r.playDevice.Start()
-	return nil
+	if err != nil {
+		r.isPlaying = false
+		return err
+	}
+
+	r.playDevice = device
+	return r.playDevice.Start()
 }
 
 func (r *RecorderAudio) stopPlaybackLocked() {

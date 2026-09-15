@@ -20,6 +20,7 @@ import (
 func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.RecorderAudio, scoreID, scoreTitle, profilePath string) {
 	var d dialog.Dialog
 	listContainer := container.NewVBox()
+	var currentRecordPath string
 
 	playerContainer := container.NewVBox()
 	playerContainer.Hide()
@@ -49,6 +50,15 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 		go func() {
 			for range updateTicker.C {
 				playing, paused, currentSec, totalSec, _ := recorder.GetPlaybackState()
+
+				if playing && totalSec > 0 && currentSec >= totalSec {
+					recorder.StopPlayback()
+					playerContainer.Hide()
+					playPauseBtn.SetIcon(theme.MediaPlayIcon())
+					updateTicker.Stop()
+					continue
+				}
+
 				if !playing {
 					playerContainer.Hide()
 					updateTicker.Stop()
@@ -134,13 +144,20 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 			infoLabel := widget.NewLabel(fmt.Sprintf("%s\n%s", titleStr, dateStr))
 
 			playBtn := widget.NewButtonWithIcon("Play", theme.MediaPlayIcon(), nil)
+
+			if recorder.IsRecording() {
+				playBtn.Disable()
+			}
+
 			playBtn.OnTapped = func() {
-				recorder.PlayRecording(rec.FilePath, func() {
-					playerContainer.Hide()
-					if updateTicker != nil {
-						updateTicker.Stop()
-					}
-				})
+				if recorder.IsRecording() {
+					return
+				}
+				err := recorder.PlayRecording(rec.FilePath, nil)
+				if err != nil {
+					dialog.ShowError(err, w)
+					return
+				}
 				nowPlayingLabel.SetText(fmt.Sprintf("Playing: %s", rec.Name))
 				playPauseBtn.SetIcon(theme.MediaPauseIcon())
 				playerContainer.Show()
@@ -196,16 +213,27 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 	toggleBtn.OnTapped = func() {
 		if recorder.IsRecording() {
 			recorder.StopRecording()
+			if currentRecordPath != "" {
+				db.AddRecording(scoreID, "New Recording", "Studio", currentRecordPath)
+				currentRecordPath = ""
+			}
 			toggleBtn.SetText("Start Recording")
 			toggleBtn.SetIcon(theme.MediaRecordIcon())
 			refreshList()
 		} else {
+			if playing, _, _, _, _ := recorder.GetPlaybackState(); playing {
+				recorder.StopPlayback()
+			}
+
 			fileName := fmt.Sprintf("rec_%d", time.Now().Unix())
 			path, err := recorder.StartRecording(profilePath+"/recordings", fileName)
 			if err == nil {
-				db.AddRecording(scoreID, "New Recording", "Studio", path)
+				currentRecordPath = path
 				toggleBtn.SetText("Stop Recording")
 				toggleBtn.SetIcon(theme.MediaStopIcon())
+				refreshList()
+			} else {
+				dialog.ShowError(err, w)
 			}
 		}
 	}
