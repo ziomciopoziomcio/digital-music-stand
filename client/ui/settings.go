@@ -87,7 +87,14 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 	}
 
 	buildNetworkView := func() fyne.CanvasObject {
-		statusLabel := widget.NewLabel(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
+		ethConnected, _ := netMgr.GetEthernetStatus()
+		ethStatusText := "Ethernet: Disconnected"
+		if ethConnected {
+			ethStatusText = "Ethernet: Connected (Ready)"
+		}
+		ethLabel := widget.NewLabelWithStyle(ethStatusText, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+
+		statusLabel := widget.NewLabel(fmt.Sprintf("Wi-Fi Status: %s", netMgr.GetNetworkStatus()))
 		listContainer := container.NewVBox()
 
 		refreshNetworks := func() {
@@ -146,13 +153,42 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		refreshBtn := widget.NewButtonWithIcon("Scan Networks", theme.SearchIcon(), refreshNetworks)
 		refreshBtn.Importance = widget.HighImportance
 
+		addHiddenBtn := widget.NewButtonWithIcon("Add Hidden Wi-Fi", theme.ContentAddIcon(), func() {
+			ssidEntry := widget.NewEntry()
+			ssidEntry.SetPlaceHolder("Network Name (SSID)")
+
+			passEntry := NewAutoKeyboardPasswordEntry()
+			passEntry.SetPlaceHolder("Password")
+
+			form := container.NewVBox(
+				widget.NewLabel("Connect to a non-broadcasted network:"),
+				ssidEntry,
+				passEntry,
+			)
+
+			dialog.ShowCustomConfirm("Add Hidden Network", "Connect", "Cancel", form, func(confirm bool) {
+				if confirm && ssidEntry.Text != "" {
+					err := netMgr.ConnectHiddenWiFi(ssidEntry.Text, passEntry.Text)
+					if err != nil {
+						dialog.ShowError(fmt.Errorf("Failed to connect: %v", err), w)
+					}
+					refreshNetworks()
+				}
+			}, w)
+		})
+		addHiddenBtn.Importance = widget.WarningImportance
+
 		disconnectBtn := widget.NewButtonWithIcon("Disconnect", theme.CancelIcon(), func() {
 			_ = netMgr.Disconnect()
 			statusLabel.SetText(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
 		})
 		disconnectBtn.Importance = widget.DangerImportance
 
-		topBar := container.NewHBox(statusLabel, layout.NewSpacer(), disconnectBtn, refreshBtn)
+		topBar := container.NewVBox(
+			ethLabel,
+			container.NewHBox(statusLabel, layout.NewSpacer(), addHiddenBtn, refreshBtn),
+			widget.NewSeparator(),
+		)
 
 		refreshNetworks()
 
