@@ -298,3 +298,24 @@ func (m *LinuxNetworkManager) SetDHCP(interfaceName string, enabled bool) error 
 	cmd := exec.Command("nmcli", "con", "modify", interfaceName, "ipv4.method", method)
 	return cmd.Run()
 }
+
+func (m *LinuxNetworkManager) SetStaticIP(interfaceName, ip, mask, gateway, dns string) error {
+	addr := fmt.Sprintf("%s/%s", ip, mask)
+
+	args := []string{"con", "modify", interfaceName, "ipv4.method", "manual", "ipv4.addresses", addr}
+
+	if gateway != "" {
+		args = append(args, "ipv4.gateway", gateway)
+	}
+	if dns != "" {
+		args = append(args, "ipv4.dns", dns)
+	}
+
+	cmd := exec.Command("nmcli", args...)
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	exec.Command("nmcli", "con", "up", interfaceName).Run()
+	return nil
+}

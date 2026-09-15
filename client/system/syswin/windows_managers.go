@@ -412,3 +412,17 @@ func (m *WindowsStorageManager) GetMountedUSBDrives() ([]string, error) {
 	}
 	return drives, nil
 }
+
+func (m *WindowsNetworkManager) SetStaticIP(interfaceName, ip, mask, gateway, dns string) error {
+	cmdAddr := newHiddenCmd("netsh", "interface", "ip", "set", "address", fmt.Sprintf("name=\"%s\"", interfaceName), "static", ip, mask, gateway)
+	if err := cmdAddr.Run(); err != nil {
+		return err
+	}
+
+	if dns != "" {
+		cmdDNS := newHiddenCmd("netsh", "interface", "ip", "set", "dns", fmt.Sprintf("name=\"%s\"", interfaceName), "static", dns)
+		return cmdDNS.Run()
+	}
+
+	return nil
+}
