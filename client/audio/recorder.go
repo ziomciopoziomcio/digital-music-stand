@@ -18,9 +18,15 @@ type RecorderAudio struct {
 	mu         sync.Mutex
 
 	isRecording bool
-	isPlaying   bool
-	file        *os.File
-	ticker      *time.Ticker
+
+	isPlaying      bool
+	isPaused       bool
+	playbackFile   string
+	playbackData   []byte
+	playbackOffset int
+
+	file   *os.File
+	ticker *time.Ticker
 
 	OnRecordPulse func(active bool)
 }
@@ -64,7 +70,7 @@ func (r *RecorderAudio) StartRecording(outputDir, fileName string) (string, erro
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if r.isRecording || r.isPlaying {
+	if r.isRecording {
 		return "", nil
 	}
 
@@ -125,17 +131,24 @@ func (r *RecorderAudio) PlayRecording(filePath string, onFinish func()) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if r.isRecording || r.isPlaying {
+	if r.isRecording {
 		return nil
 	}
 
-	fileData, err := os.ReadFile(filePath)
+	if r.isPlaying {
+		r.stopPlaybackLocked()
+	}
+
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
 
+	r.playbackData = data
+	r.playbackOffset = 0
+	r.playbackFile = filePath
 	r.isPlaying = true
-	offset := 0
+	r.isPaused = false
 
 	playConfig := malgo.DefaultDeviceConfig(malgo.Playback)
 	playConfig.Playback.Format = malgo.FormatS16
@@ -143,21 +156,39 @@ func (r *RecorderAudio) PlayRecording(filePath string, onFinish func()) error {
 	playConfig.SampleRate = r.sampleRate
 
 	onSendFrames := func(pOutputSample, pInputSamples []byte, framecount uint32) {
-		bytesToRead := int(framecount * 2)
-		if offset >= len(fileData) {
-			r.StopPlayback()
-			if onFinish != nil {
-				go onFinish()
+		r.mu.Lock()
+		defer r.mu.Unlock()
+
+		if !r.isPlaying || r.isPaused {
+			for i := range pOutputSample {
+				pOutputSample[i] = 0
 			}
 			return
 		}
 
-		end := offset + bytesToRead
-		if end > len(fileData) {
-			end = len(fileData)
+		bytesToRead := int(framecount * 2)
+		if r.playbackOffset >= len(r.playbackData) {
+			go func() {
+				r.StopPlayback()
+				if onFinish != nil {
+					onFinish()
+				}
+			}()
+			for i := range pOutputSample {
+				pOutputSample[i] = 0
+			}
+			return
 		}
-		copy(pOutputSample, fileData[offset:end])
-		offset = end
+
+		end := r.playbackOffset + bytesToRead
+		if end > len(r.playbackData) {
+			end = len(r.playbackData)
+		}
+		copied := copy(pOutputSample, r.playbackData[r.playbackOffset:end])
+		for i := copied; i < len(pOutputSample); i++ {
+			pOutputSample[i] = 0
+		}
+		r.playbackOffset = end
 	}
 
 	r.playDevice, _ = malgo.InitDevice(r.ctx.Context, playConfig, malgo.DeviceCallbacks{
@@ -168,13 +199,72 @@ func (r *RecorderAudio) PlayRecording(filePath string, onFinish func()) error {
 	return nil
 }
 
-func (r *RecorderAudio) StopPlayback() {
+func (r *RecorderAudio) stopPlaybackLocked() {
 	if r.playDevice != nil {
 		r.playDevice.Stop()
 		r.playDevice.Uninit()
 		r.playDevice = nil
 	}
 	r.isPlaying = false
+	r.isPaused = false
+}
+
+func (r *RecorderAudio) StopPlayback() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.stopPlaybackLocked()
+}
+
+func (r *RecorderAudio) TogglePause() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.isPlaying {
+		r.isPaused = !r.isPaused
+	}
+	return r.isPaused
+}
+
+func (r *RecorderAudio) SeekRelative(seconds float64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.isPlaying {
+		return
+	}
+	bytesOffset := int(seconds*float64(r.sampleRate)) * 2
+	r.playbackOffset += bytesOffset
+	if r.playbackOffset < 0 {
+		r.playbackOffset = 0
+	}
+	if r.playbackOffset >= len(r.playbackData) {
+		r.playbackOffset = len(r.playbackData) - 2
+	}
+}
+
+func (r *RecorderAudio) SeekAbsolute(seconds float64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.isPlaying {
+		return
+	}
+	newOffset := int(seconds*float64(r.sampleRate)) * 2
+	if newOffset < 0 {
+		newOffset = 0
+	}
+	if newOffset >= len(r.playbackData) {
+		newOffset = len(r.playbackData) - 2
+	}
+	r.playbackOffset = newOffset
+}
+
+func (r *RecorderAudio) GetPlaybackState() (playing bool, paused bool, currentSec float64, totalSec float64, filePath string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.isPlaying {
+		return false, false, 0, 0, ""
+	}
+	cSec := float64(r.playbackOffset) / (float64(r.sampleRate) * 2.0)
+	tSec := float64(len(r.playbackData)) / (float64(r.sampleRate) * 2.0)
+	return r.isPlaying, r.isPaused, cSec, tSec, r.playbackFile
 }
 
 func (r *RecorderAudio) Close() {
