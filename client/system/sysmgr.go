@@ -21,6 +21,7 @@ type NetworkManager interface {
 	GetNetworkStatus() NetworkStatus
 	GetEthernetStatus() (bool, error)
 	SetDHCP(interfaceName string, enabled bool) error
+	SetStaticIP(interfaceName, ip, mask, gateway, dns string) error
 }
 
 type PowerManager interface {
