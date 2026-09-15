@@ -3,11 +3,13 @@ package ui
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -18,6 +20,102 @@ import (
 func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.RecorderAudio, scoreID, scoreTitle, profilePath string) {
 	var d dialog.Dialog
 	listContainer := container.NewVBox()
+
+	playerContainer := container.NewVBox()
+	playerContainer.Hide()
+
+	slider := widget.NewSlider(0, 1)
+	timeLabel := widget.NewLabelWithStyle("00:00 / 00:00", fyne.TextAlignCenter, fyne.TextStyle{Monospace: true})
+	nowPlayingLabel := widget.NewLabelWithStyle("Playing: ...", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+	playPauseBtn := widget.NewButtonWithIcon("", theme.MediaPauseIcon(), nil)
+	stopBtn := widget.NewButtonWithIcon("", theme.MediaStopIcon(), nil)
+	rewindBtn := widget.NewButtonWithIcon("-5s", theme.MediaFastRewindIcon(), nil)
+	forwardBtn := widget.NewButtonWithIcon("+5s", theme.MediaFastForwardIcon(), nil)
+
+	var updateTicker *time.Ticker
+	var ignoreSliderChange bool
+
+	formatTime := func(sec float64) string {
+		s := int(sec)
+		return fmt.Sprintf("%02d:%02d", s/60, s%60)
+	}
+
+	startPlayerUIUpdater := func() {
+		if updateTicker != nil {
+			updateTicker.Stop()
+		}
+		updateTicker = time.NewTicker(200 * time.Millisecond)
+		go func() {
+			for range updateTicker.C {
+				playing, paused, currentSec, totalSec, _ := recorder.GetPlaybackState()
+				if !playing {
+					playerContainer.Hide()
+					updateTicker.Stop()
+					continue
+				}
+				if !paused {
+					ignoreSliderChange = true
+					slider.Max = totalSec
+					slider.SetValue(currentSec)
+					ignoreSliderChange = false
+					timeLabel.SetText(fmt.Sprintf("%s / %s", formatTime(currentSec), formatTime(totalSec)))
+				}
+			}
+		}()
+	}
+
+	playPauseBtn.OnTapped = func() {
+		paused := recorder.TogglePause()
+		if paused {
+			playPauseBtn.SetIcon(theme.MediaPlayIcon())
+		} else {
+			playPauseBtn.SetIcon(theme.MediaPauseIcon())
+		}
+	}
+
+	stopBtn.OnTapped = func() {
+		recorder.StopPlayback()
+		playerContainer.Hide()
+		if updateTicker != nil {
+			updateTicker.Stop()
+		}
+	}
+
+	rewindBtn.OnTapped = func() { recorder.SeekRelative(-5.0) }
+	forwardBtn.OnTapped = func() { recorder.SeekRelative(5.0) }
+
+	slider.OnChanged = func(val float64) {
+		if ignoreSliderChange {
+			return
+		}
+		recorder.SeekAbsolute(val)
+	}
+
+	controlsRow := container.NewHBox(layout.NewSpacer(), rewindBtn, playPauseBtn, stopBtn, forwardBtn, layout.NewSpacer())
+	playerContainer.Objects = []fyne.CanvasObject{
+		widget.NewSeparator(),
+		nowPlayingLabel,
+		slider,
+		timeLabel,
+		controlsRow,
+	}
+
+	playing, paused, cur, tot, fpath := recorder.GetPlaybackState()
+	if playing {
+		playerContainer.Show()
+		nowPlayingLabel.SetText(fmt.Sprintf("Playing: %s", filepath.Base(fpath)))
+		ignoreSliderChange = true
+		slider.Max = tot
+		slider.SetValue(cur)
+		ignoreSliderChange = false
+		if paused {
+			playPauseBtn.SetIcon(theme.MediaPlayIcon())
+		} else {
+			playPauseBtn.SetIcon(theme.MediaPauseIcon())
+		}
+		startPlayerUIUpdater()
+	}
 
 	var refreshList func()
 	refreshList = func() {
@@ -35,17 +133,18 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 
 			infoLabel := widget.NewLabel(fmt.Sprintf("%s\n%s", titleStr, dateStr))
 
-			playBtn := widget.NewButtonWithIcon("", theme.MediaPlayIcon(), nil)
+			playBtn := widget.NewButtonWithIcon("Play", theme.MediaPlayIcon(), nil)
 			playBtn.OnTapped = func() {
-				if playBtn.Icon == theme.MediaStopIcon() {
-					recorder.StopPlayback()
-					playBtn.SetIcon(theme.MediaPlayIcon())
-				} else {
-					playBtn.SetIcon(theme.MediaStopIcon())
-					recorder.PlayRecording(rec.FilePath, func() {
-						playBtn.SetIcon(theme.MediaPlayIcon())
-					})
-				}
+				recorder.PlayRecording(rec.FilePath, func() {
+					playerContainer.Hide()
+					if updateTicker != nil {
+						updateTicker.Stop()
+					}
+				})
+				nowPlayingLabel.SetText(fmt.Sprintf("Playing: %s", rec.Name))
+				playPauseBtn.SetIcon(theme.MediaPauseIcon())
+				playerContainer.Show()
+				startPlayerUIUpdater()
 			}
 
 			editBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
@@ -57,7 +156,7 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 				form := container.NewVBox(
 					widget.NewLabel("Name:"), nameEntry,
 					widget.NewLabel("Location:"), locEntry,
-					widget.NewLabel(fmt.Sprintf("Recorded: %s (Uneditable)", dateStr)),
+					widget.NewLabel(fmt.Sprintf("Recorded: %s", dateStr)),
 				)
 
 				dialog.ShowCustomConfirm("Edit Metadata", "Save", "Cancel", form, func(b bool) {
@@ -112,13 +211,20 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 	}
 
 	closeBtn := widget.NewButton("Close", func() {
+		if updateTicker != nil {
+			updateTicker.Stop()
+		}
 		d.Hide()
 	})
+
+	listScroll := container.NewVScroll(listContainer)
+	listScroll.SetMinSize(fyne.NewSize(450, 300))
 
 	content := container.NewVBox(
 		widget.NewLabelWithStyle(fmt.Sprintf("Recordings for: %s", scoreTitle), fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		widget.NewSeparator(),
-		container.NewVScroll(listContainer),
+		listScroll,
+		playerContainer,
 		widget.NewSeparator(),
 		toggleBtn,
 		closeBtn,
@@ -126,7 +232,20 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 
 	refreshList()
 
-	d = dialog.NewCustomWithoutButtons("Dictaphone", container.NewPadded(content), w)
-	d.Resize(fyne.NewSize(500, 600))
+	scrollDialogContent := container.NewVScroll(container.NewPadded(content))
+	d = dialog.NewCustomWithoutButtons("Dictaphone", scrollDialogContent, w)
+
+	winSize := w.Canvas().Size()
+	targetWidth := float32(500)
+	targetHeight := float32(700)
+
+	if winSize.Width < targetWidth {
+		targetWidth = winSize.Width * 0.95
+	}
+	if winSize.Height < targetHeight {
+		targetHeight = winSize.Height * 0.95
+	}
+
+	d.Resize(fyne.NewSize(targetWidth, targetHeight))
 	d.Show()
 }
