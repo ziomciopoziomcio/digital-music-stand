@@ -308,19 +308,18 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		metroIndicatorContainer := container.NewCenter(metroIndicator)
 
 		recorderAudio, _ := audio.NewRecorderAudio()
-		recIndicator := canvas.NewRectangle(theme.ErrorColor())
+		recIndicator := canvas.NewRectangle(color.Transparent)
 		recIndicator.SetMinSize(fyne.NewSize(20, 20))
 		recIndicator.CornerRadius = 10
-		recIndicator.Hide()
 
 		recIndicatorContainer := container.NewCenter(recIndicator)
 
 		if recorderAudio != nil {
 			recorderAudio.OnRecordPulse = func(active bool) {
 				if active {
-					recIndicator.Show()
+					recIndicator.FillColor = theme.ErrorColor()
 				} else {
-					recIndicator.Hide()
+					recIndicator.FillColor = color.Transparent
 				}
 				recIndicator.Refresh()
 			}
