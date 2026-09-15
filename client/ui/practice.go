@@ -39,6 +39,25 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		metroIndicator.SetMinSize(fyne.NewSize(20, 20))
 		metroIndicatorContainer := container.NewCenter(metroIndicator)
 
+		recorderAudio, _ := audio.NewRecorderAudio()
+		recIndicator := canvas.NewRectangle(theme.ErrorColor())
+		recIndicator.SetMinSize(fyne.NewSize(20, 20))
+		recIndicator.CornerRadius = 10
+		recIndicator.Hide()
+
+		recIndicatorContainer := container.NewCenter(recIndicator)
+
+		if recorderAudio != nil {
+			recorderAudio.OnRecordPulse = func(active bool) {
+				if active {
+					recIndicator.Show()
+				} else {
+					recIndicator.Hide()
+				}
+				recIndicator.Refresh()
+			}
+		}
+
 		var dialogBeatCb func(bool)
 		if metroAudio != nil {
 			metroAudio.OnBeat = func(isAccent bool) {
@@ -148,21 +167,23 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 			if pdfMgr != nil {
 				pdfMgr.Close()
 			}
+			if recorderAudio != nil {
+				recorderAudio.Close()
+			}
 			showLibrary()
 		})
 		exitBtn.Importance = widget.DangerImportance
 
 		titleLabel := widget.NewLabelWithStyle(score.DisplayTitle(), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-		topBarControls := container.NewHBox(exitBtn, widget.NewLabel("  "), metroIndicatorContainer)
+		topBarControls := container.NewHBox(exitBtn, widget.NewLabel("  "), recIndicatorContainer, widget.NewLabel(" "), metroIndicatorContainer)
 		topBar := container.NewBorder(nil, nil, topBarControls, nil, titleLabel)
 
 		toolsBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
-			ShowToolsMenu(w, metroAudio, nil, func(cb func(bool)) {
+			ShowToolsMenu(w, app, metroAudio, recorderAudio, nil, db, score.ID, score.Title, func(cb func(bool)) {
 				dialogBeatCb = cb
 			})
 		})
-
 		rightSidebar := container.NewBorder(
 			container.NewVBox(pageLabel, widget.NewSeparator(), toolsBtn, widget.NewSeparator()),
 			nil, nil, nil,
