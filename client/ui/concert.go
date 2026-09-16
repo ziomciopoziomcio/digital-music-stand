@@ -15,15 +15,15 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/ziomciopoziomcio/digital-music-stand/client/remote"
-	"github.com/ziomciopoziomcio/digital-music-stand/client/webserver"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/audio"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/remote"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/webserver"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
 )
@@ -36,7 +36,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 	var playConcert func(concert localdb.Concert)
 
 	gridWrapper := container.NewMax()
-
 	searchEntry := NewAutoKeyboardEntry()
 	searchEntry.SetPlaceHolder("Search concerts (min. 3 chars)...")
 
@@ -240,24 +239,20 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			return
 		}
 
-		for {
-			select {
-			case <-remoteServer.CommandChan:
-			default:
-				goto doneDraining
-			}
-		}
-	doneDraining:
+		var exitConcertBtn, prevSongBtn, nextSongBtn, prevPageBtn, nextPageBtn *widget.Button
+		var handleRemoteCommand func(action string)
 
-		var syncConn *grpc.ClientConn
-		var syncStream syncpb.LiveSyncService_SyncConcertStreamClient
-		var syncCtx context.Context
-		var syncCancel context.CancelFunc
-		var streamMu sync.Mutex
+		var cloudConn *grpc.ClientConn
+		var p2pConn *grpc.ClientConn
+		var cloudCancel context.CancelFunc
+		var p2pCancel context.CancelFunc
+		var syncStreamCloud syncpb.LiveSyncService_SyncConcertStreamClient
 
-		var isConnected bool
-		var syncMode int
-		var leaderAvailable bool
+		var isConnectedCloud bool
+		var isConnectedP2P bool
+		var wantsToSync bool
+
+		var isLeader bool
 		var previewMode bool
 		var autoFollow bool
 		var isLocked bool
@@ -276,19 +271,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		var isTimerRunning bool
 		var remainingSec int
 
-		var startSyncBackground func()
 		var sendStateUpdate func()
-		var updateSyncUI func(err error)
+		var updateSyncUI func()
 		var loadCurrentSong func(startAtEnd bool)
 		var renderPage func()
 		var updateRemoteState func()
-
-		var exitConcertBtn *widget.Button
-		var prevSongBtn *widget.Button
-		var nextSongBtn *widget.Button
-		var prevPageBtn *widget.Button
-		var nextPageBtn *widget.Button
-		var handleRemoteCommand func(cmd remote.Command)
 
 		var stopClockOnce sync.Once
 		stopClockChan := make(chan struct{})
@@ -311,7 +298,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		recIndicator := canvas.NewRectangle(color.Transparent)
 		recIndicator.SetMinSize(fyne.NewSize(20, 20))
 		recIndicator.CornerRadius = 10
-
 		recIndicatorContainer := container.NewCenter(recIndicator)
 
 		if recorderAudio != nil {
@@ -343,46 +329,47 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					dialogBeatCb(isAccent)
 				}
 
-				if syncMode == 2 && isConnected && !previewMode {
-					if syncStream != nil {
-						streamMu.Lock()
-						_ = syncStream.Send(&syncpb.SyncRequest{
-							ConcertId: concert.ID,
-							Action:    syncpb.ActionType_METRONOME_TICK,
-							IsAccent:  isAccent,
-							IsLeader:  true,
-						})
-						streamMu.Unlock()
+				if isLeader && !previewMode {
+					req := &syncpb.SyncRequest{
+						ConcertId: concert.ID,
+						Action:    syncpb.ActionType_METRONOME_TICK,
+						IsAccent:  isAccent,
+						IsLeader:  true,
 					}
+					if isConnectedCloud && syncStreamCloud != nil {
+						_ = syncStreamCloud.Send(req)
+					}
+					remoteServer.BroadcastLocal(req)
 				}
 			}
 		}
 
-		syncStatusBtn := widget.NewButton("Connecting...", nil)
+		syncStatusBtn := widget.NewButton("Offline", nil)
 		joinBtn := widget.NewButtonWithIcon("Join", theme.LoginIcon(), nil)
 		leadBtn := widget.NewButtonWithIcon("Lead", theme.DocumentCreateIcon(), nil)
-		stopLeadBtn := widget.NewButtonWithIcon("Stop Leading", theme.CancelIcon(), nil)
-		leaveBtn := widget.NewButtonWithIcon("Leave Sync", theme.CancelIcon(), nil)
 		previewBtn := widget.NewButtonWithIcon("Preview", theme.VisibilityIcon(), nil)
 		pushBtn := widget.NewButtonWithIcon("Push", theme.UploadIcon(), nil)
 		cancelBtn := widget.NewButtonWithIcon("Cancel", theme.CancelIcon(), nil)
+		exitSyncBtn := widget.NewButtonWithIcon("Exit Sync", theme.CancelIcon(), nil)
 
 		sendStateUpdate = func() {
-			if !isConnected || syncMode != 2 || previewMode {
+			if !isLeader || previewMode {
 				return
 			}
-			if syncStream != nil {
-				streamMu.Lock()
-				_ = syncStream.Send(&syncpb.SyncRequest{
-					ConcertId:    concert.ID,
-					Action:       syncpb.ActionType_STATE_UPDATE,
-					PageNumber:   uint32(currentPage),
-					ItemIndex:    uint32(currentSongIdx),
-					TimerSeconds: uint32(remainingSec),
-					IsLeader:     true,
-				})
-				streamMu.Unlock()
+
+			req := &syncpb.SyncRequest{
+				ConcertId:    concert.ID,
+				Action:       syncpb.ActionType_STATE_UPDATE,
+				PageNumber:   uint32(currentPage),
+				ItemIndex:    uint32(currentSongIdx),
+				TimerSeconds: uint32(remainingSec),
+				IsLeader:     isLeader,
 			}
+
+			if isConnectedCloud && syncStreamCloud != nil {
+				_ = syncStreamCloud.Send(req)
+			}
+			remoteServer.BroadcastLocal(req)
 		}
 
 		var setlistTitles []string
@@ -421,44 +408,46 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			})
 		}
 
-		updateSyncUI = func(err error) {
+		updateSyncUI = func() {
 			syncStatusBtn.Hide()
 			joinBtn.Hide()
 			leadBtn.Hide()
-			stopLeadBtn.Hide()
-			leaveBtn.Hide()
 			previewBtn.Hide()
 			pushBtn.Hide()
 			cancelBtn.Hide()
+			exitSyncBtn.Hide()
 
-			if !isConnected {
-				if err != nil {
-					cleanErr := FormatAppError(err).Error()
-					if len(cleanErr) > 22 {
-						cleanErr = cleanErr[:19] + "..."
-					}
-					syncStatusBtn.SetText(fmt.Sprintf("Offline (%s)", cleanErr))
-				} else {
-					syncStatusBtn.SetText("Offline")
-				}
+			if !wantsToSync {
+				syncStatusBtn.SetText("Offline")
 				syncStatusBtn.Show()
+				joinBtn.Show()
+				leadBtn.Show()
 				return
 			}
 
 			syncStatusBtn.Show()
+			exitSyncBtn.Show()
 
-			if syncMode == 0 {
-				leadBtn.Show()
-				if leaderAvailable {
-					joinBtn.Show()
-					syncStatusBtn.SetText("Leader Active")
+			connText := "Cloud"
+			if isConnectedP2P {
+				connText = "P2P LAN"
+			}
+			if !isConnectedCloud && !isConnectedP2P {
+				connText = "Searching..."
+			}
+
+			if isLeader {
+				if previewMode {
+					syncStatusBtn.SetText(fmt.Sprintf("PREVIEW (%s)", connText))
+					pushBtn.Show()
+					cancelBtn.Show()
 				} else {
-					syncStatusBtn.SetText("Standby")
+					syncStatusBtn.SetText(fmt.Sprintf("LEADING (%s)", connText))
+					previewBtn.Show()
 				}
-			} else if syncMode == 1 {
-				leaveBtn.Show()
+			} else {
 				if autoFollow {
-					syncStatusBtn.SetText("Following Leader")
+					syncStatusBtn.SetText(fmt.Sprintf("Following (%s)", connText))
 				} else {
 					diffStr := ""
 					if currentSongIdx != leaderItemIdx {
@@ -475,241 +464,252 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					}
 					syncStatusBtn.SetText(fmt.Sprintf("Diff: %s (Click to Sync)", diffStr))
 				}
-			} else if syncMode == 2 {
-				stopLeadBtn.Show()
-				if previewMode {
-					syncStatusBtn.SetText("PREVIEW MODE")
-					pushBtn.Show()
-					cancelBtn.Show()
-				} else {
-					syncStatusBtn.SetText("LEADING")
-					previewBtn.Show()
-				}
 			}
 		}
 
-		startSyncBackground = func() {
-			token := app.Preferences().String(prefToken)
-			server := app.Preferences().String(prefServer)
-			if token == "" || server == "" {
-				isConnected = false
-				updateSyncUI(fmt.Errorf("not logged in"))
-				return
-			}
-			conn, err := network.NewGRPCClient(server, token)
-			if err != nil {
-				isConnected = false
-				updateSyncUI(err)
-				return
-			}
-			syncConn = conn
-			syncClient := syncpb.NewLiveSyncServiceClient(conn)
-			syncCtx, syncCancel = context.WithCancel(context.Background())
-
-			syncCtx = metadata.AppendToOutgoingContext(syncCtx, "authorization", "Bearer "+token)
-
-			stream, err := syncClient.SyncConcertStream(syncCtx)
-			if err != nil {
-				syncCancel()
-				syncConn.Close()
-				isConnected = false
-				updateSyncUI(err)
-				return
-			}
-
-			syncStream = stream
-			isConnected = true
-
-			streamMu.Lock()
-			_ = syncStream.Send(&syncpb.SyncRequest{
-				ConcertId: concert.ID,
-				Action:    syncpb.ActionType_UNKNOWN_ACTION,
-				IsLeader:  false,
-			})
-			streamMu.Unlock()
-
-			updateSyncUI(nil)
-
-			for {
-				msg, err := syncStream.Recv()
-				if err != nil {
-					isConnected = false
-					syncMode = 0
-					leaderAvailable = false
-					updateSyncUI(err)
-					break
+		handleSyncMessage := func(msg *syncpb.SyncResponse) {
+			if msg.GetAction() == syncpb.ActionType_METRONOME_TICK {
+				metroIndicator.FillColor = theme.SuccessColor()
+				if !msg.GetIsAccent() {
+					metroIndicator.FillColor = theme.PrimaryColor()
 				}
+				metroIndicator.Refresh()
+				time.AfterFunc(100*time.Millisecond, func() {
+					metroIndicator.FillColor = theme.DisabledColor()
+					metroIndicator.Refresh()
+				})
+				if dialogBeatCb != nil {
+					dialogBeatCb(msg.GetIsAccent())
+				}
+				return
+			}
 
-				if syncMode == 2 && !previewMode {
-					if msg.GetAction() == syncpb.ActionType_UNKNOWN_ACTION {
-						ip := webserver.GetLocalIP()
-						pin := remoteServer.GetPIN()
-						payload := fmt.Sprintf("%s|%s", ip, pin)
+			if isLeader && !previewMode {
+				if msg.GetAction() == syncpb.ActionType_UNKNOWN_ACTION {
+					ip := webserver.GetLocalIP()
+					pin := remoteServer.GetPIN()
+					payload := fmt.Sprintf("%s|%s", ip, pin)
 
-						streamMu.Lock()
-						_ = syncStream.Send(&syncpb.SyncRequest{
+					if isConnectedCloud && syncStreamCloud != nil {
+						_ = syncStreamCloud.Send(&syncpb.SyncRequest{
 							ConcertId: concert.ID,
 							Action:    syncpb.ActionType_BROADCAST_INFO,
 							Payload:   payload,
 							IsLeader:  true,
 						})
-						streamMu.Unlock()
-					}
-
-					switch msg.GetAction() {
-					case syncpb.ActionType_NEXT_PAGE:
-						if handleRemoteCommand != nil {
-							handleRemoteCommand(remote.Command{Action: "NEXT_PAGE"})
-						}
-					case syncpb.ActionType_PREV_PAGE:
-						if handleRemoteCommand != nil {
-							handleRemoteCommand(remote.Command{Action: "PREV_PAGE"})
-						}
-					case syncpb.ActionType_NEXT_ITEM:
-						if handleRemoteCommand != nil {
-							handleRemoteCommand(remote.Command{Action: "NEXT_ITEM"})
-						}
-					case syncpb.ActionType_PREV_ITEM:
-						if handleRemoteCommand != nil {
-							handleRemoteCommand(remote.Command{Action: "PREV_ITEM"})
-						}
-					case syncpb.ActionType_TOGGLE_TIMER:
-						if handleRemoteCommand != nil {
-							handleRemoteCommand(remote.Command{Action: "TOGGLE_TIMER"})
-						}
-					case syncpb.ActionType_LOCK_SCREEN:
-						if handleRemoteCommand != nil {
-							handleRemoteCommand(remote.Command{Action: "LOCK_SCREEN"})
-						}
-					case syncpb.ActionType_UNLOCK_SCREEN:
-						if handleRemoteCommand != nil {
-							handleRemoteCommand(remote.Command{Action: "UNLOCK_SCREEN", Payload: msg.GetPayload()})
-						}
-					case syncpb.ActionType_JUMP_TO_ITEM:
-						if handleRemoteCommand != nil {
-							handleRemoteCommand(remote.Command{Action: "JUMP_TO_ITEM", Value: int(msg.GetItemIndex())})
-						}
 					}
 				}
 
-				if msg.GetAction() == syncpb.ActionType_STOP_LEADING {
-					leaderAvailable = false
-					if syncMode == 1 {
-						syncMode = 0
-						autoFollow = false
+				switch msg.GetAction() {
+				case syncpb.ActionType_NEXT_PAGE:
+					if handleRemoteCommand != nil {
+						handleRemoteCommand("NEXT_PAGE")
 					}
-					updateSyncUI(nil)
-					continue
+				case syncpb.ActionType_PREV_PAGE:
+					if handleRemoteCommand != nil {
+						handleRemoteCommand("PREV_PAGE")
+					}
+				case syncpb.ActionType_NEXT_ITEM:
+					if handleRemoteCommand != nil {
+						handleRemoteCommand("NEXT_ITEM")
+					}
+				case syncpb.ActionType_PREV_ITEM:
+					if handleRemoteCommand != nil {
+						handleRemoteCommand("PREV_ITEM")
+					}
+				case syncpb.ActionType_TOGGLE_TIMER:
+					if handleRemoteCommand != nil {
+						handleRemoteCommand("TOGGLE_TIMER")
+					}
+				}
+				return
+			}
+
+			if msg.GetAction() == syncpb.ActionType_STATE_UPDATE && msg.GetIsLeader() {
+				if isLeader {
+					return
 				}
 
-				if msg.GetIsLeader() {
-					leaderAvailable = true
+				leaderItemIdx = int(msg.GetItemIndex())
+				leaderPage = int(msg.GetPageNumber())
+				leaderTimer = int(msg.GetTimerSeconds())
 
-					if msg.GetAction() == syncpb.ActionType_METRONOME_TICK {
-						metroIndicator.FillColor = theme.SuccessColor()
-						if !msg.GetIsAccent() {
-							metroIndicator.FillColor = theme.PrimaryColor()
+				if autoFollow {
+					needLoad := currentSongIdx != leaderItemIdx
+					currentSongIdx = leaderItemIdx
+					currentPage = leaderPage
+					remainingSec = leaderTimer
+
+					if needLoad {
+						loadCurrentSong(false)
+					} else {
+						renderPage()
+					}
+
+					if timerClockLabel != nil {
+						isTimerRunning = false
+						if startPauseBtn != nil {
+							startPauseBtn.SetText("Start")
+							startPauseBtn.SetIcon(theme.MediaPlayIcon())
 						}
-						metroIndicator.Refresh()
-						time.AfterFunc(100*time.Millisecond, func() {
-							metroIndicator.FillColor = theme.DisabledColor()
-							metroIndicator.Refresh()
-						})
-						if dialogBeatCb != nil {
-							dialogBeatCb(msg.GetIsAccent())
-						}
+						timerClockLabel.Text = fmt.Sprintf("%02d:%02d", remainingSec/60, remainingSec%60)
+						timerClockLabel.Refresh()
+					}
+				}
+				updateSyncUI()
+			}
+		}
+
+		connectCloud := func() bool {
+			token := app.Preferences().String(prefToken)
+			server := app.Preferences().String(prefServer)
+			if token == "" || server == "" {
+				return false
+			}
+
+			conn, err := network.NewGRPCClient(server, token)
+			if err != nil {
+				return false
+			}
+
+			client := syncpb.NewLiveSyncServiceClient(conn)
+			ctx, cancel := context.WithCancel(context.Background())
+			stream, err := client.SyncConcertStream(ctx)
+			if err != nil {
+				cancel()
+				conn.Close()
+				return false
+			}
+
+			cloudConn = conn
+			cloudCancel = cancel
+			syncStreamCloud = stream
+			isConnectedCloud = true
+
+			_ = stream.Send(&syncpb.SyncRequest{
+				ConcertId: concert.ID,
+				Action:    syncpb.ActionType_UNKNOWN_ACTION,
+				IsLeader:  false,
+			})
+
+			if isLeader {
+				sendStateUpdate()
+			}
+
+			go func() {
+				for {
+					msg, err := stream.Recv()
+					if err != nil {
+						break
+					}
+					handleSyncMessage(msg)
+				}
+				isConnectedCloud = false
+				updateSyncUI()
+			}()
+			return true
+		}
+
+		connectP2P := func(ip string, port int) bool {
+			addr := fmt.Sprintf("%s:%d", ip, port)
+			conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				return false
+			}
+
+			client := syncpb.NewLiveSyncServiceClient(conn)
+			ctx, cancel := context.WithCancel(context.Background())
+			stream, err := client.SyncConcertStream(ctx)
+			if err != nil {
+				cancel()
+				conn.Close()
+				return false
+			}
+
+			p2pConn = conn
+			p2pCancel = cancel
+			isConnectedP2P = true
+
+			_ = stream.Send(&syncpb.SyncRequest{
+				ConcertId: concert.ID,
+				Action:    syncpb.ActionType_UNKNOWN_ACTION,
+				IsLeader:  false,
+			})
+
+			go func() {
+				for {
+					msg, err := stream.Recv()
+					if err != nil {
+						break
+					}
+					if !isConnectedCloud {
+						handleSyncMessage(msg)
+					}
+				}
+				isConnectedP2P = false
+				updateSyncUI()
+			}()
+			return true
+		}
+
+		go func() {
+			ticker := time.NewTicker(2 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-stopClockChan:
+					if isConnectedCloud {
+						cloudCancel()
+						cloudConn.Close()
+					}
+					if isConnectedP2P {
+						p2pCancel()
+						p2pConn.Close()
+					}
+					return
+				case <-ticker.C:
+					if !wantsToSync {
 						continue
 					}
 
-					if msg.GetAction() == syncpb.ActionType_STATE_UPDATE {
-						if syncMode == 2 {
-							continue
-						}
-
-						leaderItemIdx = int(msg.GetItemIndex())
-						leaderPage = int(msg.GetPageNumber())
-						leaderTimer = int(msg.GetTimerSeconds())
-
-						if syncMode == 1 && autoFollow {
-							needLoad := currentSongIdx != leaderItemIdx
-							currentSongIdx = leaderItemIdx
-							currentPage = leaderPage
-							remainingSec = leaderTimer
-
-							if needLoad {
-								loadCurrentSong(false)
-							} else {
-								renderPage()
+					if !isConnectedCloud {
+						if connectCloud() {
+							if isConnectedP2P {
+								p2pCancel()
+								p2pConn.Close()
+								isConnectedP2P = false
 							}
+							updateSyncUI()
+						}
+					}
 
-							if timerClockLabel != nil {
-								isTimerRunning = false
-								if startPauseBtn != nil {
-									startPauseBtn.SetText("Start")
-									startPauseBtn.SetIcon(theme.MediaPlayIcon())
-								}
-								timerClockLabel.Text = fmt.Sprintf("%02d:%02d", remainingSec/60, remainingSec%60)
-								timerClockLabel.Refresh()
+					if !isConnectedCloud && !isLeader && !isConnectedP2P {
+						peer, found := remoteServer.GetPeerForConcert(concert.ID)
+						if found {
+							if connectP2P(peer.IP, peer.Port) {
+								updateSyncUI()
 							}
 						}
-						updateSyncUI(nil)
 					}
 				}
 			}
+		}()
+
+		joinBtn.OnTapped = func() {
+			wantsToSync = true
+			isLeader = false
+			autoFollow = true
+			remoteServer.SetLeading("", false)
+			updateSyncUI()
 		}
 
 		leadBtn.OnTapped = func() {
-			syncMode = 2
-			previewMode = false
-			sendStateUpdate()
-			updateSyncUI(nil)
-		}
-
-		stopLeadBtn.OnTapped = func() {
-			if syncStream != nil {
-				streamMu.Lock()
-				_ = syncStream.Send(&syncpb.SyncRequest{
-					ConcertId: concert.ID,
-					Action:    syncpb.ActionType_STOP_LEADING,
-				})
-				streamMu.Unlock()
-			}
-			syncMode = 0
-			leaderAvailable = false
-			updateSyncUI(nil)
-		}
-
-		joinBtn.OnTapped = func() {
-			syncMode = 1
-			autoFollow = true
-
-			needLoad := currentSongIdx != leaderItemIdx
-			currentSongIdx = leaderItemIdx
-			currentPage = leaderPage
-			remainingSec = leaderTimer
-
-			if needLoad {
-				loadCurrentSong(false)
-			} else {
-				renderPage()
-			}
-
-			if timerClockLabel != nil {
-				isTimerRunning = false
-				if startPauseBtn != nil {
-					startPauseBtn.SetText("Start")
-					startPauseBtn.SetIcon(theme.MediaPlayIcon())
-				}
-				timerClockLabel.Text = fmt.Sprintf("%02d:%02d", remainingSec/60, remainingSec%60)
-				timerClockLabel.Refresh()
-			}
-			updateSyncUI(nil)
-		}
-
-		leaveBtn.OnTapped = func() {
-			syncMode = 0
+			wantsToSync = true
+			isLeader = true
 			autoFollow = false
-			updateSyncUI(nil)
+			previewMode = false
+			remoteServer.SetLeading(concert.ID, true)
+			updateSyncUI()
 		}
 
 		previewBtn.OnTapped = func() {
@@ -717,13 +717,13 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			savedItemIdx = currentSongIdx
 			savedPage = currentPage
 			savedTimer = remainingSec
-			updateSyncUI(nil)
+			updateSyncUI()
 		}
 
 		pushBtn.OnTapped = func() {
 			previewMode = false
 			sendStateUpdate()
-			updateSyncUI(nil)
+			updateSyncUI()
 		}
 
 		cancelBtn.OnTapped = func() {
@@ -732,28 +732,38 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			currentPage = savedPage
 			remainingSec = savedTimer
 			loadCurrentSong(false)
-			updateSyncUI(nil)
+			updateSyncUI()
+		}
+
+		exitSyncBtn.OnTapped = func() {
+			wantsToSync = false
+			isLeader = false
+			remoteServer.SetLeading("", false)
+			if isConnectedCloud {
+				cloudCancel()
+				cloudConn.Close()
+				isConnectedCloud = false
+			}
+			if isConnectedP2P {
+				p2pCancel()
+				p2pConn.Close()
+				isConnectedP2P = false
+			}
+			updateSyncUI()
 		}
 
 		syncStatusBtn.OnTapped = func() {
-			if syncMode == 1 && !autoFollow {
+			if !wantsToSync {
+				return
+			}
+			if !isLeader && !autoFollow {
 				autoFollow = true
 				currentSongIdx = leaderItemIdx
 				currentPage = leaderPage
 				remainingSec = leaderTimer
 				loadCurrentSong(false)
 				renderPage()
-
-				if timerClockLabel != nil {
-					isTimerRunning = false
-					if startPauseBtn != nil {
-						startPauseBtn.SetText("Start")
-						startPauseBtn.SetIcon(theme.MediaPlayIcon())
-					}
-					timerClockLabel.Text = fmt.Sprintf("%02d:%02d", remainingSec/60, remainingSec%60)
-					timerClockLabel.Refresh()
-				}
-				updateSyncUI(nil)
+				updateSyncUI()
 			}
 		}
 
@@ -761,17 +771,13 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			syncStatusBtn,
 			joinBtn,
 			leadBtn,
-			stopLeadBtn,
-			leaveBtn,
 			previewBtn,
 			pushBtn,
 			cancelBtn,
+			exitSyncBtn,
 		)
 
-		syncMode = 0
-		leaderAvailable = false
-		updateSyncUI(nil)
-		go startSyncBackground()
+		updateSyncUI()
 
 		lockOverlay := container.NewMax()
 		lockBg := canvas.NewRectangle(color.Black)
@@ -801,11 +807,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		}
 		lockOverlay.Hide()
 
-		handleRemoteCommand = func(cmd remote.Command) {
-			if isLocked && cmd.Action != "UNLOCK_SCREEN" && cmd.Action != "TOGGLE_TIMER" {
+		handleRemoteCommand = func(action string) {
+			if isLocked && action != "UNLOCK_SCREEN" && action != "TOGGLE_TIMER" {
 				return
 			}
-			switch cmd.Action {
+			switch action {
 			case "NEXT_PAGE":
 				if nextPageBtn != nil {
 					nextPageBtn.OnTapped()
@@ -826,24 +832,19 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				if startPauseBtn != nil {
 					startPauseBtn.OnTapped()
 				}
-			case "JUMP_TO_ITEM":
-				if cmd.Value >= 0 && cmd.Value < len(concert.Items) {
-					currentSongIdx = cmd.Value
-					loadCurrentSong(false)
-					sendStateUpdate()
-					updateSyncUI(nil)
-				}
 			case "LOCK_SCREEN":
 				isLocked = true
 				lockOverlay.Show()
 				updateRemoteState()
 			case "UNLOCK_SCREEN":
-				if verifyPin != nil && verifyPin(cmd.Payload) {
-					isLocked = false
-					lockOverlay.Hide()
-					updateRemoteState()
-				}
+				isLocked = false
+				lockOverlay.Hide()
+				updateRemoteState()
 			}
+		}
+
+		for len(remoteServer.CommandChan) > 0 {
+			<-remoteServer.CommandChan
 		}
 
 		go func() {
@@ -852,7 +853,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				case <-stopClockChan:
 					return
 				case cmd := <-remoteServer.CommandChan:
-					handleRemoteCommand(cmd)
+					handleRemoteCommand(cmd.Action)
 				}
 			}
 		}()
@@ -1009,7 +1010,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				songTitleLabel.SetText(fmt.Sprintf("%d/%d: Break (%d min)", currentSongIdx+1, len(concert.Items), breakDuration))
 				pageLabel.SetText("Break")
 
-				if !isTimerRunning && (syncMode != 1 || !autoFollow || syncMode == 2) {
+				if !isTimerRunning && (!autoFollow || isLeader) {
 					remainingSec = breakDuration * 60
 				}
 				isTimerRunning = false
@@ -1022,9 +1023,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				timerStatusLabel = widget.NewLabelWithStyle("PAUSED", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 
 				startPauseBtn = widget.NewButtonWithIcon("Start", theme.MediaPlayIcon(), func() {
-					if syncMode == 1 {
+					if !isLeader {
 						autoFollow = false
-						updateSyncUI(nil)
+						updateSyncUI()
 					}
 					if isTimerRunning {
 						isTimerRunning = false
@@ -1074,7 +1075,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 												startPauseBtn.SetIcon(theme.MediaPlayIcon())
 											}
 										}
-										if syncMode == 2 && isConnected && !previewMode {
+										if isLeader && !previewMode {
 											sendStateUpdate()
 										}
 									}
@@ -1086,9 +1087,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				startPauseBtn.Importance = widget.HighImportance
 
 				resetBtn := widget.NewButtonWithIcon("Reset", theme.ViewRefreshIcon(), func() {
-					if syncMode == 1 {
+					if !isLeader {
 						autoFollow = false
-						updateSyncUI(nil)
+						updateSyncUI()
 					}
 					isTimerRunning = false
 					stopCurrentTimer()
@@ -1103,9 +1104,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				})
 
 				addMinBtn := widget.NewButton("+1 Min", func() {
-					if syncMode == 1 {
+					if !isLeader {
 						autoFollow = false
-						updateSyncUI(nil)
+						updateSyncUI()
 					}
 					remainingSec += 60
 					timerClockLabel.Text = formatTimerText(remainingSec)
@@ -1114,9 +1115,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					updateRemoteState()
 				})
 				subMinBtn := widget.NewButton("-1 Min", func() {
-					if syncMode == 1 {
+					if !isLeader {
 						autoFollow = false
-						updateSyncUI(nil)
+						updateSyncUI()
 					}
 					if remainingSec > 60 {
 						remainingSec -= 60
@@ -1194,13 +1195,16 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		}
 
 		exitConcertBtn = widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
-			if syncMode == 2 && syncStream != nil {
-				streamMu.Lock()
-				_ = syncStream.Send(&syncpb.SyncRequest{
+			if isLeader {
+				remoteServer.SetLeading("", false)
+			}
+			wantsToSync = false
+
+			if isLeader && syncStreamCloud != nil {
+				_ = syncStreamCloud.Send(&syncpb.SyncRequest{
 					ConcertId: concert.ID,
 					Action:    syncpb.ActionType_STOP_LEADING,
 				})
-				streamMu.Unlock()
 			}
 			stopCurrentTimer()
 
@@ -1218,16 +1222,12 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			if recorderAudio != nil {
 				recorderAudio.Close()
 			}
-			if isConnected {
-				syncCancel()
-				syncConn.Close()
-			}
 			showConcertList()
 		})
 		exitConcertBtn.Importance = widget.DangerImportance
 
 		prevSongBtn = widget.NewButtonWithIcon("Prev Item", theme.MediaSkipPreviousIcon(), func() {
-			if syncMode == 1 {
+			if !isLeader {
 				autoFollow = false
 			}
 			if currentSongIdx > 0 {
@@ -1235,10 +1235,10 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				loadCurrentSong(false)
 			}
 			sendStateUpdate()
-			updateSyncUI(nil)
+			updateSyncUI()
 		})
 		nextSongBtn = widget.NewButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() {
-			if syncMode == 1 {
+			if !isLeader {
 				autoFollow = false
 			}
 			if currentSongIdx < len(concert.Items)-1 {
@@ -1246,7 +1246,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				loadCurrentSong(false)
 			}
 			sendStateUpdate()
-			updateSyncUI(nil)
+			updateSyncUI()
 		})
 
 		var setlistDialog dialog.Dialog
@@ -1255,13 +1255,13 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			for i, title := range setlistTitles {
 				idx := i
 				btn := widget.NewButton(fmt.Sprintf("%d. %s", idx+1, title), func() {
-					if syncMode == 1 {
+					if !isLeader {
 						autoFollow = false
 					}
 					currentSongIdx = idx
 					loadCurrentSong(false)
 					sendStateUpdate()
-					updateSyncUI(nil)
+					updateSyncUI()
 					if setlistDialog != nil {
 						setlistDialog.Hide()
 					}
@@ -1297,11 +1297,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 			if currentSongIdx >= 0 && currentSongIdx < len(concert.Items) {
 				item := concert.Items[currentSongIdx]
-
 				if item.ScoreID != nil {
 					currentScoreID = *item.ScoreID
 				}
-
 				if item.ScoreName != nil {
 					currentScoreTitle = *item.ScoreName
 				} else if item.BreakMin != nil {
@@ -1310,13 +1308,14 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					currentScoreTitle = "Unknown Item"
 				}
 			}
+
 			ShowToolsMenu(w, app, metroAudio, recorderAudio, remoteServer, db, currentScoreID, currentScoreTitle, profilePath, func(cb func(bool)) {
 				dialogBeatCb = cb
 			})
 		})
 
 		prevPageBtn = widget.NewButtonWithIcon("PREV\nPAGE", theme.NavigateBackIcon(), func() {
-			if syncMode == 1 {
+			if !isLeader {
 				autoFollow = false
 			}
 			if currentPage > 0 {
@@ -1330,12 +1329,12 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				loadCurrentSong(true)
 			}
 			sendStateUpdate()
-			updateSyncUI(nil)
+			updateSyncUI()
 		})
 		prevPageBtn.Importance = widget.HighImportance
 
 		nextPageBtn = widget.NewButtonWithIcon("NEXT\nPAGE", theme.NavigateNextIcon(), func() {
-			if syncMode == 1 {
+			if !isLeader {
 				autoFollow = false
 			}
 			if currentPage+pagesToShow < totalPages {
@@ -1346,7 +1345,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				loadCurrentSong(false)
 			}
 			sendStateUpdate()
-			updateSyncUI(nil)
+			updateSyncUI()
 		})
 		nextPageBtn.Importance = widget.HighImportance
 
