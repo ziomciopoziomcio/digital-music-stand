@@ -44,9 +44,9 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 		recIndicator := canvas.NewRectangle(color.Transparent)
 		recIndicator.SetMinSize(fyne.NewSize(20, 20))
 		recIndicator.CornerRadius = 10
-		recIndicator.Hide()
-
 		recIndicatorContainer := container.NewCenter(recIndicator)
+
+		var recTicker *time.Ticker
 
 		if recorderAudio != nil {
 			recorderAudio.OnRecordPulse = func(active bool) {
@@ -57,6 +57,27 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 				}
 				recIndicator.Refresh()
 			}
+
+			recTicker = time.NewTicker(500 * time.Millisecond)
+			go func() {
+				pulse := true
+				for range recTicker.C {
+					if recorderAudio.IsRecording() {
+						if pulse {
+							recIndicator.FillColor = theme.ErrorColor()
+						} else {
+							recIndicator.FillColor = color.Transparent
+						}
+						recIndicator.Refresh()
+						pulse = !pulse
+					} else {
+						if recIndicator.FillColor != color.Transparent {
+							recIndicator.FillColor = color.Transparent
+							recIndicator.Refresh()
+						}
+					}
+				}
+			}()
 		}
 
 		var dialogBeatCb func(bool)
@@ -168,6 +189,9 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 			if pdfMgr != nil {
 				pdfMgr.Close()
 			}
+			if recTicker != nil {
+				recTicker.Stop()
+			}
 			if recorderAudio != nil {
 				recorderAudio.Close()
 			}
@@ -185,6 +209,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 				dialogBeatCb = cb
 			})
 		})
+
 		rightSidebar := container.NewBorder(
 			container.NewVBox(pageLabel, widget.NewSeparator(), toolsBtn, widget.NewSeparator()),
 			nil, nil, nil,
