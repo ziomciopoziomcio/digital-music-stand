@@ -123,11 +123,17 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 		return nil, fmt.Errorf("failed to create tables: %w", err)
 	}
 
+	DBM := &DBManager{db: db}
+
+	if err := DBM.InitRecordingsTable(); err != nil {
+		return nil, fmt.Errorf("failed to create recordings table: %w", err)
+	}
+
 	_, _ = db.Exec("ALTER TABLE scores ADD COLUMN local_alias TEXT NOT NULL DEFAULT ''")
 	_, _ = db.Exec("ALTER TABLE concerts ADD COLUMN local_alias TEXT NOT NULL DEFAULT ''")
 	_, _ = db.Exec("ALTER TABLE concerts ADD COLUMN can_edit INTEGER NOT NULL DEFAULT 0")
 
-	return &DBManager{db: db}, nil
+	return DBM, nil
 }
 
 func (m *DBManager) GetScores() ([]Score, error) {

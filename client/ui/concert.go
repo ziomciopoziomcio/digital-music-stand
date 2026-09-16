@@ -28,7 +28,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
 )
 
-func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remoteServer *remote.Server, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func(), forceSync func(), showLockScreen func(), verifyPin func(string) bool, prefToken string, prefServer string) *fyne.Container {
+func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remoteServer *remote.Server, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func(), forceSync func(), showLockScreen func(), verifyPin func(string) bool, prefToken string, prefServer string, profilePath string) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var showConcertList func()
@@ -306,6 +306,24 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		metroIndicator := canvas.NewRectangle(theme.DisabledColor())
 		metroIndicator.SetMinSize(fyne.NewSize(20, 20))
 		metroIndicatorContainer := container.NewCenter(metroIndicator)
+
+		recorderAudio, _ := audio.NewRecorderAudio()
+		recIndicator := canvas.NewRectangle(color.Transparent)
+		recIndicator.SetMinSize(fyne.NewSize(20, 20))
+		recIndicator.CornerRadius = 10
+
+		recIndicatorContainer := container.NewCenter(recIndicator)
+
+		if recorderAudio != nil {
+			recorderAudio.OnRecordPulse = func(active bool) {
+				if active {
+					recIndicator.FillColor = theme.ErrorColor()
+				} else {
+					recIndicator.FillColor = color.Transparent
+				}
+				recIndicator.Refresh()
+			}
+		}
 
 		var dialogBeatCb func(bool)
 		if metroAudio != nil {
@@ -1197,6 +1215,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			if currentPdfMgr != nil {
 				currentPdfMgr.Close()
 			}
+			if recorderAudio != nil {
+				recorderAudio.Close()
+			}
 			if isConnected {
 				syncCancel()
 				syncConn.Close()
@@ -1271,7 +1292,25 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		setlistBtn.Importance = widget.HighImportance
 
 		toolsBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
-			ShowToolsMenu(w, metroAudio, remoteServer, func(cb func(bool)) {
+			var currentScoreID string
+			var currentScoreTitle string
+
+			if currentSongIdx >= 0 && currentSongIdx < len(concert.Items) {
+				item := concert.Items[currentSongIdx]
+
+				if item.ScoreID != nil {
+					currentScoreID = *item.ScoreID
+				}
+
+				if item.ScoreName != nil {
+					currentScoreTitle = *item.ScoreName
+				} else if item.BreakMin != nil {
+					currentScoreTitle = fmt.Sprintf("Break (%d min)", *item.BreakMin)
+				} else {
+					currentScoreTitle = "Unknown Item"
+				}
+			}
+			ShowToolsMenu(w, app, metroAudio, recorderAudio, remoteServer, db, currentScoreID, currentScoreTitle, profilePath, func(cb func(bool)) {
 				dialogBeatCb = cb
 			})
 		})
@@ -1319,7 +1358,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 		topRightControls := container.NewHBox(
 			topSyncControls, widget.NewSeparator(), metroIndicatorContainer,
-			widget.NewLabel(" "), concertClockLabel, widget.NewLabel(" "),
+			widget.NewLabel(" "), recIndicatorContainer, widget.NewLabel(" "),
+			concertClockLabel, widget.NewLabel(" "),
 			prevSongBtn, nextSongBtn,
 		)
 		topBar := container.NewBorder(nil, nil, exitConcertBtn, topRightControls, songTitleLabel)

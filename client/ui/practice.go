@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"image/color"
 	"strings"
 	"time"
 
@@ -22,7 +23,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 )
 
-func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onScoresChanged func(), goBack func()) *fyne.Container {
+func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profilePath string, onScoresChanged func(), goBack func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 	editMode := false
 
@@ -38,6 +39,46 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		metroIndicator := canvas.NewRectangle(theme.DisabledColor())
 		metroIndicator.SetMinSize(fyne.NewSize(20, 20))
 		metroIndicatorContainer := container.NewCenter(metroIndicator)
+
+		recorderAudio, _ := audio.NewRecorderAudio()
+		recIndicator := canvas.NewRectangle(color.Transparent)
+		recIndicator.SetMinSize(fyne.NewSize(20, 20))
+		recIndicator.CornerRadius = 10
+		recIndicatorContainer := container.NewCenter(recIndicator)
+
+		var recTicker *time.Ticker
+
+		if recorderAudio != nil {
+			recorderAudio.OnRecordPulse = func(active bool) {
+				if active {
+					recIndicator.FillColor = theme.ErrorColor()
+				} else {
+					recIndicator.FillColor = color.Transparent
+				}
+				recIndicator.Refresh()
+			}
+
+			recTicker = time.NewTicker(500 * time.Millisecond)
+			go func() {
+				pulse := true
+				for range recTicker.C {
+					if recorderAudio.IsRecording() {
+						if pulse {
+							recIndicator.FillColor = theme.ErrorColor()
+						} else {
+							recIndicator.FillColor = color.Transparent
+						}
+						recIndicator.Refresh()
+						pulse = !pulse
+					} else {
+						if recIndicator.FillColor != color.Transparent {
+							recIndicator.FillColor = color.Transparent
+							recIndicator.Refresh()
+						}
+					}
+				}
+			}()
+		}
 
 		var dialogBeatCb func(bool)
 		if metroAudio != nil {
@@ -148,17 +189,23 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 			if pdfMgr != nil {
 				pdfMgr.Close()
 			}
+			if recTicker != nil {
+				recTicker.Stop()
+			}
+			if recorderAudio != nil {
+				recorderAudio.Close()
+			}
 			showLibrary()
 		})
 		exitBtn.Importance = widget.DangerImportance
 
 		titleLabel := widget.NewLabelWithStyle(score.DisplayTitle(), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-		topBarControls := container.NewHBox(exitBtn, widget.NewLabel("  "), metroIndicatorContainer)
+		topBarControls := container.NewHBox(exitBtn, widget.NewLabel("  "), recIndicatorContainer, widget.NewLabel(" "), metroIndicatorContainer)
 		topBar := container.NewBorder(nil, nil, topBarControls, nil, titleLabel)
 
 		toolsBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
-			ShowToolsMenu(w, metroAudio, nil, func(cb func(bool)) {
+			ShowToolsMenu(w, app, metroAudio, recorderAudio, nil, db, score.ID, score.Title, profilePath, func(cb func(bool)) {
 				dialogBeatCb = cb
 			})
 		})
