@@ -142,7 +142,12 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 
 		for _, r := range recs {
 			rec := r
-			titleStr := fmt.Sprintf("%s (%s)", rec.Name, rec.Location)
+
+			titleStr := rec.Name
+			if rec.Location != "" {
+				titleStr = fmt.Sprintf("%s (%s)", rec.Name, rec.Location)
+			}
+
 			dateStr := rec.CreatedAt.Format("2006-01-02 15:04")
 
 			infoLabel := widget.NewLabel(fmt.Sprintf("%s\n%s", titleStr, dateStr))
@@ -218,7 +223,7 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 		if recorder.IsRecording() {
 			recorder.StopRecording()
 			if currentRecordPath != "" {
-				db.AddRecording(scoreID, "New Recording", "Studio", currentRecordPath)
+				db.AddRecording(scoreID, "New Recording", "", currentRecordPath)
 				currentRecordPath = ""
 			}
 			toggleBtn.SetText("Start Recording")
