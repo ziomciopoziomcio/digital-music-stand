@@ -23,7 +23,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 )
 
-func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onScoresChanged func(), goBack func()) *fyne.Container {
+func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profilePath string, onScoresChanged func(), goBack func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 	editMode := false
 
@@ -181,7 +181,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, onSco
 		topBar := container.NewBorder(nil, nil, topBarControls, nil, titleLabel)
 
 		toolsBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
-			ShowToolsMenu(w, app, metroAudio, recorderAudio, nil, db, score.ID, score.Title, func(cb func(bool)) {
+			ShowToolsMenu(w, app, metroAudio, recorderAudio, nil, db, score.ID, score.Title, profilePath, func(cb func(bool)) {
 				dialogBeatCb = cb
 			})
 		})

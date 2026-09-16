@@ -15,7 +15,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/client/webserver"
 )
 
-func ShowToolsMenu(w fyne.Window, app fyne.App, metroAudio *audio.MetronomeAudio, recorderAudio *audio.RecorderAudio, remoteServer *remote.Server, db *localdb.DBManager, scoreID, scoreTitle string, setDialogBeatCb func(func(bool))) {
+func ShowToolsMenu(w fyne.Window, app fyne.App, metroAudio *audio.MetronomeAudio, recorderAudio *audio.RecorderAudio, remoteServer *remote.Server, db *localdb.DBManager, scoreID, scoreTitle, profilePath string, setDialogBeatCb func(func(bool))) {
 	var d dialog.Dialog
 
 	tunerBtn := widget.NewButtonWithIcon("Tuner", theme.SettingsIcon(), func() {
@@ -32,7 +32,7 @@ func ShowToolsMenu(w fyne.Window, app fyne.App, metroAudio *audio.MetronomeAudio
 
 	dictaphoneBtn := widget.NewButtonWithIcon("Dictaphone", theme.MediaRecordIcon(), func() {
 		d.Hide()
-		ShowDictaphoneDialog(w, db, recorderAudio, scoreID, scoreTitle, "./data")
+		ShowDictaphoneDialog(w, db, recorderAudio, scoreID, scoreTitle, profilePath)
 	})
 	dictaphoneBtn.Importance = widget.HighImportance
 

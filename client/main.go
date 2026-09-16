@@ -325,7 +325,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	}
 
 	showPractice = func() {
-		practiceView := ui.BuildPracticeMode(myWindow, myApp, dbMgr, forceSync, showDashboard)
+		practiceView := ui.BuildPracticeMode(myWindow, myApp, dbMgr, profilePath, forceSync, showDashboard)
 		mainWrapper.Objects = []fyne.CanvasObject{practiceView}
 		mainWrapper.Refresh()
 	}
@@ -344,7 +344,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 								func(confirm bool) {
 									if confirm {
 										verifyPin := func(pin string) bool { return pm.VerifyPin(profileID, pin) }
-										concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, remoteServer, showDashboard, showConcertSetup, forceSync, forceSync, showLockScreen, verifyPin, prefToken, prefServer)
+										concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, remoteServer, showDashboard, showConcertSetup, forceSync, forceSync, showLockScreen, verifyPin, prefToken, prefServer, profilePath)
 										mainWrapper.Objects = []fyne.CanvasObject{concertView}
 										mainWrapper.Refresh()
 									}
@@ -357,7 +357,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 		}
 
 		verifyPin := func(pin string) bool { return pm.VerifyPin(profileID, pin) }
-		concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, remoteServer, showDashboard, showConcertSetup, forceSync, forceSync, showLockScreen, verifyPin, prefToken, prefServer)
+		concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, remoteServer, showDashboard, showConcertSetup, forceSync, forceSync, showLockScreen, verifyPin, prefToken, prefServer, profilePath)
 		mainWrapper.Objects = []fyne.CanvasObject{concertView}
 		mainWrapper.Refresh()
 	}

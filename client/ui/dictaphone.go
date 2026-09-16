@@ -20,7 +20,11 @@ import (
 func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.RecorderAudio, scoreID, scoreTitle, profilePath string) {
 	var d dialog.Dialog
 	listContainer := container.NewVBox()
-	var currentRecordPath string
+
+	currentRecordPath := ""
+	if recorder.IsRecording() {
+		currentRecordPath = recorder.GetRecordingPath()
+	}
 
 	playerContainer := container.NewVBox()
 	playerContainer.Hide()
@@ -226,7 +230,8 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 			}
 
 			fileName := fmt.Sprintf("rec_%d", time.Now().Unix())
-			path, err := recorder.StartRecording(profilePath+"/recordings", fileName)
+			recordingsPath := filepath.Join(profilePath, "recordings")
+			path, err := recorder.StartRecording(recordingsPath, fileName)
 			if err == nil {
 				currentRecordPath = path
 				toggleBtn.SetText("Stop Recording")

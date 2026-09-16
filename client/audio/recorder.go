@@ -17,7 +17,8 @@ type RecorderAudio struct {
 	sampleRate uint32
 	mu         sync.Mutex
 
-	isRecording bool
+	isRecording   bool
+	recordingPath string
 
 	isPlaying      bool
 	isPaused       bool
@@ -74,13 +75,14 @@ func (r *RecorderAudio) StartRecording(outputDir, fileName string) (string, erro
 		return "", nil
 	}
 
-	os.MkdirAll(outputDir, os.ModePerm)
+	os.MkdirAll(outputDir, 0755)
 	fullPath := filepath.Join(outputDir, fileName+".pcm")
 	file, err := os.Create(fullPath)
 	if err != nil {
 		return "", err
 	}
 	r.file = file
+	r.recordingPath = fullPath
 	r.isRecording = true
 	r.device.Start()
 
@@ -98,11 +100,15 @@ func (r *RecorderAudio) StartRecording(outputDir, fileName string) (string, erro
 	return fullPath, nil
 }
 
-func (r *RecorderAudio) StopRecording() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	return r.recordingPath
+}
 
+func (r *RecorderAudio) StopRecording() {
+	r.mu.Lock()
 	if !r.isRecording {
+		r.mu.Unlock()
 		return
 	}
 

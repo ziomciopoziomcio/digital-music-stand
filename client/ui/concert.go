@@ -28,7 +28,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
 )
 
-func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remoteServer *remote.Server, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func(), forceSync func(), showLockScreen func(), verifyPin func(string) bool, prefToken string, prefServer string) *fyne.Container {
+func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remoteServer *remote.Server, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func(), forceSync func(), showLockScreen func(), verifyPin func(string) bool, prefToken string, prefServer string, profilePath string) *fyne.Container {
 	contentWrapper := container.NewMax()
 
 	var showConcertList func()
@@ -1310,7 +1310,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					currentScoreTitle = "Unknown Item"
 				}
 			}
-			ShowToolsMenu(w, app, metroAudio, recorderAudio, remoteServer, db, currentScoreID, currentScoreTitle, func(cb func(bool)) {
+			ShowToolsMenu(w, app, metroAudio, recorderAudio, remoteServer, db, currentScoreID, currentScoreTitle, profilePath, func(cb func(bool)) {
 				dialogBeatCb = cb
 			})
 		})
