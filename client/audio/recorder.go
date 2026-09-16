@@ -100,6 +100,7 @@ func (r *RecorderAudio) StartRecording(outputDir, fileName string) (string, erro
 	return fullPath, nil
 }
 
+func (r *RecorderAudio) GetRecordingPath() string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.recordingPath
@@ -111,19 +112,24 @@ func (r *RecorderAudio) StopRecording() {
 		r.mu.Unlock()
 		return
 	}
-
 	r.isRecording = false
-	r.device.Stop()
+	fileToClose := r.file
+	r.file = nil
+	tickerToStop := r.ticker
+	cb := r.OnRecordPulse
+	r.mu.Unlock()
 
-	if r.ticker != nil {
-		r.ticker.Stop()
+	if r.device != nil {
+		r.device.Stop()
 	}
-	if r.file != nil {
-		r.file.Close()
-		r.file = nil
+	if tickerToStop != nil {
+		tickerToStop.Stop()
 	}
-	if r.OnRecordPulse != nil {
-		r.OnRecordPulse(false)
+	if fileToClose != nil {
+		fileToClose.Close()
+	}
+	if cb != nil {
+		cb(false)
 	}
 }
 
@@ -135,26 +141,26 @@ func (r *RecorderAudio) IsRecording() bool {
 
 func (r *RecorderAudio) PlayRecording(filePath string, onFinish func()) error {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	if r.isRecording {
+		r.mu.Unlock()
 		return nil
 	}
+	r.mu.Unlock()
 
-	if r.isPlaying {
-		r.stopPlaybackLocked()
-	}
+	r.StopPlayback()
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
 
+	r.mu.Lock()
 	r.playbackData = data
 	r.playbackOffset = 0
 	r.playbackFile = filePath
 	r.isPlaying = true
 	r.isPaused = false
+	r.mu.Unlock()
 
 	playConfig := malgo.DefaultDeviceConfig(malgo.Playback)
 	playConfig.Playback.Format = malgo.FormatS16
@@ -196,28 +202,35 @@ func (r *RecorderAudio) PlayRecording(filePath string, onFinish func()) error {
 	})
 
 	if err != nil {
+		r.mu.Lock()
 		r.isPlaying = false
+		r.mu.Unlock()
 		return err
 	}
 
+	r.mu.Lock()
 	r.playDevice = device
-	return r.playDevice.Start()
-}
+	r.mu.Unlock()
 
-func (r *RecorderAudio) stopPlaybackLocked() {
-	if r.playDevice != nil {
-		r.playDevice.Stop()
-		r.playDevice.Uninit()
-		r.playDevice = nil
-	}
-	r.isPlaying = false
-	r.isPaused = false
+	return r.playDevice.Start()
 }
 
 func (r *RecorderAudio) StopPlayback() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.stopPlaybackLocked()
+	if !r.isPlaying {
+		r.mu.Unlock()
+		return
+	}
+	deviceToStop := r.playDevice
+	r.playDevice = nil
+	r.isPlaying = false
+	r.isPaused = false
+	r.mu.Unlock()
+
+	if deviceToStop != nil {
+		deviceToStop.Stop()
+		deviceToStop.Uninit()
+	}
 }
 
 func (r *RecorderAudio) TogglePause() bool {
