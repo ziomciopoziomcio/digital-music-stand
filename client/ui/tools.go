@@ -48,6 +48,23 @@ func ShowToolsMenu(w fyne.Window, app fyne.App, metroAudio *audio.MetronomeAudio
 	})
 	pilotBtn.Importance = widget.HighImportance
 
+	p2pBtn := widget.NewButtonWithIcon("P2P Network Status", theme.InfoIcon(), func() {
+		if remoteServer == nil {
+			return
+		}
+		peers := remoteServer.GetDiscoveredPeers()
+		var items []fyne.CanvasObject
+		for _, p := range peers {
+			items = append(items, widget.NewCard(p.ConcertID, fmt.Sprintf("IP: %s:%d\nLast Seen: %s", p.IP, p.Port, p.LastSeen.Format("15:04:05")), nil))
+		}
+		if len(items) == 0 {
+			items = append(items, widget.NewLabelWithStyle("No active P2P leaders discovered nearby.", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}))
+		}
+		d.Hide()
+		dialog.ShowCustom("Discovered Devices (LAN)", "Close", container.NewVScroll(container.NewVBox(items...)), w)
+	})
+	p2pBtn.Importance = widget.WarningImportance
+
 	closeBtn := widget.NewButtonWithIcon("Close", theme.CancelIcon(), func() {
 		d.Hide()
 	})
@@ -63,6 +80,8 @@ func ShowToolsMenu(w fyne.Window, app fyne.App, metroAudio *audio.MetronomeAudio
 		dictaphoneBtn,
 		widget.NewLabel(""),
 		pilotBtn,
+		widget.NewLabel(""),
+		p2pBtn,
 		widget.NewLabel(""),
 		widget.NewSeparator(),
 		closeBtn,
