@@ -40,7 +40,7 @@ func (l *qsLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	panel.Move(fyne.NewPos(0, currentY))
 }
 
-func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject, onLock func(), onSwitchProfile func(), isCloudConnected func() bool) fyne.CanvasObject {
+func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject, profileID string, onLock func(), onSwitchProfile func(), isCloudConnected func() bool) fyne.CanvasObject {
 	isOpen := false
 	globalVisible := true
 
@@ -96,7 +96,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 
 	mixerTitle := widget.NewLabelWithStyle("Stage Mixer (Master Volume)", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 	masterVolSlider := widget.NewSlider(0, 1)
-	masterVolSlider.Step = 0.05
+	masterVolSlider.Step = 0.01
 
 	var ignoreSliderChange bool
 	masterVolSlider.OnChanged = func(val float64) {
@@ -110,7 +110,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 
 	personalMixerBtn := widget.NewButtonWithIcon("Open Personal Monitor Mix", theme.SettingsIcon(), func() {
 		closePanel()
-		ShowPersonalMixerDialog(w)
+		ShowPersonalMixerDialog(w, a, profileID)
 	})
 	personalMixerBtn.Importance = widget.HighImportance
 
