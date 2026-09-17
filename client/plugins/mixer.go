@@ -9,8 +9,22 @@ type MixerPlugin interface {
 	Name() string
 	Connect(ipAddress string) error
 	Disconnect() error
+	GetConnectionStatus() bool
+
 	SetMainVolume(level float64) error
-	MuteChannel(channel string, mute bool) error
+	MuteMain(mute bool) error
+
+	SetChannelVolume(channel int, level float64) error
+	MuteChannel(channel int, mute bool) error
+
+	SetMonitorVolume(level float64) error
+	MuteMonitor(mute bool) error
+
+	SetChannelPan(channel int, pan float64) error
+	SetChannelName(channel int, name string) error
+
+	mustEmbedUnimplementedMixerPlugin()
+}
 }
 
 var (
