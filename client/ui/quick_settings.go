@@ -98,8 +98,26 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 	masterVolSlider := widget.NewSlider(0, 1)
 	masterVolSlider.Step = 0.01
 
+	formatDB := func(val float64) string {
+		if val <= 0.01 {
+			return "-∞ dB"
+		}
+		if val >= 0.75 {
+			db := (val - 0.75) * 40.0
+			if db == 0 {
+				return "0.0 dB"
+			}
+			return fmt.Sprintf("+%.1f dB", db)
+		}
+		db := (val/0.75)*60.0 - 60.0
+		return fmt.Sprintf("%.1f dB", db)
+	}
+
+	masterDbLabel := widget.NewLabelWithStyle(formatDB(0), fyne.TextAlignTrailing, fyne.TextStyle{Italic: true})
+
 	var ignoreSliderChange bool
 	masterVolSlider.OnChanged = func(val float64) {
+		masterDbLabel.SetText(formatDB(val))
 		if ignoreSliderChange {
 			return
 		}
@@ -116,7 +134,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 
 	mixerContainer := container.NewVBox(
 		widget.NewSeparator(),
-		mixerTitle,
+		container.NewHBox(mixerTitle, layout.NewSpacer(), masterDbLabel),
 		masterVolSlider,
 		widget.NewLabel(""),
 		personalMixerBtn,
@@ -165,6 +183,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 				if vol, err := m.GetMainVolume(); err == nil {
 					ignoreSliderChange = true
 					masterVolSlider.SetValue(vol)
+					masterDbLabel.SetText(formatDB(vol))
 					ignoreSliderChange = false
 				}
 			} else {

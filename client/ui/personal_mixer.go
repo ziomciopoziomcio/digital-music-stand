@@ -72,8 +72,24 @@ func ShowPersonalMixerDialog(w fyne.Window, a fyne.App, profileID string) {
 	busSelect.SetSelected(initialSelect)
 	busLabel.SetText(fmt.Sprintf("Controlling: %s", initialSelect))
 
+	formatDB := func(val float64) string {
+		if val <= 0.01 {
+			return "-∞ dB"
+		}
+		if val >= 0.75 {
+			db := (val - 0.75) * 40.0
+			if db == 0 {
+				return "0.0 dB"
+			}
+			return fmt.Sprintf("+%.1f dB", db)
+		}
+		db := (val/0.75)*60.0 - 60.0
+		return fmt.Sprintf("%.1f dB", db)
+	}
+
 	channelsBox := container.NewHBox()
 	var sliders []*widget.Slider
+	var dbLabels []*widget.Label
 
 	for i := 1; i <= channelCount; i++ {
 		slider := widget.NewSlider(0, 1)
@@ -86,7 +102,11 @@ func ShowPersonalMixerDialog(w fyne.Window, a fyne.App, profileID string) {
 			name = fmt.Sprintf("CH%02d", i)
 		}
 		label := widget.NewLabelWithStyle(name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-		strip := container.NewBorder(label, nil, nil, nil, container.NewPadded(slider))
+
+		dbLabel := widget.NewLabelWithStyle("-∞ dB", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
+		dbLabels = append(dbLabels, dbLabel)
+
+		strip := container.NewBorder(label, dbLabel, nil, nil, container.NewPadded(slider))
 		channelsBox.Add(strip)
 	}
 
@@ -97,7 +117,8 @@ func ShowPersonalMixerDialog(w fyne.Window, a fyne.App, profileID string) {
 	masterBusSlider.Step = 0.01
 
 	masterBusLabel := widget.NewLabelWithStyle("MASTER", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	masterStrip := container.NewBorder(masterBusLabel, nil, nil, nil, container.NewPadded(masterBusSlider))
+	masterDbLabel := widget.NewLabelWithStyle(formatDB(0), fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
+	masterStrip := container.NewBorder(masterBusLabel, masterDbLabel, nil, nil, container.NewPadded(masterBusSlider))
 
 	isUpdating := false
 
@@ -109,15 +130,19 @@ func ShowPersonalMixerDialog(w fyne.Window, a fyne.App, profileID string) {
 			chNum := i + 1
 			vol, _ := mixer.GetChannelSendVolume(chNum, currentBus)
 			sl.SetValue(vol)
+			dbLabels[i].SetText(formatDB(vol))
 		}
 		mVol, _ := mixer.GetBusVolume(currentBus)
 		masterBusSlider.SetValue(mVol)
+		masterDbLabel.SetText(formatDB(mVol))
 	}
 
 	for i, sl := range sliders {
 		chNum := i + 1
+		idx := i
 		slider := sl
 		slider.OnChanged = func(val float64) {
+			dbLabels[idx].SetText(formatDB(val))
 			if isUpdating {
 				return
 			}
@@ -126,6 +151,7 @@ func ShowPersonalMixerDialog(w fyne.Window, a fyne.App, profileID string) {
 	}
 
 	masterBusSlider.OnChanged = func(val float64) {
+		masterDbLabel.SetText(formatDB(val))
 		if isUpdating {
 			return
 		}
