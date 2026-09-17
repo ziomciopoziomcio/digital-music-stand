@@ -19,6 +19,7 @@ import (
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/plugins"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/profiles"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/remote"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/ui"
@@ -67,6 +68,20 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 
 	themeColor := myApp.Preferences().StringWithFallback(prefTheme, "blue")
 	ui.ApplyAppTheme(myApp, themeColor)
+
+	prefMixerPlugin := profileID + "_mixer_plugin"
+	prefMixerIP := profileID + "_mixer_ip"
+	savedMixer := myApp.Preferences().StringWithFallback(prefMixerPlugin, "None")
+	savedIP := myApp.Preferences().StringWithFallback(prefMixerIP, "192.168.1.100")
+
+	if savedMixer != "None" && savedMixer != "" {
+		go func() {
+			if m, err := plugins.GetMixer(savedMixer); err == nil {
+				_ = m.Connect(savedIP)
+				plugins.SetActiveMixer(m)
+			}
+		}()
+	}
 
 	profilePath := pm.GetProfilePath(profileID)
 	dbPath := filepath.Join(profilePath, "musicstand.db")
