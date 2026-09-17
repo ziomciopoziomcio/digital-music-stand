@@ -1,9 +1,12 @@
 package plugins
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 )
+
+var ErrNotImplemented = errors.New("method not implemented by this mixer plugin")
 
 type MixerPlugin interface {
 	Name() string
@@ -25,7 +28,28 @@ type MixerPlugin interface {
 
 	mustEmbedUnimplementedMixerPlugin()
 }
+
+type UnimplementedMixerPlugin struct{}
+
+func (UnimplementedMixerPlugin) Name() string                      { return "Unknown Mixer" }
+func (UnimplementedMixerPlugin) Connect(ipAddress string) error    { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) Disconnect() error                 { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) GetConnectionStatus() bool         { return false }
+func (UnimplementedMixerPlugin) SetMainVolume(level float64) error { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) MuteMain(mute bool) error          { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) SetChannelVolume(channel int, level float64) error {
+	return ErrNotImplemented
 }
+func (UnimplementedMixerPlugin) MuteChannel(channel int, mute bool) error { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) SetMonitorVolume(level float64) error     { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) MuteMonitor(mute bool) error              { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) SetChannelPan(channel int, pan float64) error {
+	return ErrNotImplemented
+}
+func (UnimplementedMixerPlugin) SetChannelName(channel int, name string) error {
+	return ErrNotImplemented
+}
+func (UnimplementedMixerPlugin) mustEmbedUnimplementedMixerPlugin() {}
 
 var (
 	mixersMu sync.RWMutex
