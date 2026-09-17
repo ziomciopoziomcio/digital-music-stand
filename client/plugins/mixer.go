@@ -14,6 +14,7 @@ type MixerPlugin interface {
 	Disconnect() error
 	GetConnectionStatus() bool
 
+	GetMainVolume() (float64, error)
 	SetMainVolume(level float64) error
 	MuteMain(mute bool) error
 
@@ -35,6 +36,7 @@ func (UnimplementedMixerPlugin) Name() string                      { return "Unk
 func (UnimplementedMixerPlugin) Connect(ipAddress string) error    { return ErrNotImplemented }
 func (UnimplementedMixerPlugin) Disconnect() error                 { return ErrNotImplemented }
 func (UnimplementedMixerPlugin) GetConnectionStatus() bool         { return false }
+func (UnimplementedMixerPlugin) GetMainVolume() (float64, error)   { return 0, ErrNotImplemented }
 func (UnimplementedMixerPlugin) SetMainVolume(level float64) error { return ErrNotImplemented }
 func (UnimplementedMixerPlugin) MuteMain(mute bool) error          { return ErrNotImplemented }
 func (UnimplementedMixerPlugin) SetChannelVolume(channel int, level float64) error {
@@ -52,8 +54,9 @@ func (UnimplementedMixerPlugin) SetChannelName(channel int, name string) error {
 func (UnimplementedMixerPlugin) mustEmbedUnimplementedMixerPlugin() {}
 
 var (
-	mixersMu sync.RWMutex
-	mixers   = make(map[string]MixerPlugin)
+	mixersMu    sync.RWMutex
+	mixers      = make(map[string]MixerPlugin)
+	activeMixer MixerPlugin
 )
 
 func RegisterMixer(plugin MixerPlugin) {
@@ -87,4 +90,16 @@ func GetMixer(name string) (MixerPlugin, error) {
 		return nil, fmt.Errorf("mixer plugin %q not found", name)
 	}
 	return m, nil
+}
+
+func SetActiveMixer(plugin MixerPlugin) {
+	mixersMu.Lock()
+	defer mixersMu.Unlock()
+	activeMixer = plugin
+}
+
+func GetActiveMixer() MixerPlugin {
+	mixersMu.RLock()
+	defer mixersMu.RUnlock()
+	return activeMixer
 }
