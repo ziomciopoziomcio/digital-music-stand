@@ -108,10 +108,18 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 		}
 	}
 
+	personalMixerBtn := widget.NewButtonWithIcon("Open Personal Monitor Mix", theme.SettingsIcon(), func() {
+		closePanel()
+		ShowPersonalMixerDialog(w)
+	})
+	personalMixerBtn.Importance = widget.HighImportance
+
 	mixerContainer := container.NewVBox(
 		widget.NewSeparator(),
 		mixerTitle,
 		masterVolSlider,
+		widget.NewLabel(""),
+		personalMixerBtn,
 		widget.NewSeparator(),
 	)
 	mixerContainer.Hide()
