@@ -12,7 +12,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/client/plugins"
 )
 
-func ShowPersonalMixerDialog(w fyne.Window) {
+func ShowPersonalMixerDialog(w fyne.Window, a fyne.App, profileID string) {
 	mixer := plugins.GetActiveMixer()
 	if mixer == nil || !mixer.GetConnectionStatus() {
 		dialog.ShowInformation("Mixer Offline", "Connect to a stage mixer first in Settings.", w)
@@ -27,38 +27,65 @@ func ShowPersonalMixerDialog(w fyne.Window) {
 		return
 	}
 
-	currentBus := 1
-	var d dialog.Dialog
-
-	busLabel := widget.NewLabelWithStyle(fmt.Sprintf("Controlling: Bus %d", currentBus), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-
-	var busOptions []string
-	for i := 1; i <= busCount; i++ {
-		busOptions = append(busOptions, fmt.Sprintf("Bus %d", i))
+	prefBus := profileID + "_personal_bus"
+	currentBus := a.Preferences().IntWithFallback(prefBus, 1)
+	if currentBus < 1 || currentBus > busCount {
+		currentBus = 1
 	}
 
+	var d dialog.Dialog
+	busLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+	var busOptions []string
+	busMap := make(map[string]int)
+
+	for i := 1; i <= busCount; i++ {
+		name, err := mixer.GetBusName(i)
+		if err != nil || name == "" {
+			name = fmt.Sprintf("Bus %d", i)
+		}
+		opt := fmt.Sprintf("%d: %s", i, name)
+		busOptions = append(busOptions, opt)
+		busMap[opt] = i
+	}
+
+	var updateSliders func()
+
 	busSelect := widget.NewSelect(busOptions, func(selected string) {
-		var b int
-		fmt.Sscanf(selected, "Bus %d", &b)
-		currentBus = b
-		busLabel.SetText(fmt.Sprintf("Controlling: Bus %d", currentBus))
-		// Opcjonalnie: pobieranie nowych wartości suwaków dla nowego busa
+		if b, ok := busMap[selected]; ok {
+			currentBus = b
+			a.Preferences().SetInt(prefBus, currentBus)
+			busLabel.SetText(fmt.Sprintf("Controlling: %s", selected))
+			if updateSliders != nil {
+				updateSliders()
+			}
+		}
 	})
-	busSelect.SetSelected("Bus 1")
+
+	var initialSelect string
+	for k, v := range busMap {
+		if v == currentBus {
+			initialSelect = k
+			break
+		}
+	}
+	busSelect.SetSelected(initialSelect)
+	busLabel.SetText(fmt.Sprintf("Controlling: %s", initialSelect))
 
 	channelsBox := container.NewHBox()
-	for i := 1; i <= channelCount; i++ {
-		chNum := i
+	var sliders []*widget.Slider
 
+	for i := 1; i <= channelCount; i++ {
 		slider := widget.NewSlider(0, 1)
 		slider.Orientation = widget.Vertical
-		slider.SetValue(0.0)
+		slider.Step = 0.01
+		sliders = append(sliders, slider)
 
-		slider.OnChanged = func(val float64) {
-			_ = mixer.SetChannelSendVolume(chNum, currentBus, val)
+		name, err := mixer.GetChannelName(i)
+		if err != nil || name == "" {
+			name = fmt.Sprintf("CH%02d", i)
 		}
-
-		label := widget.NewLabelWithStyle(fmt.Sprintf("CH%02d", chNum), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+		label := widget.NewLabelWithStyle(name, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 		strip := container.NewBorder(label, nil, nil, nil, container.NewPadded(slider))
 		channelsBox.Add(strip)
 	}
@@ -67,12 +94,45 @@ func ShowPersonalMixerDialog(w fyne.Window) {
 
 	masterBusSlider := widget.NewSlider(0, 1)
 	masterBusSlider.Orientation = widget.Vertical
-	masterBusSlider.SetValue(0.75)
+	masterBusSlider.Step = 0.01
+
+	masterBusLabel := widget.NewLabelWithStyle("MASTER", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	masterStrip := container.NewBorder(masterBusLabel, nil, nil, nil, container.NewPadded(masterBusSlider))
+
+	isUpdating := false
+
+	updateSliders = func() {
+		isUpdating = true
+		defer func() { isUpdating = false }()
+
+		for i, sl := range sliders {
+			chNum := i + 1
+			vol, _ := mixer.GetChannelSendVolume(chNum, currentBus)
+			sl.SetValue(vol)
+		}
+		mVol, _ := mixer.GetBusVolume(currentBus)
+		masterBusSlider.SetValue(mVol)
+	}
+
+	for i, sl := range sliders {
+		chNum := i + 1
+		slider := sl
+		slider.OnChanged = func(val float64) {
+			if isUpdating {
+				return
+			}
+			_ = mixer.SetChannelSendVolume(chNum, currentBus, val)
+		}
+	}
+
 	masterBusSlider.OnChanged = func(val float64) {
+		if isUpdating {
+			return
+		}
 		_ = mixer.SetBusVolume(currentBus, val)
 	}
-	masterBusLabel := widget.NewLabelWithStyle("BUS\nMASTER", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	masterStrip := container.NewBorder(masterBusLabel, nil, nil, nil, container.NewPadded(masterBusSlider))
+
+	updateSliders()
 
 	mainMixerArea := container.NewBorder(nil, nil, nil, masterStrip, scrollableChannels)
 
@@ -92,17 +152,6 @@ func ShowPersonalMixerDialog(w fyne.Window) {
 
 	d = dialog.NewCustomWithoutButtons("Personal Mixer", container.NewPadded(content), w)
 
-	winSize := w.Canvas().Size()
-	targetWidth := float32(800)
-	targetHeight := float32(450)
-
-	if winSize.Width < targetWidth {
-		targetWidth = winSize.Width * 0.95
-	}
-	if winSize.Height < targetHeight {
-		targetHeight = winSize.Height * 0.95
-	}
-
-	d.Resize(fyne.NewSize(targetWidth, targetHeight))
+	d.Resize(w.Canvas().Size())
 	d.Show()
 }
