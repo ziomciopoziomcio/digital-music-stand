@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"image/color"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/ziomciopoziomcio/digital-music-stand/client/plugins"
 )
 
 var SetQuickSettingsVisible func(visible bool)
@@ -40,18 +43,20 @@ func (l *qsLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject, onLock func(), onSwitchProfile func(), isCloudConnected func() bool) fyne.CanvasObject {
 	isOpen := false
 	globalVisible := true
+
 	var toggleBtn *widget.Button
 	var settingsPanel *fyne.Container
 	var overlay *fyne.Container
 	var backdrop *widget.Button
 	var togglePanel func()
 
+	panelHeightVal := float32(280)
+
 	closePanel := func() {
 		if isOpen {
-			panelHeight := float32(280)
 			anim := canvas.NewPositionAnimation(
 				fyne.NewPos(0, 0),
-				fyne.NewPos(0, -panelHeight),
+				fyne.NewPos(0, -panelHeightVal),
 				time.Millisecond*200,
 				settingsPanel.Move,
 			)
@@ -89,10 +94,32 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 
 	statusLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
+	mixerTitle := widget.NewLabelWithStyle("Stage Mixer (Master Volume)", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	masterVolSlider := widget.NewSlider(0, 1)
+	masterVolSlider.Step = 0.05
+
+	var ignoreSliderChange bool
+	masterVolSlider.OnChanged = func(val float64) {
+		if ignoreSliderChange {
+			return
+		}
+		if m := plugins.GetActiveMixer(); m != nil {
+			_ = m.SetMainVolume(val)
+		}
+	}
+
+	mixerContainer := container.NewVBox(
+		widget.NewSeparator(),
+		mixerTitle,
+		masterVolSlider,
+		widget.NewSeparator(),
+	)
+	mixerContainer.Hide()
+
 	panelContent := container.NewVBox(
 		widget.NewLabelWithStyle("Quick Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		statusLabel,
-		widget.NewSeparator(),
+		mixerContainer,
 		switchBtn,
 		lockBtn,
 		widget.NewSeparator(),
@@ -111,13 +138,11 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 	backdropBg := canvas.NewRectangle(color.Transparent)
 	backdropContainer := container.NewMax(backdropBg, backdrop)
 
-	overlay = container.New(&qsLayout{panelHeight: 280}, backdropContainer, settingsPanel)
-	settingsPanel.Move(fyne.NewPos(0, -280))
+	overlay = container.New(&qsLayout{panelHeight: panelHeightVal}, backdropContainer, settingsPanel)
+	settingsPanel.Move(fyne.NewPos(0, -panelHeightVal))
 	overlay.Hide()
 
 	togglePanel = func() {
-		panelHeight := float32(280)
-
 		if !isOpen {
 			if isCloudConnected != nil && isCloudConnected() {
 				statusLabel.SetText("Cloud: Connected")
@@ -125,18 +150,31 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 				statusLabel.SetText("Cloud: Disconnected")
 			}
 
-			settingsPanel.Move(fyne.NewPos(0, -panelHeight))
-			overlay.Show()
+			m := plugins.GetActiveMixer()
+			if m != nil && m.GetConnectionStatus() {
+				mixerContainer.Show()
+				mixerTitle.SetText(fmt.Sprintf("%s (Master)", m.Name()))
+				if vol, err := m.GetMainVolume(); err == nil {
+					ignoreSliderChange = true
+					masterVolSlider.SetValue(vol)
+					ignoreSliderChange = false
+				}
+			} else {
+				mixerContainer.Hide()
+			}
 
+			settingsPanel.Move(fyne.NewPos(0, -panelHeightVal))
+			overlay.Show()
 			toggleBtn.Hide()
 
 			anim := canvas.NewPositionAnimation(
-				fyne.NewPos(0, -panelHeight),
+				fyne.NewPos(0, -panelHeightVal),
 				fyne.NewPos(0, 0),
 				time.Millisecond*200,
 				settingsPanel.Move,
 			)
 			anim.Start()
+
 			toggleBtn.SetIcon(theme.MenuDropUpIcon())
 			isOpen = true
 		} else {
