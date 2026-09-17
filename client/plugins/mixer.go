@@ -21,17 +21,25 @@ type MixerPlugin interface {
 	SetMainVolume(level float64) error
 	MuteMain(mute bool) error
 
+	GetChannelVolume(channel int) (float64, error)
 	SetChannelVolume(channel int, level float64) error
 	MuteChannel(channel int, mute bool) error
 
+	GetBusVolume(bus int) (float64, error)
 	SetBusVolume(bus int, level float64) error
+
+	GetChannelSendVolume(channel int, bus int) (float64, error)
 	SetChannelSendVolume(channel int, bus int, level float64) error
 
 	SetMonitorVolume(level float64) error
 	MuteMonitor(mute bool) error
 
 	SetChannelPan(channel int, pan float64) error
+
+	GetChannelName(channel int) (string, error)
 	SetChannelName(channel int, name string) error
+
+	GetBusName(bus int) (string, error)
 
 	mustEmbedUnimplementedMixerPlugin()
 }
@@ -47,11 +55,18 @@ func (UnimplementedMixerPlugin) GetBusCount() int                  { return 0 }
 func (UnimplementedMixerPlugin) GetMainVolume() (float64, error)   { return 0, ErrNotImplemented }
 func (UnimplementedMixerPlugin) SetMainVolume(level float64) error { return ErrNotImplemented }
 func (UnimplementedMixerPlugin) MuteMain(mute bool) error          { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) GetChannelVolume(channel int) (float64, error) {
+	return 0, ErrNotImplemented
+}
 func (UnimplementedMixerPlugin) SetChannelVolume(channel int, level float64) error {
 	return ErrNotImplemented
 }
 func (UnimplementedMixerPlugin) MuteChannel(channel int, mute bool) error  { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) GetBusVolume(bus int) (float64, error)     { return 0, ErrNotImplemented }
 func (UnimplementedMixerPlugin) SetBusVolume(bus int, level float64) error { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) GetChannelSendVolume(channel int, bus int) (float64, error) {
+	return 0, ErrNotImplemented
+}
 func (UnimplementedMixerPlugin) SetChannelSendVolume(channel int, bus int, level float64) error {
 	return ErrNotImplemented
 }
@@ -60,9 +75,13 @@ func (UnimplementedMixerPlugin) MuteMonitor(mute bool) error          { return E
 func (UnimplementedMixerPlugin) SetChannelPan(channel int, pan float64) error {
 	return ErrNotImplemented
 }
+func (UnimplementedMixerPlugin) GetChannelName(channel int) (string, error) {
+	return "", ErrNotImplemented
+}
 func (UnimplementedMixerPlugin) SetChannelName(channel int, name string) error {
 	return ErrNotImplemented
 }
+func (UnimplementedMixerPlugin) GetBusName(bus int) (string, error) { return "", ErrNotImplemented }
 func (UnimplementedMixerPlugin) mustEmbedUnimplementedMixerPlugin() {}
 
 var (
