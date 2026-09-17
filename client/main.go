@@ -14,13 +14,13 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/ziomciopoziomcio/digital-music-stand/client/remote"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/localdb"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/profiles"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/remote"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/ui"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/webserver"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
@@ -34,6 +34,7 @@ var AppVersion = "client-v0.1.0-alpha.1"
 func main() {
 	myApp := app.NewWithID("com.digitalmusicstand.client")
 	myWindow := myApp.NewWindow("Digital Music Stand")
+
 	ui.ApplyAppTheme(myApp, "blue")
 
 	homeDir, err := os.UserHomeDir()
@@ -48,7 +49,6 @@ func main() {
 	}
 
 	ui.ApplyAppTheme(myApp, "blue")
-
 	ui.ShowProfileSelector(myWindow, myApp, pm, func(profileID string) {
 		launchProfileSession(myWindow, myApp, pm, profileID)
 	})
@@ -96,6 +96,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	var showInbox func()
 	var showProfile func()
 	var showLockScreen func()
+
 	var performFullSync func(server string) bool
 
 	isCloudConnected := func() bool {
@@ -123,7 +124,6 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 
 		conn, err := network.NewGRPCClient(server, currentToken)
 		if err != nil {
-			log.Printf("gRPC connection error: %v", err)
 			return true
 		}
 		defer conn.Close()
@@ -343,7 +343,9 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 								"Session expiring soon.",
 								func(confirm bool) {
 									if confirm {
-										verifyPin := func(pin string) bool { return pm.VerifyPin(profileID, pin) }
+										verifyPin := func(pin string) bool {
+											return pm.VerifyPin(profileID, pin)
+										}
 										concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, remoteServer, showDashboard, showConcertSetup, forceSync, forceSync, showLockScreen, verifyPin, prefToken, prefServer, profilePath)
 										mainWrapper.Objects = []fyne.CanvasObject{concertView}
 										mainWrapper.Refresh()
@@ -356,7 +358,10 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 			}
 		}
 
-		verifyPin := func(pin string) bool { return pm.VerifyPin(profileID, pin) }
+		verifyPin := func(pin string) bool {
+			return pm.VerifyPin(profileID, pin)
+		}
+
 		concertView := ui.BuildConcertMode(myWindow, myApp, dbMgr, remoteServer, showDashboard, showConcertSetup, forceSync, forceSync, showLockScreen, verifyPin, prefToken, prefServer, profilePath)
 		mainWrapper.Objects = []fyne.CanvasObject{concertView}
 		mainWrapper.Refresh()
@@ -550,7 +555,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 		mainWrapper.Refresh()
 	}
 
-	appWithQuickSettings := ui.WrapWithQuickSettings(myWindow, myApp, mainWrapper, showLockScreen, onSwitchProfile, isCloudConnected)
+	appWithQuickSettings := ui.WrapWithQuickSettings(myWindow, myApp, mainWrapper, profileID, showLockScreen, onSwitchProfile, isCloudConnected)
 
 	showDashboard()
 	myWindow.SetContent(appWithQuickSettings)
