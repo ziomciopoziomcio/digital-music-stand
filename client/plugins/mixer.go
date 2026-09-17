@@ -14,12 +14,18 @@ type MixerPlugin interface {
 	Disconnect() error
 	GetConnectionStatus() bool
 
+	GetChannelCount() int
+	GetBusCount() int
+
 	GetMainVolume() (float64, error)
 	SetMainVolume(level float64) error
 	MuteMain(mute bool) error
 
 	SetChannelVolume(channel int, level float64) error
 	MuteChannel(channel int, mute bool) error
+
+	SetBusVolume(bus int, level float64) error
+	SetChannelSendVolume(channel int, bus int, level float64) error
 
 	SetMonitorVolume(level float64) error
 	MuteMonitor(mute bool) error
@@ -36,15 +42,21 @@ func (UnimplementedMixerPlugin) Name() string                      { return "Unk
 func (UnimplementedMixerPlugin) Connect(ipAddress string) error    { return ErrNotImplemented }
 func (UnimplementedMixerPlugin) Disconnect() error                 { return ErrNotImplemented }
 func (UnimplementedMixerPlugin) GetConnectionStatus() bool         { return false }
+func (UnimplementedMixerPlugin) GetChannelCount() int              { return 0 }
+func (UnimplementedMixerPlugin) GetBusCount() int                  { return 0 }
 func (UnimplementedMixerPlugin) GetMainVolume() (float64, error)   { return 0, ErrNotImplemented }
 func (UnimplementedMixerPlugin) SetMainVolume(level float64) error { return ErrNotImplemented }
 func (UnimplementedMixerPlugin) MuteMain(mute bool) error          { return ErrNotImplemented }
 func (UnimplementedMixerPlugin) SetChannelVolume(channel int, level float64) error {
 	return ErrNotImplemented
 }
-func (UnimplementedMixerPlugin) MuteChannel(channel int, mute bool) error { return ErrNotImplemented }
-func (UnimplementedMixerPlugin) SetMonitorVolume(level float64) error     { return ErrNotImplemented }
-func (UnimplementedMixerPlugin) MuteMonitor(mute bool) error              { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) MuteChannel(channel int, mute bool) error  { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) SetBusVolume(bus int, level float64) error { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) SetChannelSendVolume(channel int, bus int, level float64) error {
+	return ErrNotImplemented
+}
+func (UnimplementedMixerPlugin) SetMonitorVolume(level float64) error { return ErrNotImplemented }
+func (UnimplementedMixerPlugin) MuteMonitor(mute bool) error          { return ErrNotImplemented }
 func (UnimplementedMixerPlugin) SetChannelPan(channel int, pan float64) error {
 	return ErrNotImplemented
 }
