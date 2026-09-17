@@ -36,11 +36,11 @@ func RegisterMixer(plugin MixerPlugin) {
 	mixersMu.Lock()
 	defer mixersMu.Unlock()
 	if plugin == nil {
-		panic("mixer: RegisterMixer called with nil plugin")
+		panic("plugins: Register mixer is nil")
 	}
 	name := plugin.Name()
 	if _, dup := mixers[name]; dup {
-		panic("mixer: RegisterMixer called twice for plugin " + name)
+		panic("plugins: Register called twice for mixer " + name)
 	}
 	mixers[name] = plugin
 }
@@ -60,7 +60,7 @@ func GetMixer(name string) (MixerPlugin, error) {
 	defer mixersMu.RUnlock()
 	m, ok := mixers[name]
 	if !ok {
-		return nil, fmt.Errorf("mixer: no plugin with name %s found", name)
+		return nil, fmt.Errorf("mixer plugin %q not found", name)
 	}
 	return m, nil
 }
