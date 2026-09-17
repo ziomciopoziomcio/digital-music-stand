@@ -2,7 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"os/exec"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -13,6 +15,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/ziomciopoziomcio/digital-music-stand/client/plugins"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/profiles"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/system"
 	"github.com/ziomciopoziomcio/digital-music-stand/client/updater"
@@ -425,6 +428,76 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		)
 	}
 
+	buildMixerView := func() fyne.CanvasObject {
+		mixerOptions := append([]string{"None"}, plugins.GetAvailableMixers()...)
+
+		prefMixerPlugin := profileID + "_mixer_plugin"
+		prefMixerIP := profileID + "_mixer_ip"
+
+		savedMixer := app.Preferences().StringWithFallback(prefMixerPlugin, "None")
+		savedIP := app.Preferences().StringWithFallback(prefMixerIP, "192.168.1.100")
+
+		ipEntry := widget.NewEntry()
+		ipEntry.SetText(savedIP)
+
+		statusLabel := widget.NewLabelWithStyle("Status: Disconnected", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
+
+		var mixerSelect *widget.Select
+
+		updateConnection := func(pluginName, ip string) {
+			if plugins.GetActiveMixer() != nil {
+				plugins.GetActiveMixer().Disconnect()
+				plugins.SetActiveMixer(nil)
+			}
+			if pluginName == "None" || pluginName == "" {
+				statusLabel.SetText("Status: Disabled")
+				return
+			}
+			if m, err := plugins.GetMixer(pluginName); err == nil {
+				err := m.Connect(ip)
+				if err == nil {
+					plugins.SetActiveMixer(m)
+					statusLabel.SetText(fmt.Sprintf("Status: Connected to %s", pluginName))
+				} else {
+					statusLabel.SetText(fmt.Sprintf("Error: %v", err))
+				}
+			}
+		}
+
+		mixerSelect = widget.NewSelect(mixerOptions, func(selected string) {
+			app.Preferences().SetString(prefMixerPlugin, selected)
+		})
+		mixerSelect.SetSelected(savedMixer)
+
+		ipEntry.OnChanged = func(s string) {
+			app.Preferences().SetString(prefMixerIP, s)
+		}
+
+		connectBtn := widget.NewButtonWithIcon("Apply & Connect", theme.MediaPlayIcon(), func() {
+			updateConnection(mixerSelect.Selected, ipEntry.Text)
+		})
+		connectBtn.Importance = widget.HighImportance
+
+		if savedMixer != "None" && savedMixer != "" && plugins.GetActiveMixer() == nil {
+			updateConnection(savedMixer, savedIP)
+		} else if plugins.GetActiveMixer() != nil {
+			statusLabel.SetText(fmt.Sprintf("Status: Connected to %s", plugins.GetActiveMixer().Name()))
+		}
+
+		return container.NewVBox(
+			widget.NewLabelWithStyle("Stage Mixer Configuration", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+			widget.NewLabel("Select a plugin and enter the mixer's IP address on the local network."),
+			widget.NewSeparator(),
+			widget.NewLabel("Mixer Plugin:"),
+			mixerSelect,
+			widget.NewLabel("IP Address:"),
+			ipEntry,
+			widget.NewLabel(""),
+			connectBtn,
+			statusLabel,
+		)
+	}
+
 	showCategories = func() {
 		missingDeps := system.CheckMissingDependencies()
 
@@ -445,7 +518,40 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 					progress.Show()
 
 					go func() {
-						err := system.InstallDependencies(passEntry.Text, missingDeps)
+						pwd := passEntry.Text
+						var packagesToInstall []string
+
+						for _, dep := range missingDeps {
+							switch dep {
+							case "nmcli":
+								packagesToInstall = append(packagesToInstall, "network-manager")
+							case "amixer":
+								packagesToInstall = append(packagesToInstall, "alsa-utils")
+							case "xset":
+								packagesToInstall = append(packagesToInstall, "x11-xserver-utils")
+							default:
+								packagesToInstall = append(packagesToInstall, dep)
+							}
+						}
+
+						cmd1 := exec.Command("sudo", "-S", "apt-get", "update")
+						if stdin1, err := cmd1.StdinPipe(); err == nil {
+							go func() {
+								defer stdin1.Close()
+								io.WriteString(stdin1, pwd+"\n")
+							}()
+						}
+						_ = cmd1.Run()
+
+						args := append([]string{"-S", "apt-get", "install", "-y"}, packagesToInstall...)
+						cmd2 := exec.Command("sudo", args...)
+						if stdin2, err := cmd2.StdinPipe(); err == nil {
+							go func() {
+								defer stdin2.Close()
+								io.WriteString(stdin2, pwd+"\n")
+							}()
+						}
+						err := cmd2.Run()
 
 						progress.Hide()
 
@@ -466,6 +572,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		secBtn := widget.NewButtonWithIcon("Security & PIN", theme.VisibilityOffIcon(), func() { showDetail("Security Settings", buildSecurityView()) })
 		apprBtn := widget.NewButtonWithIcon("Appearance", theme.ColorPaletteIcon(), func() { showDetail("Appearance Settings", buildAppearanceView()) })
 		updBtn := widget.NewButtonWithIcon("Update App", theme.DownloadIcon(), func() { showDetail("Application Update", buildUpdateView()) })
+		mixerBtn := widget.NewButtonWithIcon("Stage Mixer", theme.VolumeUpIcon(), func() { showDetail("Mixer Configuration", buildMixerView()) })
 
 		netBtn.Importance = widget.HighImportance
 		mediaBtn.Importance = widget.HighImportance
@@ -474,8 +581,9 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		secBtn.Importance = widget.HighImportance
 		updBtn.Importance = widget.HighImportance
 		apprBtn.Importance = widget.HighImportance
+		mixerBtn.Importance = widget.HighImportance
 
-		grid := container.NewGridWithColumns(3, netBtn, mediaBtn, powerBtn, sysBtn, secBtn, apprBtn, updBtn)
+		grid := container.NewGridWithColumns(3, netBtn, mediaBtn, powerBtn, sysBtn, secBtn, apprBtn, updBtn, mixerBtn)
 
 		closeBtn := widget.NewButtonWithIcon("Close Settings", theme.CancelIcon(), onClose)
 		closeBtn.Importance = widget.DangerImportance
