@@ -7,6 +7,7 @@ import (
 	_ "image/jpeg"
 	"strconv"
 	"strings"
+	"sync"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -52,10 +53,11 @@ func ShowEyetrackCalibration(w fyne.Window, app fyne.App) {
 		}
 	}()
 
-	wrapper := container.NewMax()
-
+	var stopOnce sync.Once
 	cleanup := func() {
-		close(stopChan)
+		stopOnce.Do(func() {
+			close(stopChan)
+		})
 		calibTracker.Stop()
 		w.SetContent(oldContent)
 		w.SetFullScreen(wasFullScreen)
@@ -85,6 +87,8 @@ func ShowEyetrackCalibration(w fyne.Window, app fyne.App) {
 				if len(parts) == 2 {
 					cID, _ := strconv.Atoi(parts[1])
 					app.Preferences().SetInt("eyetrack_camera", cID)
+
+					w.SetFullScreen(true)
 
 					prog := dialog.NewCustomWithoutButtons("Starting...", container.NewPadded(widget.NewProgressBarInfinite()), w)
 					prog.Show()
@@ -119,8 +123,7 @@ func ShowEyetrackCalibration(w fyne.Window, app fyne.App) {
 		)
 
 		content := container.NewBorder(nil, nil, leftEdge, nil, centerPanel)
-		wrapper.Objects = []fyne.CanvasObject{content}
-		wrapper.Refresh()
+		w.SetContent(container.NewPadded(content))
 	}
 
 	showStep3 = func() {
@@ -141,10 +144,8 @@ func ShowEyetrackCalibration(w fyne.Window, app fyne.App) {
 		)
 
 		content := container.NewBorder(nil, nil, nil, rightEdge, centerPanel)
-		wrapper.Objects = []fyne.CanvasObject{content}
-		wrapper.Refresh()
+		w.SetContent(container.NewPadded(content))
 	}
 
-	wrapper.Objects = []fyne.CanvasObject{step1}
-	w.SetContent(wrapper)
+	w.SetContent(container.NewPadded(step1))
 }

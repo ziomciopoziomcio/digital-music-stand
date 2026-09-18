@@ -12,7 +12,6 @@ import (
 	"sync"
 )
 
-//go:embed tracker.py
 var trackerScript []byte
 
 type GazePoint struct {
@@ -40,12 +39,29 @@ func GetTracker() *Tracker {
 	return instance
 }
 
-func GetAvailableCameras() []string {
-	pyCmd := "python3"
-	if _, err := exec.LookPath("python3"); err != nil {
-		pyCmd = "python"
+func getPythonCommand() string {
+	if customPath := os.Getenv("DMS_PYTHON_PATH"); customPath != "" {
+		return customPath
 	}
-	script := `import cv2, json
+	if _, err := exec.LookPath("python3.11"); err == nil {
+		return "python3.11"
+	}
+	if _, err := exec.LookPath("python3.12"); err == nil {
+		return "python3.12"
+	}
+	if _, err := exec.LookPath("python3"); err == nil {
+		return "python3"
+	}
+	if _, err := exec.LookPath("python"); err == nil {
+		return "python"
+	}
+	return "python3"
+}
+
+func GetAvailableCameras() []string {
+	pyCmd := getPythonCommand()
+	script := `import os, cv2, json
+os.environ["OPENCV_LOG_LEVEL"] = "SILENT"
 cams = []
 for i in range(5):
 	cap = cv2.VideoCapture(i)
@@ -66,9 +82,9 @@ print(json.dumps(cams))`
 }
 
 func ensureDependencies(pyCmd string) error {
-	checkCmd := exec.Command(pyCmd, "-c", "import cv2, mediapipe, numpy")
+	checkCmd := exec.Command(pyCmd, "-c", "import cv2, numpy, PIL, mediapipe.solutions.face_mesh")
 	if err := checkCmd.Run(); err != nil {
-		installCmd := exec.Command(pyCmd, "-m", "pip", "install", "--upgrade", "opencv-python", "mediapipe", "numpy", "protobuf")
+		installCmd := exec.Command(pyCmd, "-m", "pip", "install", "--upgrade", "opencv-python", "mediapipe", "protobuf<4", "numpy", "Pillow")
 		installCmd.Stdout = os.Stdout
 		installCmd.Stderr = os.Stderr
 		return installCmd.Run()
@@ -83,13 +99,10 @@ func (t *Tracker) Start(cameraID int, preview bool) error {
 		return nil
 	}
 
-	pyCmd := "python3"
-	if _, err := exec.LookPath("python3"); err != nil {
-		pyCmd = "python"
-	}
+	pyCmd := getPythonCommand()
 
 	if err := ensureDependencies(pyCmd); err != nil {
-		return fmt.Errorf("failed to install python dependencies: %v", err)
+		return fmt.Errorf("failed to install dependencies: %v", err)
 	}
 
 	tempDir := os.TempDir()

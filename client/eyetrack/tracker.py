@@ -1,10 +1,21 @@
+import os
+import signal
+import sys
+
+os.environ["OPENCV_LOG_LEVEL"] = "SILENT"
+os.environ["OPENCV_VIDEOIO_DEBUG"] = "0"
+
+try:
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+except Exception:
+    pass
+
 import cv2
 import json
 import numpy as np
 import argparse
 import base64
 import time
-import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--camera', type=int, default=0)
@@ -14,22 +25,46 @@ args = parser.parse_args()
 def send_data(data_dict):
     try:
         print(json.dumps(data_dict), flush=True)
+    except BrokenPipeError:
+        sys.exit(0)
     except Exception:
         sys.exit(0)
 
 def print_error(msg):
     img = np.zeros((240, 320, 3), dtype=np.uint8)
-    cv2.putText(img, msg, (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1, cv2.LINE_AA)
+    words = msg.split()
+    line = ""
+    lines = []
+
+    for word in words:
+        if len(line) + len(word) < 45:
+            line += word + " "
+        else:
+            lines.append(line)
+            line = word + " "
+    lines.append(line)
+
+    y0, dy = 120, 20
+    if len(lines) > 1:
+        y0 = 120 - ((len(lines) // 2) * dy)
+
+    for i, l in enumerate(lines):
+        cv2.putText(img, l.strip(), (10, y0 + i * dy), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1, cv2.LINE_AA)
+
     _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 60])
     send_data({"x": 0.5, "y": 0.5, "frame": base64.b64encode(buffer).decode('utf-8')})
 
 try:
-    import mediapipe as mp
-    mp_face_mesh = mp.solutions.face_mesh
+    import mediapipe.solutions.face_mesh as mp_face_mesh
 except Exception as e:
+    py_ver = sys.version.split()[0]
+    if py_ver.startswith("3.13"):
+        msg = "Python 3.13 not supported by MediaPipe. Downgrade to 3.12."
+    else:
+        msg = f"MP Err: {str(e)}"
     while True:
         if args.preview == 1:
-            print_error(f"Init Error: {str(e)[:40]}")
+            print_error(msg)
         else:
             send_data({"x": 0.5, "y": 0.5})
         time.sleep(1)
