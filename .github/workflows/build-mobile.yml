@@ -38,10 +38,15 @@ jobs:
         run: |
           fyne-cross android -arch=arm64 -dir=mobile -name=dms-pilot -app-id=com.digitalmusicstand.pilot
 
+      - name: Locate and prepare APK
+        run: |
+          APK_PATH=$(find . -name "*.apk" | head -n 1)
+          mv "$APK_PATH" dms-pilot.apk
+
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
-          files: mobile/fyne-cross/dist/android/dms-pilot.apk
+          files: dms-pilot.apk
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
