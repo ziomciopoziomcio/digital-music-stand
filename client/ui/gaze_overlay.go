@@ -12,13 +12,7 @@ import (
 )
 
 func NewGazeOverlay(w fyne.Window, app fyne.App, onPrev, onNext func(), isLocked func() bool) (*fyne.Container, func()) {
-	tracker := eyetrack.NewTracker()
-
-	enabled := app.Preferences().BoolWithFallback("eyetrack_enabled", false)
-	if enabled {
-		camID := app.Preferences().IntWithFallback("eyetrack_camera", 0)
-		go tracker.Start(camID, false)
-	}
+	tracker := eyetrack.GetTracker()
 
 	leftZone := canvas.NewRectangle(color.Transparent)
 	rightZone := canvas.NewRectangle(color.Transparent)
@@ -30,6 +24,25 @@ func NewGazeOverlay(w fyne.Window, app fyne.App, onPrev, onNext func(), isLocked
 	stopChan := make(chan struct{})
 
 	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stopChan:
+				tracker.Stop()
+				return
+			case <-ticker.C:
+				if app.Preferences().BoolWithFallback("eyetrack_enabled", false) {
+					camID := app.Preferences().IntWithFallback("eyetrack_camera", 0)
+					_ = tracker.Start(camID, false)
+				} else {
+					tracker.Stop()
+				}
+			}
+		}
+	}()
+
+	go func() {
 		var gazeTimer time.Time
 		var currentTarget string
 		requiredDwellTime := 3000 * time.Millisecond
@@ -37,15 +50,17 @@ func NewGazeOverlay(w fyne.Window, app fyne.App, onPrev, onNext func(), isLocked
 		for {
 			select {
 			case <-stopChan:
-				tracker.Stop()
 				return
 			case point := <-tracker.GazeChan:
+				enabled := app.Preferences().BoolWithFallback("eyetrack_enabled", false)
 				winSize := w.Canvas().Size()
-				if winSize.Width == 0 || winSize.Height == 0 || (isLocked != nil && isLocked()) {
+
+				if !enabled || winSize.Width == 0 || winSize.Height == 0 || (isLocked != nil && isLocked()) {
 					leftZone.FillColor = color.Transparent
 					rightZone.FillColor = color.Transparent
 					gazeProgressCircle.Hide()
 					overlay.Refresh()
+					currentTarget = ""
 					continue
 				}
 
@@ -55,10 +70,25 @@ func NewGazeOverlay(w fyne.Window, app fyne.App, onPrev, onNext func(), isLocked
 				rightZone.Resize(fyne.NewSize(winSize.Width*0.2, winSize.Height))
 				rightZone.Move(fyne.NewPos(winSize.Width*0.8, 0))
 
+				minX := app.Preferences().FloatWithFallback("eyetrack_min_x", 0.3)
+				maxX := app.Preferences().FloatWithFallback("eyetrack_max_x", 0.7)
+
+				if maxX <= minX {
+					maxX = minX + 0.1
+				}
+
+				normX := (point.X - minX) / (maxX - minX)
+				if normX < 0 {
+					normX = 0
+				}
+				if normX > 1 {
+					normX = 1
+				}
+
 				newTarget := ""
-				if point.X < 0.20 {
+				if normX < 0.20 {
 					newTarget = "PREV"
-				} else if point.X > 0.80 {
+				} else if normX > 0.80 {
 					newTarget = "NEXT"
 				}
 

@@ -3,10 +3,10 @@ package ui
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	"image"
 	_ "image/jpeg"
 	"strconv"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -18,43 +18,13 @@ import (
 )
 
 func ShowEyetrackCalibration(w fyne.Window, app fyne.App) {
-	enabled := app.Preferences().BoolWithFallback("eyetrack_enabled", false)
-	camID := app.Preferences().IntWithFallback("eyetrack_camera", 0)
-
-	camEntry := widget.NewEntry()
-	camEntry.SetText(fmt.Sprintf("%d", camID))
+	calibTracker := eyetrack.GetTracker()
+	stopChan := make(chan struct{})
+	var latestX float64
 
 	imgCanvas := canvas.NewImageFromResource(nil)
 	imgCanvas.FillMode = canvas.ImageFillContain
-	imgCanvas.SetMinSize(fyne.NewSize(320, 240))
-
-	calibTracker := eyetrack.NewTracker()
-	stopChan := make(chan struct{})
-
-	startPreview := func() {
-		calibTracker.Stop()
-		cID, _ := strconv.Atoi(camEntry.Text)
-		app.Preferences().SetInt("eyetrack_camera", cID)
-
-		prog := dialog.NewCustomWithoutButtons("Eye Tracker", container.NewPadded(container.NewVBox(
-			widget.NewLabelWithStyle("Initializing AI models...", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-			widget.NewLabel("This might take a minute on the first run."),
-			widget.NewProgressBarInfinite(),
-		)), w)
-		prog.Show()
-
-		go func() {
-			err := calibTracker.Start(cID, true)
-			prog.Hide()
-			if err != nil {
-				dialog.ShowError(err, w)
-			}
-		}()
-	}
-
-	if enabled {
-		startPreview()
-	}
+	imgCanvas.SetMinSize(fyne.NewSize(400, 300))
 
 	go func() {
 		for {
@@ -63,6 +33,7 @@ func ShowEyetrackCalibration(w fyne.Window, app fyne.App) {
 				calibTracker.Stop()
 				return
 			case pt := <-calibTracker.GazeChan:
+				latestX = pt.X
 				if pt.Frame != "" {
 					data, err := base64.StdEncoding.DecodeString(pt.Frame)
 					if err == nil {
@@ -78,26 +49,87 @@ func ShowEyetrackCalibration(w fyne.Window, app fyne.App) {
 	}()
 
 	var d dialog.Dialog
-	applyBtn := widget.NewButtonWithIcon("Apply Camera", theme.ViewRefreshIcon(), func() {
-		startPreview()
-	})
-	closeBtn := widget.NewButtonWithIcon("Close", theme.CancelIcon(), func() {
-		close(stopChan)
-		calibTracker.Stop()
-		d.Hide()
-	})
+	wrapper := container.NewMax()
 
-	form := container.NewVBox(
-		widget.NewLabelWithStyle("Eye Tracking Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		container.NewHBox(widget.NewLabel("Camera Index:"), camEntry, applyBtn),
-		widget.NewSeparator(),
-		widget.NewLabelWithStyle("Camera Preview", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-		container.NewCenter(imgCanvas),
-		widget.NewLabelWithStyle("Keep your head center. Look left/right.", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}),
-		widget.NewSeparator(),
-		closeBtn,
+	camSelect := widget.NewSelect([]string{"Scanning..."}, nil)
+	go func() {
+		cams := eyetrack.GetAvailableCameras()
+		camSelect.Options = cams
+		if len(cams) > 0 {
+			camSelect.SetSelected(cams[0])
+		}
+	}()
+
+	var showStep2 func()
+	var showStep3 func()
+
+	step1 := container.NewVBox(
+		widget.NewLabelWithStyle("Step 1: Select Camera", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		camSelect,
+		widget.NewButton("Start Calibration", func() {
+			if camSelect.Selected == "" || camSelect.Selected == "Scanning..." {
+				return
+			}
+			parts := strings.Split(camSelect.Selected, " ")
+			if len(parts) == 2 {
+				cID, _ := strconv.Atoi(parts[1])
+				app.Preferences().SetInt("eyetrack_camera", cID)
+
+				prog := dialog.NewCustomWithoutButtons("Starting...", container.NewPadded(widget.NewProgressBarInfinite()), w)
+				prog.Show()
+				go func() {
+					_ = calibTracker.Start(cID, true)
+					prog.Hide()
+					showStep2()
+				}()
+			}
+		}),
+		widget.NewButton("Cancel", func() {
+			close(stopChan)
+			d.Hide()
+		}),
 	)
 
-	d = dialog.NewCustomWithoutButtons("Eye Tracking Calibration", container.NewPadded(form), w)
+	showStep2 = func() {
+		leftDot := canvas.NewCircle(theme.ErrorColor())
+		sizedLeftDot := container.NewGridWrap(fyne.NewSize(60, 60), leftDot)
+
+		content := container.NewBorder(
+			widget.NewLabelWithStyle("Step 2: Look at the RED DOT and click NEXT", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewButton("NEXT", func() {
+				app.Preferences().SetFloat("eyetrack_min_x", latestX)
+				showStep3()
+			}),
+			container.NewCenter(sizedLeftDot),
+			nil,
+			container.NewCenter(imgCanvas),
+		)
+		wrapper.Objects = []fyne.CanvasObject{container.NewPadded(content)}
+		wrapper.Refresh()
+	}
+
+	showStep3 = func() {
+		rightDot := canvas.NewCircle(theme.ErrorColor())
+		sizedRightDot := container.NewGridWrap(fyne.NewSize(60, 60), rightDot)
+
+		content := container.NewBorder(
+			widget.NewLabelWithStyle("Step 3: Look at the RED DOT and click FINISH", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewButton("FINISH", func() {
+				app.Preferences().SetFloat("eyetrack_max_x", latestX)
+				close(stopChan)
+				d.Hide()
+			}),
+			nil,
+			container.NewCenter(sizedRightDot),
+			container.NewCenter(imgCanvas),
+		)
+		wrapper.Objects = []fyne.CanvasObject{container.NewPadded(content)}
+		wrapper.Refresh()
+	}
+
+	wrapper.Objects = []fyne.CanvasObject{container.NewPadded(step1)}
+
+	d = dialog.NewCustomWithoutButtons("Calibration", wrapper, w)
+	d.Resize(fyne.NewSize(700, 500))
 	d.Show()
 }

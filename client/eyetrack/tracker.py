@@ -14,8 +14,6 @@ args = parser.parse_args()
 def send_data(data_dict):
     try:
         print(json.dumps(data_dict), flush=True)
-    except BrokenPipeError:
-        sys.exit(0)
     except Exception:
         sys.exit(0)
 
@@ -71,9 +69,8 @@ with mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True, min_detection
             eye_width = eye_right - eye_left
 
             if eye_width > 0:
-                iris_ratio_x = (r_cx - eye_left) / eye_width
-                gaze_x = np.clip((iris_ratio_x - 0.3) / 0.4, 0.0, 1.0)
-                gaze_y = np.clip(((l_cy + r_cy) / 2.0) / img_h, 0.0, 1.0)
+                gaze_x = (r_cx - eye_left) / eye_width
+                gaze_y = ((l_cy + r_cy) / 2.0) / img_h
 
             if args.preview == 1:
                 cv2.circle(image, (int(l_cx), int(l_cy)), 3, (0, 255, 0), -1)
