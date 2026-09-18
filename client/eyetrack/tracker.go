@@ -80,25 +80,23 @@ print(json.dumps(cams))`
 }
 
 func ensureDependencies(pyCmd string) error {
-	checkCmd := exec.Command(pyCmd, "-c", "import cv2, numpy, PIL; import mediapipe as mp; mp.solutions.face_mesh")
-	if err := checkCmd.Run(); err != nil {
-		uninstallCmd := exec.Command(pyCmd, "-m", "pip", "uninstall", "-y", "mediapipe")
-		uninstallCmd.Stdout = os.Stdout
-		uninstallCmd.Stderr = os.Stderr
-		_ = uninstallCmd.Run()
+	checkScript := "import cv2, numpy, PIL, mediapipe; import mediapipe.solutions.face_mesh; import sys; sys.exit(0 if mediapipe.__version__ == '0.10.21' else 1)"
+	checkCmd := exec.Command(pyCmd, "-c", checkScript)
+	if err := checkCmd.Run(); err == nil {
+		return nil
+	}
 
-		installArgs := []string{"-m", "pip", "install", "opencv-python", "mediapipe==0.10.21", "protobuf", "numpy", "Pillow"}
-		installCmd := exec.Command(pyCmd, installArgs...)
-		installCmd.Stdout = os.Stdout
-		installCmd.Stderr = os.Stderr
-		if errInstall := installCmd.Run(); errInstall != nil {
-			installArgs = append(installArgs, "--break-system-packages")
-			fallbackCmd := exec.Command(pyCmd, installArgs...)
-			fallbackCmd.Stdout = os.Stdout
-			fallbackCmd.Stderr = os.Stderr
-			if errFallback := fallbackCmd.Run(); errFallback != nil {
-				return fmt.Errorf("pip install failed: %v", errFallback)
-			}
+	installArgs := []string{"-m", "pip", "install", "opencv-python", "mediapipe==0.10.21", "protobuf", "numpy", "Pillow"}
+	installCmd := exec.Command(pyCmd, installArgs...)
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+	if errInstall := installCmd.Run(); errInstall != nil {
+		installArgs = append(installArgs, "--break-system-packages")
+		fallbackCmd := exec.Command(pyCmd, installArgs...)
+		fallbackCmd.Stdout = os.Stdout
+		fallbackCmd.Stderr = os.Stderr
+		if errFallback := fallbackCmd.Run(); errFallback != nil {
+			return fmt.Errorf("pip install failed: %v", errFallback)
 		}
 	}
 	return nil
