@@ -12,6 +12,7 @@ import (
 	"sync"
 )
 
+//go:embed tracker.py
 var trackerScript []byte
 
 type GazePoint struct {
@@ -46,16 +47,13 @@ func getPythonCommand() string {
 	if _, err := exec.LookPath("python3.11"); err == nil {
 		return "python3.11"
 	}
-	if _, err := exec.LookPath("python3.12"); err == nil {
-		return "python3.12"
-	}
 	if _, err := exec.LookPath("python3"); err == nil {
 		return "python3"
 	}
 	if _, err := exec.LookPath("python"); err == nil {
 		return "python"
 	}
-	return "python3"
+	return "python3.11"
 }
 
 func GetAvailableCameras() []string {
@@ -82,12 +80,26 @@ print(json.dumps(cams))`
 }
 
 func ensureDependencies(pyCmd string) error {
-	checkCmd := exec.Command(pyCmd, "-c", "import cv2, numpy, PIL, mediapipe.solutions.face_mesh")
+	checkCmd := exec.Command(pyCmd, "-c", "import cv2, numpy, PIL; import mediapipe as mp; mp.solutions.face_mesh")
 	if err := checkCmd.Run(); err != nil {
-		installCmd := exec.Command(pyCmd, "-m", "pip", "install", "--upgrade", "opencv-python", "mediapipe", "protobuf<4", "numpy", "Pillow")
+		uninstallCmd := exec.Command(pyCmd, "-m", "pip", "uninstall", "-y", "mediapipe")
+		uninstallCmd.Stdout = os.Stdout
+		uninstallCmd.Stderr = os.Stderr
+		_ = uninstallCmd.Run()
+
+		installArgs := []string{"-m", "pip", "install", "opencv-python", "mediapipe==0.10.21", "protobuf", "numpy", "Pillow"}
+		installCmd := exec.Command(pyCmd, installArgs...)
 		installCmd.Stdout = os.Stdout
 		installCmd.Stderr = os.Stderr
-		return installCmd.Run()
+		if errInstall := installCmd.Run(); errInstall != nil {
+			installArgs = append(installArgs, "--break-system-packages")
+			fallbackCmd := exec.Command(pyCmd, installArgs...)
+			fallbackCmd.Stdout = os.Stdout
+			fallbackCmd.Stderr = os.Stderr
+			if errFallback := fallbackCmd.Run(); errFallback != nil {
+				return fmt.Errorf("pip install failed: %v", errFallback)
+			}
+		}
 	}
 	return nil
 }

@@ -70,82 +70,85 @@ func ShowEyetrackCalibration(w fyne.Window, app fyne.App) {
 		if len(cams) > 0 {
 			camSelect.SetSelected(cams[0])
 		}
+		camSelect.Refresh()
 	}()
 
-	var showStep2 func()
-	var showStep3 func()
+	leftDot := canvas.NewCircle(theme.ErrorColor())
+	sizedLeftDot := container.NewGridWrap(fyne.NewSize(60, 60), leftDot)
+	leftEdge := container.NewVBox(layout.NewSpacer(), sizedLeftDot, layout.NewSpacer())
 
-	step1 := container.NewCenter(
+	rightDot := canvas.NewCircle(theme.ErrorColor())
+	sizedRightDot := container.NewGridWrap(fyne.NewSize(60, 60), rightDot)
+	rightEdge := container.NewVBox(layout.NewSpacer(), sizedRightDot, layout.NewSpacer())
+
+	var step2, step3 *fyne.Container
+
+	btnNext := widget.NewButton("NEXT", func() {
+		app.Preferences().SetFloat("eyetrack_min_x", latestX)
+		w.SetContent(step3)
+	})
+	btnCancel2 := widget.NewButton("Cancel", cleanup)
+
+	centerPanel2 := container.NewCenter(
+		container.NewVBox(
+			widget.NewLabelWithStyle("Step 2: Look at the RED DOT on the left and click NEXT", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			btnNext,
+			imgCanvas,
+			btnCancel2,
+		),
+	)
+	step2 = container.NewPadded(container.NewBorder(nil, nil, leftEdge, nil, centerPanel2))
+
+	btnFinish := widget.NewButton("FINISH", func() {
+		app.Preferences().SetFloat("eyetrack_max_x", latestX)
+		cleanup()
+	})
+	btnCancel3 := widget.NewButton("Cancel", cleanup)
+
+	centerPanel3 := container.NewCenter(
+		container.NewVBox(
+			widget.NewLabelWithStyle("Step 3: Look at the RED DOT on the right and click FINISH", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			btnFinish,
+			imgCanvas,
+			btnCancel3,
+		),
+	)
+	step3 = container.NewPadded(container.NewBorder(nil, nil, nil, rightEdge, centerPanel3))
+
+	btnStart := widget.NewButton("Start Calibration", func() {
+		if camSelect.Selected == "" || camSelect.Selected == "Scanning..." {
+			return
+		}
+		parts := strings.Split(camSelect.Selected, " ")
+		if len(parts) == 2 {
+			cID, _ := strconv.Atoi(parts[1])
+			app.Preferences().SetInt("eyetrack_camera", cID)
+
+			prog := dialog.NewCustomWithoutButtons("Starting...", container.NewPadded(widget.NewProgressBarInfinite()), w)
+			prog.Show()
+
+			go func() {
+				err := calibTracker.Start(cID, true)
+				prog.Hide()
+				if err != nil {
+					dialog.ShowError(err, w)
+				} else {
+					w.SetFullScreen(true)
+					w.SetContent(step2)
+				}
+			}()
+		}
+	})
+	btnCancel1 := widget.NewButton("Cancel", cleanup)
+
+	step1 := container.NewPadded(container.NewCenter(
 		container.NewVBox(
 			widget.NewLabelWithStyle("Step 1: Select Camera", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 			camSelect,
-			widget.NewButton("Start Calibration", func() {
-				if camSelect.Selected == "" || camSelect.Selected == "Scanning..." {
-					return
-				}
-				parts := strings.Split(camSelect.Selected, " ")
-				if len(parts) == 2 {
-					cID, _ := strconv.Atoi(parts[1])
-					app.Preferences().SetInt("eyetrack_camera", cID)
-
-					w.SetFullScreen(true)
-
-					prog := dialog.NewCustomWithoutButtons("Starting...", container.NewPadded(widget.NewProgressBarInfinite()), w)
-					prog.Show()
-					go func() {
-						_ = calibTracker.Start(cID, true)
-						prog.Hide()
-						showStep2()
-					}()
-				}
-			}),
-			widget.NewButton("Cancel", cleanup),
+			btnStart,
+			btnCancel1,
 		),
-	)
+	))
 
-	showStep2 = func() {
-		w.SetFullScreen(true)
-
-		leftDot := canvas.NewCircle(theme.ErrorColor())
-		sizedLeftDot := container.NewGridWrap(fyne.NewSize(60, 60), leftDot)
-		leftEdge := container.NewVBox(layout.NewSpacer(), sizedLeftDot, layout.NewSpacer())
-
-		centerPanel := container.NewCenter(
-			container.NewVBox(
-				widget.NewLabelWithStyle("Step 2: Look at the RED DOT on the left and click NEXT", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-				widget.NewButton("NEXT", func() {
-					app.Preferences().SetFloat("eyetrack_min_x", latestX)
-					showStep3()
-				}),
-				imgCanvas,
-				widget.NewButton("Cancel", cleanup),
-			),
-		)
-
-		content := container.NewBorder(nil, nil, leftEdge, nil, centerPanel)
-		w.SetContent(container.NewPadded(content))
-	}
-
-	showStep3 = func() {
-		rightDot := canvas.NewCircle(theme.ErrorColor())
-		sizedRightDot := container.NewGridWrap(fyne.NewSize(60, 60), rightDot)
-		rightEdge := container.NewVBox(layout.NewSpacer(), sizedRightDot, layout.NewSpacer())
-
-		centerPanel := container.NewCenter(
-			container.NewVBox(
-				widget.NewLabelWithStyle("Step 3: Look at the RED DOT on the right and click FINISH", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-				widget.NewButton("FINISH", func() {
-					app.Preferences().SetFloat("eyetrack_max_x", latestX)
-					cleanup()
-				}),
-				imgCanvas,
-				widget.NewButton("Cancel", cleanup),
-			),
-		)
-
-		content := container.NewBorder(nil, nil, nil, rightEdge, centerPanel)
-		w.SetContent(container.NewPadded(content))
-	}
-
-	w.SetContent(container.NewPadded(step1))
+	w.SetContent(step1)
 }

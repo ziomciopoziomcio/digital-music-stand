@@ -55,13 +55,10 @@ def print_error(msg):
     send_data({"x": 0.5, "y": 0.5, "frame": base64.b64encode(buffer).decode('utf-8')})
 
 try:
-    import mediapipe.solutions.face_mesh as mp_face_mesh
+    import mediapipe as mp
+    mp_face_mesh = mp.solutions.face_mesh
 except Exception as e:
-    py_ver = sys.version.split()[0]
-    if py_ver.startswith("3.13"):
-        msg = "Python 3.13 not supported by MediaPipe. Downgrade to 3.12."
-    else:
-        msg = f"MP Err: {str(e)}"
+    msg = f"MP Err: {str(e)} ({sys.executable})"
     while True:
         if args.preview == 1:
             print_error(msg)
@@ -93,7 +90,6 @@ with mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True, min_detection
         results = face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
         gaze_x, gaze_y = 0.5, 0.5
-
         if results.multi_face_landmarks:
             mesh_points = np.array([np.multiply([p.x, p.y], [img_w, img_h]).astype(int) for p in results.multi_face_landmarks[0].landmark])
             (l_cx, l_cy), _ = cv2.minEnclosingCircle(mesh_points[LEFT_IRIS])
@@ -112,7 +108,6 @@ with mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True, min_detection
                 cv2.circle(image, (int(r_cx), int(r_cy)), 3, (0, 255, 0), -1)
 
         out_dict = {"x": gaze_x, "y": gaze_y}
-
         if args.preview == 1:
             preview_img = cv2.resize(image, (320, 240))
             _, buffer = cv2.imencode('.jpg', preview_img, [cv2.IMWRITE_JPEG_QUALITY, 60])
