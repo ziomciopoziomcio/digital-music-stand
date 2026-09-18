@@ -78,6 +78,21 @@ if not cap.isOpened():
             send_data({"x": 0.5, "y": 0.5})
         time.sleep(1)
 
+class EMAFilter:
+    def __init__(self, alpha=0.15):
+        self.alpha = alpha
+        self.val = None
+
+    def update(self, new_val):
+        if self.val is None:
+            self.val = new_val
+        else:
+            self.val = self.alpha * new_val + (1 - self.alpha) * self.val
+        return self.val
+
+filter_x = EMAFilter(alpha=0.15)
+filter_y = EMAFilter(alpha=0.15)
+
 with mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True, min_detection_confidence=0.5, min_tracking_confidence=0.5) as face_mesh:
     while cap.isOpened():
         success, image = cap.read()
@@ -90,6 +105,7 @@ with mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True, min_detection
         results = face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
         gaze_x, gaze_y = 0.5, 0.5
+
         if results.multi_face_landmarks:
             mesh_points = np.array([np.multiply([p.x, p.y], [img_w, img_h]).astype(int) for p in results.multi_face_landmarks[0].landmark])
             (l_cx, l_cy), _ = cv2.minEnclosingCircle(mesh_points[LEFT_IRIS])
@@ -100,14 +116,17 @@ with mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True, min_detection
             eye_width = eye_right - eye_left
 
             if eye_width > 0:
-                gaze_x = (r_cx - eye_left) / eye_width
-                gaze_y = ((l_cy + r_cy) / 2.0) / img_h
+                raw_x = (r_cx - eye_left) / eye_width
+                raw_y = ((l_cy + r_cy) / 2.0) / img_h
+                gaze_x = filter_x.update(raw_x)
+                gaze_y = filter_y.update(raw_y)
 
             if args.preview == 1:
                 cv2.circle(image, (int(l_cx), int(l_cy)), 3, (0, 255, 0), -1)
                 cv2.circle(image, (int(r_cx), int(r_cy)), 3, (0, 255, 0), -1)
 
         out_dict = {"x": gaze_x, "y": gaze_y}
+
         if args.preview == 1:
             preview_img = cv2.resize(image, (320, 240))
             _, buffer = cv2.imencode('.jpg', preview_img, [cv2.IMWRITE_JPEG_QUALITY, 60])
