@@ -35,6 +35,8 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 	searchEntry.SetPlaceHolder("Search scores (min. 3 chars)...")
 
 	showScore := func(score localdb.Score) {
+		var stopGaze func()
+
 		metroAudio, _ := audio.NewMetronomeAudio()
 		metroIndicator := canvas.NewRectangle(theme.DisabledColor())
 		metroIndicator.SetMinSize(fyne.NewSize(20, 20))
@@ -182,6 +184,9 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 		nextBtn.Importance = widget.HighImportance
 
 		exitBtn := widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
+			if stopGaze != nil {
+				stopGaze()
+			}
 			if metroAudio != nil {
 				metroAudio.Stop()
 				metroAudio.Close()
@@ -225,11 +230,25 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 		})
 		viewer.Content.Objects = []fyne.CanvasObject{pdfContainer}
 
-		mainView := container.NewBorder(
-			container.NewPadded(topBar),
-			nil, nil,
-			container.NewPadded(rightSidebar),
-			viewer,
+		overlay, stopper := NewGazeOverlay(w, app, func() {
+			if prevBtn != nil && !prevBtn.Disabled() {
+				prevBtn.OnTapped()
+			}
+		}, func() {
+			if nextBtn != nil && !nextBtn.Disabled() {
+				nextBtn.OnTapped()
+			}
+		}, func() bool { return false })
+		stopGaze = stopper
+
+		mainView := container.NewMax(
+			container.NewBorder(
+				container.NewPadded(topBar),
+				nil, nil,
+				container.NewPadded(rightSidebar),
+				viewer,
+			),
+			overlay,
 		)
 
 		contentWrapper.Objects = []fyne.CanvasObject{mainView}

@@ -174,10 +174,28 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 	)
 	mixerContainer.Hide()
 
+	eyetrackCheck := widget.NewCheck("Enable Eye Tracking", func(checked bool) {
+		a.Preferences().SetBool("eyetrack_enabled", checked)
+	})
+	eyetrackCheck.SetChecked(a.Preferences().BoolWithFallback("eyetrack_enabled", false))
+
+	calibBtn := widget.NewButtonWithIcon("Calibrate Eye Tracking", theme.SettingsIcon(), func() {
+		closePanel()
+		ShowEyetrackCalibration(w, a)
+	})
+
+	eyeTrackContainer := container.NewVBox(
+		widget.NewSeparator(),
+		widget.NewLabelWithStyle("Eye Tracking Controls", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		eyetrackCheck,
+		calibBtn,
+	)
+
 	panelContent := container.NewVBox(
 		widget.NewLabelWithStyle("Quick Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		statusLabel,
 		deviceContainer,
+		eyeTrackContainer,
 		mixerContainer,
 		widget.NewSeparator(),
 		container.NewHBox(layout.NewSpacer(), switchBtn, lockBtn, layout.NewSpacer()),

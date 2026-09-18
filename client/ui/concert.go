@@ -241,6 +241,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 		var exitConcertBtn, prevSongBtn, nextSongBtn, prevPageBtn, nextPageBtn *widget.Button
 		var handleRemoteCommand func(action string)
+		var stopGaze func()
 
 		var cloudConn *grpc.ClientConn
 		var p2pConn *grpc.ClientConn
@@ -1223,6 +1224,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				recorderAudio.Close()
 			}
 			showConcertList()
+			if stopGaze != nil {
+				stopGaze()
+			}
 		})
 		exitConcertBtn.Importance = widget.DangerImportance
 
@@ -1369,8 +1373,20 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		})
 		viewer.Content.Objects = []fyne.CanvasObject{pdfContainer}
 
+		overlay, stopper := NewGazeOverlay(w, app, func() {
+			if prevPageBtn != nil && !prevPageBtn.Disabled() {
+				prevPageBtn.OnTapped()
+			}
+		}, func() {
+			if nextPageBtn != nil && !nextPageBtn.Disabled() {
+				nextPageBtn.OnTapped()
+			}
+		}, func() bool { return isLocked })
+		stopGaze = stopper
+
 		mainView := container.NewMax(
 			container.NewBorder(container.NewPadded(topBar), nil, nil, container.NewPadded(rightSidebar), viewer),
+			overlay,
 			lockOverlay,
 		)
 
