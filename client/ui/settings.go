@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os/exec"
+	"strconv"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -321,8 +322,22 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		})
 		awakeCheck.Checked = devMgr.IsKeepAwake()
 
+		camEntry := widget.NewEntry()
+		camEntry.SetText(fmt.Sprintf("%d", app.Preferences().IntWithFallback("eyetrack_camera", 0)))
+		camBtn := widget.NewButton("Save", func() {
+			var cID int
+			var err error
+			if cID, err = strconv.Atoi(camEntry.Text); err == nil {
+				app.Preferences().SetInt("eyetrack_camera", cID)
+				dialog.ShowInformation("Saved", "Eye tracking camera has been saved", w)
+			}
+		})
+
 		systemElements := []fyne.CanvasObject{
 			awakeCheck,
+			widget.NewSeparator(),
+			widget.NewLabelWithStyle("Eye tracking", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			container.NewHBox(widget.NewLabel("Cam ID:"), camEntry, camBtn),
 			widget.NewSeparator(),
 		}
 
