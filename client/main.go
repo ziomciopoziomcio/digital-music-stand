@@ -114,14 +114,26 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	var showLockScreen func()
 
 	var performFullSync func(server string) bool
+	var isServerOnline bool
+	var currentView string
 
-	isCloudConnected := func() bool {
+	setServerOnline := func(online bool) {
+		if isServerOnline != online {
+			isServerOnline = online
+			if currentView == "dashboard" && showDashboard != nil {
+				showDashboard()
+			}
+		}
+	}
+
+	hasCredentials := func() bool {
 		token := myApp.Preferences().String(prefToken)
 		server := myApp.Preferences().String(prefServer)
-		if len(token) > 50 && server != "" {
-			return true
-		}
-		return false
+		return len(token) > 50 && server != ""
+	}
+
+	isCloudConnected := func() bool {
+		return hasCredentials() && isServerOnline
 	}
 
 	onSwitchProfile := func() {
@@ -135,11 +147,13 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	performFullSync = func(server string) bool {
 		currentToken := myApp.Preferences().String(prefToken)
 		if currentToken == "" {
+			setServerOnline(false)
 			return false
 		}
 
 		conn, err := network.NewGRPCClient(server, currentToken)
 		if err != nil {
+			setServerOnline(false)
 			return true
 		}
 		defer conn.Close()
@@ -150,6 +164,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 		if profileErr != nil {
 			st, ok := status.FromError(profileErr)
 			if ok && (st.Code() == codes.Unavailable || st.Code() == codes.DeadlineExceeded) {
+				setServerOnline(false)
 				return true
 			}
 
@@ -167,6 +182,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 
 			myApp.Preferences().SetString(prefToken, "")
 			myApp.Preferences().SetString(prefRefresh, "")
+			setServerOnline(false)
 			return false
 		}
 
@@ -190,12 +206,13 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 			log.Printf("Score invite sync error: %v", err)
 		}
 
+		setServerOnline(true)
 		return true
 	}
 
 	forceSync := func() {
 		server := myApp.Preferences().String(prefServer)
-		if isCloudConnected() {
+		if hasCredentials() {
 			go func() {
 				performFullSync(server)
 			}()
@@ -204,33 +221,67 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 
 	startBackgroundSyncLoop := func(server string) {
 		go func() {
-			ticker := time.NewTicker(5 * time.Minute)
+			ticker := time.NewTicker(10 * time.Second)
 			defer ticker.Stop()
 
-			if !performFullSync(server) {
-				return
-			}
+			lastSync := time.Now().Add(-10 * time.Minute)
 
 			for {
+				token := myApp.Preferences().String(prefToken)
+				if token == "" {
+					setServerOnline(false)
+					select {
+					case <-sessionCtx.Done():
+						return
+					case <-ticker.C:
+					}
+					continue
+				}
+
+				conn, err := network.NewGRPCClient(server, token)
+				if err != nil {
+					setServerOnline(false)
+					select {
+					case <-sessionCtx.Done():
+						return
+					case <-ticker.C:
+					}
+					continue
+				}
+
+				userClient := userpb.NewUserServiceClient(conn)
+				_, err = userClient.GetProfile(sessionCtx, &userpb.GetProfileRequest{})
+				conn.Close()
+
+				wasOnline := isServerOnline
+				if err != nil {
+					setServerOnline(false)
+				} else {
+					setServerOnline(true)
+					if !wasOnline || time.Since(lastSync) > 5*time.Minute {
+						performFullSync(server)
+						lastSync = time.Now()
+					}
+				}
+
 				select {
 				case <-sessionCtx.Done():
 					return
 				case <-ticker.C:
-					if !performFullSync(server) {
-						return
-					}
 				}
 			}
 		}()
 	}
 
 	showDashboard = func() {
-		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice, showConcert, showPairing, showInbox, showProfile, isCloudConnected, forceSync)
+		currentView = "dashboard"
+		dash := ui.BuildDashboard(myWindow, myApp, showSettings, showLogin, showPractice, showConcert, showPairing, showInbox, showProfile, isCloudConnected, hasCredentials, forceSync)
 		mainWrapper.Objects = []fyne.CanvasObject{dash}
 		mainWrapper.Refresh()
 	}
 
 	showLockScreen = func() {
+		currentView = "lockscreen"
 		profileInfo, err := pm.GetProfiles()
 		hasPin := false
 		if err == nil {
@@ -278,12 +329,14 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	}
 
 	showSettings = func() {
+		currentView = "settings"
 		settingsView := ui.BuildSettings(myWindow, myApp, AppVersion, showDashboard, netMgr, pwrMgr, medMgr, devMgr, pm, profileID)
 		mainWrapper.Objects = []fyne.CanvasObject{settingsView}
 		mainWrapper.Refresh()
 	}
 
 	showLogin = func() {
+		currentView = "login"
 		loginView := ui.BuildLoginScreen(
 			myWindow,
 			myApp,
@@ -341,12 +394,14 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	}
 
 	showPractice = func() {
+		currentView = "practice"
 		practiceView := ui.BuildPracticeMode(myWindow, myApp, dbMgr, profilePath, forceSync, showDashboard)
 		mainWrapper.Objects = []fyne.CanvasObject{practiceView}
 		mainWrapper.Refresh()
 	}
 
 	showConcert = func() {
+		currentView = "concert"
 		refreshToken := myApp.Preferences().String(prefRefresh)
 
 		if refreshToken != "" {
@@ -384,6 +439,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	}
 
 	showConcertSetup = func(editingConcert *localdb.Concert) {
+		currentView = "concert_setup"
 		setupView := ui.BuildConcertSetup(myWindow, dbMgr, editingConcert, func(id, name, location, startTime string, setlist []localdb.SetlistItem) error {
 			if id == "" {
 				_, err := dbMgr.AddConcert(name, location, startTime, setlist)
@@ -404,10 +460,12 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	}
 
 	showPairing = func() {
+		currentView = "pairing"
 		ui.ShowPairingDialog(myWindow, wsMgr)
 	}
 
 	showInbox = func() {
+		currentView = "inbox"
 		inboxView := ui.BuildInbox(myWindow, dbMgr, showDashboard, func(notif localdb.Notification, accept bool) {
 			token := myApp.Preferences().String(prefToken)
 			server := myApp.Preferences().String(prefServer)
@@ -453,6 +511,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	}
 
 	showProfile = func() {
+		currentView = "profile"
 		profileView := ui.BuildProfile(
 			myWindow,
 			myApp,
@@ -460,6 +519,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 			func() {
 				myApp.Preferences().SetString(prefToken, "")
 				myApp.Preferences().SetString(prefRefresh, "")
+				setServerOnline(false)
 				showProfile()
 			},
 			func() ([]ui.BandInfo, error) {
@@ -566,6 +626,8 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 				_, err = bandClient.RemoveMember(sessionCtx, &bandpb.RemoveMemberRequest{BandId: bandID, UserId: userID, Email: email})
 				return err
 			},
+			hasCredentials(),
+			myApp.Preferences().String(prefServer),
 		)
 		mainWrapper.Objects = []fyne.CanvasObject{profileView}
 		mainWrapper.Refresh()
@@ -577,7 +639,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	myWindow.SetContent(appWithQuickSettings)
 
 	savedServer := myApp.Preferences().String(prefServer)
-	if isCloudConnected() {
+	if hasCredentials() {
 		startBackgroundSyncLoop(savedServer)
 	}
 }

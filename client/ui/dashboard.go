@@ -11,7 +11,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func(), openPractice func(), openConcert func(), openPairing func(), openInbox func(), openProfile func(), isCloudConnected func() bool, forceSync func()) *fyne.Container {
+func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func(), openPractice func(), openConcert func(), openPairing func(), openInbox func(), openProfile func(), isCloudConnected func() bool, hasCredentials func() bool, forceSync func()) *fyne.Container {
 	clock := widget.NewLabel(time.Now().Format("15:04"))
 	clock.TextStyle = fyne.TextStyle{Bold: true}
 
@@ -37,11 +37,10 @@ func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin 
 	profileBtn := widget.NewButtonWithIcon("Profile", theme.AccountIcon(), openProfile)
 	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), openSettings)
 
-	if !isCloudConnected() {
+	if !hasCredentials() {
 		syncBtn.Disable()
 		inboxBtn.Disable()
 		profileBtn.Disable()
-		cloudStatusBtn.SetText("Offline")
 	}
 
 	topBar := container.NewHBox(
@@ -70,10 +69,7 @@ func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin 
 	)
 
 	mainContent := container.NewBorder(
-		nil,
-		bottomArea,
-		nil,
-		nil,
+		nil, bottomArea, nil, nil,
 		grid,
 	)
 

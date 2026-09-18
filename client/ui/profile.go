@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -35,18 +36,16 @@ func BuildProfile(
 	changePassword func(oldPassword, newPassword string) error,
 	listMembers func(bandID uint32) ([]MemberInfo, error),
 	removeMember func(bandID uint32, userID uint32, email string) error,
+	hasCredentials bool,
+	serverAddr string,
 ) *fyne.Container {
-	token := a.Preferences().String("jwt_token")
-	server := a.Preferences().String("server_addr")
-
 	topBar := container.NewHBox(
 		widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), onBack),
 		widget.NewLabelWithStyle("User Profile", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 	)
 
-	if token == "" || server == "" {
+	if !hasCredentials || serverAddr == "" {
 		notLoggedInLabel := widget.NewLabel("You are currently working in Offline Mode.")
-
 		content := container.NewVBox(
 			topBar,
 			widget.NewSeparator(),
@@ -55,7 +54,15 @@ func BuildProfile(
 		return container.NewPadded(content)
 	}
 
-	statusLabel := widget.NewLabel(fmt.Sprintf("Connected to: %s", server))
+	statusLabel := widget.NewLabel(fmt.Sprintf("Connected to: %s", serverAddr))
+
+	formatErr := func(err error) error {
+		errMsg := FormatAppError(err).Error()
+		if len(errMsg) > 50 || strings.Contains(errMsg, "rpc error") || strings.Contains(errMsg, "connection error") {
+			return fmt.Errorf("Server is unavailable. You are currently offline.")
+		}
+		return fmt.Errorf(errMsg)
+	}
 
 	changePassBtn := widget.NewButtonWithIcon("Change Password", theme.SettingsIcon(), func() {
 		oldPassEntry := NewAutoKeyboardPasswordEntry()
@@ -81,7 +88,7 @@ func BuildProfile(
 			}
 			err := changePassword(oldPassEntry.Text, newPassEntry.Text)
 			if err != nil {
-				dialog.ShowError(err, w)
+				dialog.ShowError(formatErr(err), w)
 				return
 			}
 			dialog.ShowInformation("Success", "Password updated successfully.", w)
@@ -102,10 +109,10 @@ func BuildProfile(
 
 	refreshBandsList := func() {
 		bandsContainer.Objects = nil
-
 		bands, err := fetchBands()
 		if err != nil {
-			bandsContainer.Add(widget.NewLabel(fmt.Sprintf("Failed to load bands: %v", err)))
+			errorLabel := widget.NewLabelWithStyle(fmt.Sprintf("Could not load bands:\n%s", formatErr(err).Error()), fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
+			bandsContainer.Add(errorLabel)
 			bandsContainer.Refresh()
 			return
 		}
@@ -119,7 +126,6 @@ func BuildProfile(
 				if band.IsManager {
 					roleStr = "Manager"
 				}
-
 				bandLabel := widget.NewLabel(fmt.Sprintf("  %s (%s)", band.Name, roleStr))
 				row := container.NewHBox(bandLabel)
 
@@ -127,7 +133,7 @@ func BuildProfile(
 				showMembersDialog = func() {
 					members, err := listMembers(band.ID)
 					if err != nil {
-						dialog.ShowError(err, w)
+						dialog.ShowError(formatErr(err), w)
 						return
 					}
 
@@ -142,7 +148,6 @@ func BuildProfile(
 						} else {
 							nameStr = fmt.Sprintf("%s %s (%s)", member.Name, member.Surname, member.Role)
 						}
-
 						memberRow := container.NewHBox(widget.NewLabel(nameStr))
 
 						if band.IsManager && member.Role != "manager" {
@@ -155,7 +160,7 @@ func BuildProfile(
 									if confirm {
 										err := removeMember(band.ID, member.UserID, member.Email)
 										if err != nil {
-											dialog.ShowError(err, w)
+											dialog.ShowError(formatErr(err), w)
 										} else {
 											dialog.ShowInformation("Success", "Action completed.", w)
 											showMembersDialog()
@@ -166,6 +171,7 @@ func BuildProfile(
 							deleteBtn.Importance = widget.DangerImportance
 							memberRow.Add(deleteBtn)
 						}
+
 						membersBox.Add(memberRow)
 					}
 
@@ -175,7 +181,6 @@ func BuildProfile(
 					winSize := w.Canvas().Size()
 					targetWidth := float32(400)
 					targetHeight := float32(350)
-
 					if winSize.Width < targetWidth {
 						targetWidth = winSize.Width * 0.95
 					}
@@ -198,7 +203,7 @@ func BuildProfile(
 							if confirm && emailEntry.Text != "" {
 								err := inviteMember(band.ID, emailEntry.Text)
 								if err != nil {
-									dialog.ShowError(err, w)
+									dialog.ShowError(formatErr(err), w)
 								} else {
 									dialog.ShowInformation("Success", "Invitation sent successfully!", w)
 								}
@@ -210,8 +215,8 @@ func BuildProfile(
 
 				bandsContainer.Add(row)
 			}
+			bandsContainer.Refresh()
 		}
-		bandsContainer.Refresh()
 	}
 
 	createBandBtn := widget.NewButtonWithIcon("Create New Band", theme.FolderNewIcon(), func() {
@@ -221,7 +226,7 @@ func BuildProfile(
 			if confirm && nameEntry.Text != "" {
 				err := createBand(nameEntry.Text)
 				if err != nil {
-					dialog.ShowError(err, w)
+					dialog.ShowError(formatErr(err), w)
 				} else {
 					dialog.ShowInformation("Success", "Band created successfully!", w)
 					refreshBandsList()
