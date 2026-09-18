@@ -55,6 +55,7 @@ func main() {
 	})
 
 	myWindow.Resize(fyne.NewSize(800, 480))
+	myWindow.SetFullScreen(true)
 	myWindow.ShowAndRun()
 }
 
@@ -570,7 +571,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 		mainWrapper.Refresh()
 	}
 
-	appWithQuickSettings := ui.WrapWithQuickSettings(myWindow, myApp, mainWrapper, profileID, showLockScreen, onSwitchProfile, isCloudConnected)
+	appWithQuickSettings := ui.WrapWithQuickSettings(myWindow, myApp, mainWrapper, profileID, showLockScreen, onSwitchProfile, isCloudConnected, medMgr)
 
 	showDashboard()
 	myWindow.SetContent(appWithQuickSettings)

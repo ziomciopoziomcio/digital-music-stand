@@ -13,6 +13,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/plugins"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/system"
 )
 
 var SetQuickSettingsVisible func(visible bool)
@@ -40,7 +41,7 @@ func (l *qsLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	panel.Move(fyne.NewPos(0, currentY))
 }
 
-func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject, profileID string, onLock func(), onSwitchProfile func(), isCloudConnected func() bool) fyne.CanvasObject {
+func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject, profileID string, onLock func(), onSwitchProfile func(), isCloudConnected func() bool, medMgr system.MediaManager) fyne.CanvasObject {
 	isOpen := false
 	globalVisible := true
 
@@ -50,7 +51,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 	var backdrop *widget.Button
 	var togglePanel func()
 
-	panelHeightVal := float32(280)
+	panelHeightVal := float32(520)
 
 	closePanel := func() {
 		if isOpen {
@@ -93,6 +94,38 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 	})
 
 	statusLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+
+	vol, _ := medMgr.GetVolume()
+	bright, _ := medMgr.GetBrightness()
+
+	volLabel := widget.NewLabel(fmt.Sprintf("Volume: %d%%", vol))
+	volSlider := widget.NewSlider(0, 100)
+	volSlider.SetValue(float64(vol))
+	volSlider.OnChanged = ThrottledSliderHandler(100*time.Millisecond, func(val int) {
+		_ = medMgr.SetVolume(val)
+		volLabel.SetText(fmt.Sprintf("Volume: %d%%", val))
+	})
+
+	brightLabel := widget.NewLabel(fmt.Sprintf("Brightness: %d%%", bright))
+	brightSlider := widget.NewSlider(0, 100)
+	brightSlider.SetValue(float64(bright))
+	brightSlider.OnChanged = ThrottledSliderHandler(200*time.Millisecond, func(val int) {
+		_ = medMgr.SetBrightness(val)
+		brightLabel.SetText(fmt.Sprintf("Brightness: %d%%", val))
+	})
+
+	fullscreenCheck := widget.NewCheck("Fullscreen Mode", func(checked bool) {
+		w.SetFullScreen(checked)
+	})
+	fullscreenCheck.SetChecked(w.FullScreen())
+
+	deviceContainer := container.NewVBox(
+		widget.NewSeparator(),
+		widget.NewLabelWithStyle("Device Controls", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		volLabel, volSlider,
+		brightLabel, brightSlider,
+		fullscreenCheck,
+	)
 
 	mixerTitle := widget.NewLabelWithStyle("Stage Mixer (Master Volume)", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 	masterVolSlider := widget.NewSlider(0, 1)
@@ -138,16 +171,16 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 		masterVolSlider,
 		widget.NewLabel(""),
 		personalMixerBtn,
-		widget.NewSeparator(),
 	)
 	mixerContainer.Hide()
 
 	panelContent := container.NewVBox(
 		widget.NewLabelWithStyle("Quick Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		statusLabel,
+		deviceContainer,
 		mixerContainer,
-		switchBtn,
-		lockBtn,
+		widget.NewSeparator(),
+		container.NewHBox(layout.NewSpacer(), switchBtn, lockBtn, layout.NewSpacer()),
 		widget.NewSeparator(),
 		closeQuickSettingsBtn,
 	)
@@ -175,6 +208,8 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 			} else {
 				statusLabel.SetText("Cloud: Disconnected")
 			}
+
+			fullscreenCheck.SetChecked(w.FullScreen())
 
 			m := plugins.GetActiveMixer()
 			if m != nil && m.GetConnectionStatus() {
