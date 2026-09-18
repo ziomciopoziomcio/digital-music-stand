@@ -36,7 +36,7 @@ jobs:
 
       - name: Build Android APK
         run: |
-          fyne-cross android -dir=mobile -name=dms-pilot -app-id=com.digitalmusicstand.pilot
+          fyne-cross android -arch=arm64 -dir=mobile -name=dms-pilot -app-id=com.digitalmusicstand.pilot
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
