@@ -11,6 +11,8 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    networks:
+      - music_stand_net
 
   redis:
     image: redis:7-alpine
@@ -18,13 +20,15 @@ services:
     ports:
       - "6379:6379"
     restart: unless-stopped
+    networks:
+      - music_stand_net
 
   minio:
     image: minio/minio:latest
     container_name: digital_music_stand_minio
     ports:
-        - "9000:9000"
-        - "9001:9001"
+      - "9000:9000"
+      - "9001:9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
@@ -32,7 +36,34 @@ services:
     restart: unless-stopped
     volumes:
       - minio_data:/data
+    networks:
+      - music_stand_net
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: music_stand_server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    env_file:
+      - .env
+    volumes:
+      - server_data:/app/data
+    networks:
+      - music_stand_net
+    depends_on:
+      - db
+      - redis
+      - minio
 
 volumes:
   pgdata:
   minio_data:
+  server_data:
+
+networks:
+  music_stand_net:
+    driver: bridge
