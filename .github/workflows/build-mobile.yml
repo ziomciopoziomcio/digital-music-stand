@@ -36,13 +36,13 @@ jobs:
 
       - name: Build Android APK
         run: |
-          fyne-cross android -arch=arm64 -dir=mobile -name=dms-pilot -app-id=com.digitalmusicstand.pilot
+          cd mobile
+          fyne-cross android -arch=arm64 -name=dms-pilot -app-id=com.digitalmusicstand.pilot
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            mobile/fyne-cross/bin/android/dms-pilot.apk
+          files: mobile/fyne-cross/bin/**/*.apk
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
