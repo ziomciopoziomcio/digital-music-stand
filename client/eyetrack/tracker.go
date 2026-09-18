@@ -28,16 +28,49 @@ type Tracker struct {
 	isRunning bool
 }
 
-func NewTracker() *Tracker {
-	return &Tracker{
-		GazeChan: make(chan GazePoint, 5),
+var instance *Tracker
+var once sync.Once
+
+func GetTracker() *Tracker {
+	once.Do(func() {
+		instance = &Tracker{
+			GazeChan: make(chan GazePoint, 5),
+		}
+	})
+	return instance
+}
+
+func GetAvailableCameras() []string {
+	pyCmd := "python3"
+	if _, err := exec.LookPath("python3"); err != nil {
+		pyCmd = "python"
 	}
+	script := `import cv2, json
+cams = []
+for i in range(5):
+	cap = cv2.VideoCapture(i)
+	if cap.isOpened():
+		cams.append(f"Camera {i}")
+		cap.release()
+print(json.dumps(cams))`
+
+	out, err := exec.Command(pyCmd, "-c", script).Output()
+	var cams []string
+	if err == nil {
+		json.Unmarshal(out, &cams)
+	}
+	if len(cams) == 0 {
+		cams = []string{"Camera 0"}
+	}
+	return cams
 }
 
 func ensureDependencies(pyCmd string) error {
 	checkCmd := exec.Command(pyCmd, "-c", "import cv2, mediapipe, numpy")
 	if err := checkCmd.Run(); err != nil {
 		installCmd := exec.Command(pyCmd, "-m", "pip", "install", "--upgrade", "opencv-python", "mediapipe", "numpy", "protobuf")
+		installCmd.Stdout = os.Stdout
+		installCmd.Stderr = os.Stderr
 		return installCmd.Run()
 	}
 	return nil
