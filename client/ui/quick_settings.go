@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -88,6 +89,16 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 		}
 	})
 	lockBtn.Importance = widget.HighImportance
+
+	quitBtn := NewTouchButtonWithIcon("Quit App", theme.CancelIcon(), func() {
+		closePanel()
+		dialog.ShowConfirm("Quit Application", "Are you sure you want to quit?", func(confirm bool) {
+			if confirm {
+				a.Quit()
+			}
+		}, w)
+	})
+	quitBtn.Importance = widget.DangerImportance
 
 	closeQuickSettingsBtn := NewTouchButtonWithIcon("Close Quick Settings", theme.CancelIcon(), func() {
 		closePanel()
@@ -198,7 +209,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 		eyeTrackContainer,
 		mixerContainer,
 		widget.NewSeparator(),
-		container.NewHBox(layout.NewSpacer(), switchBtn, lockBtn, layout.NewSpacer()),
+		container.NewHBox(layout.NewSpacer(), switchBtn, lockBtn, quitBtn, layout.NewSpacer()),
 		widget.NewSeparator(),
 		closeQuickSettingsBtn,
 	)
