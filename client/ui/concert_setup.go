@@ -83,7 +83,7 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 		func() int { return len(availableScores) },
 		func() fyne.CanvasObject {
 			title := widget.NewLabel("")
-			addBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), nil)
+			addBtn := NewTouchButtonWithIcon("", theme.ContentAddIcon(), nil)
 			return container.NewBorder(nil, nil, nil, addBtn, title)
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
@@ -119,9 +119,9 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 		func() int { return len(setlist) },
 		func() fyne.CanvasObject {
 			title := widget.NewLabel("")
-			upBtn := widget.NewButtonWithIcon("", theme.MoveUpIcon(), nil)
-			downBtn := widget.NewButtonWithIcon("", theme.MoveDownIcon(), nil)
-			delBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), nil)
+			upBtn := NewTouchButtonWithIcon("", theme.MoveUpIcon(), nil)
+			downBtn := NewTouchButtonWithIcon("", theme.MoveDownIcon(), nil)
+			delBtn := NewTouchButtonWithIcon("", theme.DeleteIcon(), nil)
 			buttons := container.NewHBox(upBtn, downBtn, delBtn)
 			return container.NewBorder(nil, nil, nil, buttons, title)
 		},
@@ -168,7 +168,7 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 		},
 	)
 
-	addBreakBtn := widget.NewButtonWithIcon("Add Break", theme.ContentAddIcon(), func() {
+	addBreakBtn := NewTouchButtonWithIcon("Add Break", theme.ContentAddIcon(), func() {
 		entry := NewAutoKeyboardEntry()
 		entry.SetText("10")
 		var d dialog.Dialog
@@ -212,7 +212,7 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 		),
 	)
 
-	saveBtn := widget.NewButtonWithIcon("Save Concert", theme.DocumentSaveIcon(), func() {
+	saveBtn := NewTouchButtonWithIcon("Save Concert", theme.DocumentSaveIcon(), func() {
 		if nameEntry.Text == "" || len(setlist) == 0 {
 			dialog.ShowError(fmt.Errorf("please provide event name and add at least one item"), w)
 			return
@@ -235,7 +235,7 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 	})
 	saveBtn.Importance = widget.HighImportance
 
-	backToDashBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
+	backToDashBtn := NewTouchButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 	backToDashBtn.Importance = widget.WarningImportance
 
 	headerTitle := "New Concert"

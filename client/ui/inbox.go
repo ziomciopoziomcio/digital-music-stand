@@ -23,7 +23,7 @@ func BuildInbox(w fyne.Window, db *localdb.DBManager, goBack func(), onAction fu
 		if len(notifications) == 0 {
 			emptyLabel := widget.NewLabelWithStyle("Your inbox is empty.", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 
-			backBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
+			backBtn := NewTouchButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 			backBtn.Importance = widget.WarningImportance
 			header := container.NewBorder(nil, nil, backBtn, nil, widget.NewLabelWithStyle("Inbox", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
 
@@ -39,10 +39,10 @@ func BuildInbox(w fyne.Window, db *localdb.DBManager, goBack func(), onAction fu
 				title := widget.NewLabelWithStyle("", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 				body := widget.NewLabel("")
 
-				acceptBtn := widget.NewButtonWithIcon("", theme.ConfirmIcon(), nil)
+				acceptBtn := NewTouchButtonWithIcon("", theme.ConfirmIcon(), nil)
 				acceptBtn.Importance = widget.HighImportance
 
-				declineBtn := widget.NewButtonWithIcon("", theme.CancelIcon(), nil)
+				declineBtn := NewTouchButtonWithIcon("", theme.CancelIcon(), nil)
 				declineBtn.Importance = widget.DangerImportance
 
 				actions := container.NewHBox(acceptBtn, declineBtn)
@@ -98,10 +98,10 @@ func BuildInbox(w fyne.Window, db *localdb.DBManager, goBack func(), onAction fu
 			},
 		)
 
-		backBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
+		backBtn := NewTouchButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 		backBtn.Importance = widget.WarningImportance
 
-		refreshBtn := widget.NewButtonWithIcon("", theme.ViewRefreshIcon(), renderList)
+		refreshBtn := NewTouchButtonWithIcon("", theme.ViewRefreshIcon(), renderList)
 
 		header := container.NewBorder(nil, nil, backBtn, refreshBtn, widget.NewLabelWithStyle("Inbox", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
 		view := container.NewBorder(header, nil, nil, nil, container.NewPadded(list))

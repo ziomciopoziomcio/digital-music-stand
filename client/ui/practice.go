@@ -164,7 +164,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 			pageLabel.SetText(fmt.Sprintf("Page %d / %d", currentPage+1, totalPages))
 		}
 
-		prevBtn := widget.NewButtonWithIcon("PREV\nPAGE", theme.NavigateBackIcon(), func() {
+		prevBtn := NewTouchButtonWithIcon("PREV\nPAGE", theme.NavigateBackIcon(), func() {
 			if currentPage > 0 {
 				currentPage -= currentPagesToShow
 				if currentPage < 0 {
@@ -175,7 +175,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 		})
 		prevBtn.Importance = widget.HighImportance
 
-		nextBtn := widget.NewButtonWithIcon("NEXT\nPAGE", theme.NavigateNextIcon(), func() {
+		nextBtn := NewTouchButtonWithIcon("NEXT\nPAGE", theme.NavigateNextIcon(), func() {
 			if currentPage+currentPagesToShow < totalPages {
 				currentPage += currentPagesToShow
 				renderPages(currentPagesToShow)
@@ -183,7 +183,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 		})
 		nextBtn.Importance = widget.HighImportance
 
-		exitBtn := widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
+		exitBtn := NewTouchButtonWithIcon("Exit", theme.CancelIcon(), func() {
 			if stopGaze != nil {
 				stopGaze()
 			}
@@ -209,7 +209,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 		topBarControls := container.NewHBox(exitBtn, widget.NewLabel("  "), recIndicatorContainer, widget.NewLabel(" "), metroIndicatorContainer)
 		topBar := container.NewBorder(nil, nil, topBarControls, nil, titleLabel)
 
-		toolsBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
+		toolsBtn := NewTouchButtonWithIcon("Tools", theme.SettingsIcon(), func() {
 			ShowToolsMenu(w, app, metroAudio, recorderAudio, nil, db, score.ID, score.Title, profilePath, func(cb func(bool)) {
 				dialogBeatCb = cb
 			})
@@ -285,7 +285,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 				var editControls *fyne.Container
 
 				if score.IsOwner {
-					shareBtn := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
+					shareBtn := NewTouchButtonWithIcon("", theme.MailSendIcon(), func() {
 						ShowAccessDialog(w, app, "Share Score", score.Title, "Share", false, func(email *string, bandID *uint32, canEdit bool) error {
 							token := app.Preferences().String("jwt_token")
 							server := app.Preferences().String("server_addr")
@@ -304,7 +304,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 						})
 					})
 
-					revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
+					revokeBtn := NewTouchButtonWithIcon("", theme.ContentRemoveIcon(), func() {
 						ShowAccessDialog(w, app, "Revoke Score Access", score.Title, "Revoke", false, func(email *string, bandID *uint32, canEdit bool) error {
 							token := app.Preferences().String("jwt_token")
 							server := app.Preferences().String("server_addr")
@@ -329,7 +329,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 						revokeBtn.Disable()
 					}
 
-					editTitleBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
+					editTitleBtn := NewTouchButtonWithIcon("", theme.DocumentCreateIcon(), func() {
 						entry := NewAutoKeyboardEntry()
 						entry.SetText(score.Title)
 						var d dialog.Dialog
@@ -354,7 +354,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 						w.Canvas().Focus(entry)
 					})
 
-					deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+					deleteBtn := NewTouchButtonWithIcon("", theme.DeleteIcon(), func() {
 						dialog.ShowConfirm("Delete Score", fmt.Sprintf("Are you sure you want to delete '%s'?", score.Title), func(confirmed bool) {
 							if confirmed {
 								_ = db.MarkScoreDeleted(score.ID)
@@ -368,7 +368,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 					editControls = container.NewHBox(shareBtn, revokeBtn, editTitleBtn, deleteBtn)
 				} else {
 					readOnlyLabel := widget.NewLabelWithStyle("Shared with you", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
-					setAliasBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
+					setAliasBtn := NewTouchButtonWithIcon("", theme.DocumentCreateIcon(), func() {
 						entry := NewAutoKeyboardEntry()
 						entry.SetText(score.DisplayTitle())
 						var d dialog.Dialog
@@ -402,7 +402,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 				item := container.NewBorder(nil, editControls, nil, nil, card)
 				grid.Add(item)
 			} else {
-				openBtn := widget.NewButtonWithIcon("OPEN", theme.MediaPlayIcon(), func() {
+				openBtn := NewTouchButtonWithIcon("OPEN", theme.MediaPlayIcon(), func() {
 					showScore(score)
 				})
 				openBtn.Importance = widget.HighImportance
@@ -425,7 +425,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 	showLibrary = func() {
 		updateGrid()
 
-		addBtn := widget.NewButtonWithIcon("Add Score", theme.ContentAddIcon(), func() {
+		addBtn := NewTouchButtonWithIcon("Add Score", theme.ContentAddIcon(), func() {
 			fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 				if err != nil || reader == nil {
 					return
@@ -447,7 +447,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 		})
 		addBtn.Importance = widget.HighImportance
 
-		editToggleBtn := widget.NewButtonWithIcon("Manage", theme.SettingsIcon(), func() {
+		editToggleBtn := NewTouchButtonWithIcon("Manage", theme.SettingsIcon(), func() {
 			editMode = !editMode
 			showLibrary()
 		})
@@ -460,7 +460,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 
 		topControls := container.NewHBox(addBtn, editToggleBtn)
 
-		backToDashBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
+		backToDashBtn := NewTouchButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 		backToDashBtn.Importance = widget.WarningImportance
 
 		searchContainer := container.NewPadded(searchEntry)

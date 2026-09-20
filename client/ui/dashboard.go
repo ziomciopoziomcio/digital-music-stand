@@ -23,19 +23,19 @@ func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin 
 		statusIcon = theme.ConfirmIcon()
 	}
 
-	cloudStatusBtn := widget.NewButtonWithIcon(statusText, statusIcon, openLogin)
+	cloudStatusBtn := NewTouchButtonWithIcon(statusText, statusIcon, openLogin)
 	if !isCloudConnected() {
 		cloudStatusBtn.Importance = widget.WarningImportance
 	}
 
-	syncBtn := widget.NewButtonWithIcon("Sync", theme.ViewRefreshIcon(), func() {
+	syncBtn := NewTouchButtonWithIcon("Sync", theme.ViewRefreshIcon(), func() {
 		forceSync()
 		dialog.ShowInformation("Sync", "Synchronization started in the background.", w)
 	})
 
-	inboxBtn := widget.NewButtonWithIcon("Inbox", theme.InfoIcon(), openInbox)
-	profileBtn := widget.NewButtonWithIcon("Profile", theme.AccountIcon(), openProfile)
-	settingsBtn := widget.NewButtonWithIcon("Settings", theme.SettingsIcon(), openSettings)
+	inboxBtn := NewTouchButtonWithIcon("Inbox", theme.InfoIcon(), openInbox)
+	profileBtn := NewTouchButtonWithIcon("Profile", theme.AccountIcon(), openProfile)
+	settingsBtn := NewTouchButtonWithIcon("Settings", theme.SettingsIcon(), openSettings)
 
 	if !hasCredentials() {
 		syncBtn.Disable()
@@ -53,13 +53,13 @@ func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin 
 		settingsBtn,
 	)
 
-	practiceBtn := widget.NewButtonWithIcon("Practice Mode", theme.DocumentCreateIcon(), openPractice)
+	practiceBtn := NewTouchButtonWithIcon("Practice Mode", theme.DocumentCreateIcon(), openPractice)
 	practiceBtn.Importance = widget.HighImportance
 
-	concertBtn := widget.NewButtonWithIcon("Concert Mode", theme.MediaPlayIcon(), openConcert)
+	concertBtn := NewTouchButtonWithIcon("Concert Mode", theme.MediaPlayIcon(), openConcert)
 	concertBtn.Importance = widget.HighImportance
 
-	pairingBtn := widget.NewButtonWithIcon("Pair Remote", theme.ComputerIcon(), openPairing)
+	pairingBtn := NewTouchButtonWithIcon("Pair Remote", theme.ComputerIcon(), openPairing)
 
 	grid := container.NewGridWithColumns(2, practiceBtn, concertBtn)
 

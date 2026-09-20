@@ -18,25 +18,25 @@ import (
 func ShowToolsMenu(w fyne.Window, app fyne.App, metroAudio *audio.MetronomeAudio, recorderAudio *audio.RecorderAudio, remoteServer *remote.Server, db *localdb.DBManager, scoreID, scoreTitle, profilePath string, setDialogBeatCb func(func(bool))) {
 	var d dialog.Dialog
 
-	tunerBtn := widget.NewButtonWithIcon("Tuner", theme.SettingsIcon(), func() {
+	tunerBtn := NewTouchButtonWithIcon("Tuner", theme.SettingsIcon(), func() {
 		d.Hide()
 		ShowTunerDialog(w)
 	})
 	tunerBtn.Importance = widget.HighImportance
 
-	metronomeBtn := widget.NewButtonWithIcon("Metronome", theme.HistoryIcon(), func() {
+	metronomeBtn := NewTouchButtonWithIcon("Metronome", theme.HistoryIcon(), func() {
 		d.Hide()
 		ShowMetronomeDialog(w, metroAudio, setDialogBeatCb)
 	})
 	metronomeBtn.Importance = widget.HighImportance
 
-	dictaphoneBtn := widget.NewButtonWithIcon("Dictaphone", theme.MediaRecordIcon(), func() {
+	dictaphoneBtn := NewTouchButtonWithIcon("Dictaphone", theme.MediaRecordIcon(), func() {
 		d.Hide()
 		ShowDictaphoneDialog(w, db, recorderAudio, scoreID, scoreTitle, profilePath)
 	})
 	dictaphoneBtn.Importance = widget.HighImportance
 
-	pilotBtn := widget.NewButtonWithIcon("Pair Mobile Pilot", theme.ComputerIcon(), func() {
+	pilotBtn := NewTouchButtonWithIcon("Pair Mobile Pilot", theme.ComputerIcon(), func() {
 		if remoteServer == nil {
 			dialog.ShowInformation("Error", "Remote server is not running.", w)
 			return
@@ -48,7 +48,7 @@ func ShowToolsMenu(w fyne.Window, app fyne.App, metroAudio *audio.MetronomeAudio
 	})
 	pilotBtn.Importance = widget.HighImportance
 
-	p2pBtn := widget.NewButtonWithIcon("P2P Network Status", theme.InfoIcon(), func() {
+	p2pBtn := NewTouchButtonWithIcon("P2P Network Status", theme.InfoIcon(), func() {
 		if remoteServer == nil {
 			return
 		}
@@ -65,7 +65,7 @@ func ShowToolsMenu(w fyne.Window, app fyne.App, metroAudio *audio.MetronomeAudio
 	})
 	p2pBtn.Importance = widget.WarningImportance
 
-	closeBtn := widget.NewButtonWithIcon("Close", theme.CancelIcon(), func() {
+	closeBtn := NewTouchButtonWithIcon("Close", theme.CancelIcon(), func() {
 		d.Hide()
 	})
 

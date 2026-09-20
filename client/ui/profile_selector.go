@@ -53,7 +53,7 @@ func ShowProfileSelector(w fyne.Window, a fyne.App, pm *profiles.Manager, onProf
 			grid.Add(tile)
 		}
 
-		addBtn := widget.NewButtonWithIcon("New Profile", theme.ContentAddIcon(), func() {
+		addBtn := NewTouchButtonWithIcon("New Profile", theme.ContentAddIcon(), func() {
 			showCreateProfileDialog(w, a, pm, showProfiles)
 		})
 		addBtn.Importance = widget.HighImportance
@@ -79,7 +79,7 @@ func ShowProfileSelector(w fyne.Window, a fyne.App, pm *profiles.Manager, onProf
 			}
 		}
 
-		backBtn := widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
+		backBtn := NewTouchButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
 			showProfiles()
 		})
 
@@ -141,7 +141,7 @@ func showCreateProfileDialog(w fyne.Window, a fyne.App, pm *profiles.Manager, re
 
 	var d dialog.Dialog
 
-	saveBtn := widget.NewButtonWithIcon("Create", theme.ConfirmIcon(), func() {
+	saveBtn := NewTouchButtonWithIcon("Create", theme.ConfirmIcon(), func() {
 		if nameEntry.Text != "" {
 			newProfile, err := pm.CreateProfile(nameEntry.Text, pinEntry.Text, colorSelect.Selected)
 			if err != nil {
@@ -157,7 +157,7 @@ func showCreateProfileDialog(w fyne.Window, a fyne.App, pm *profiles.Manager, re
 	})
 	saveBtn.Importance = widget.HighImportance
 
-	cancelBtn := widget.NewButtonWithIcon("Cancel", theme.CancelIcon(), func() {
+	cancelBtn := NewTouchButtonWithIcon("Cancel", theme.CancelIcon(), func() {
 		d.Hide()
 	})
 

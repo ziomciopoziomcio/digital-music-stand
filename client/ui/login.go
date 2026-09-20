@@ -85,7 +85,7 @@ func BuildLoginScreen(
 		}, w)
 	})
 
-	loginBtn := widget.NewButtonWithIcon("Login", theme.LoginIcon(), nil)
+	loginBtn := NewTouchButtonWithIcon("Login", theme.LoginIcon(), nil)
 	loginBtn.OnTapped = func() {
 		server := serverEntry.Text
 		email := loginEmailEntry.Text
@@ -116,7 +116,7 @@ func BuildLoginScreen(
 	}
 	loginBtn.Importance = widget.HighImportance
 
-	registerBtn := widget.NewButtonWithIcon("Register", theme.DocumentCreateIcon(), nil)
+	registerBtn := NewTouchButtonWithIcon("Register", theme.DocumentCreateIcon(), nil)
 	registerBtn.OnTapped = func() {
 		server := serverEntry.Text
 		name := regNameEntry.Text
@@ -166,7 +166,7 @@ func BuildLoginScreen(
 			loginBtn,
 			NewTouchButton("Need an account? Register here", showRegister),
 			widget.NewSeparator(),
-			widget.NewButtonWithIcon("Cancel (Work Offline)", theme.CancelIcon(), onCancel),
+			NewTouchButtonWithIcon("Cancel (Work Offline)", theme.CancelIcon(), onCancel),
 		)
 
 		scrollForm := container.NewVScroll(container.NewPadded(form))
@@ -195,7 +195,7 @@ func BuildLoginScreen(
 			registerBtn,
 			NewTouchButton("Already have an account? Login", showLogin),
 			widget.NewSeparator(),
-			widget.NewButtonWithIcon("Cancel (Work Offline)", theme.CancelIcon(), onCancel),
+			NewTouchButtonWithIcon("Cancel (Work Offline)", theme.CancelIcon(), onCancel),
 		)
 
 		scrollForm := container.NewVScroll(container.NewPadded(form))

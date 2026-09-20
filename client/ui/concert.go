@@ -60,7 +60,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			nameLabel := widget.NewLabelWithStyle(concert.DisplayName(), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 			detailsLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s\n%s\nItems: %d", concert.Location, concert.StartTime, len(concert.Items)), fyne.TextAlignCenter, fyne.TextStyle{})
 
-			openBtn := widget.NewButtonWithIcon("ENTER", theme.MediaPlayIcon(), func() {
+			openBtn := NewTouchButtonWithIcon("ENTER", theme.MediaPlayIcon(), func() {
 				playConcert(concert)
 			})
 			openBtn.Importance = widget.HighImportance
@@ -68,7 +68,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			var actionButtons *fyne.Container
 
 			if concert.IsOwner {
-				shareBtn := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
+				shareBtn := NewTouchButtonWithIcon("", theme.MailSendIcon(), func() {
 					ShowAccessDialog(w, app, "Share Concert", concert.Name, "Share", true, func(email *string, bandID *uint32, canEdit bool) error {
 						token := app.Preferences().String(prefToken)
 						server := app.Preferences().String(prefServer)
@@ -89,7 +89,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					})
 				})
 
-				revokeBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() {
+				revokeBtn := NewTouchButtonWithIcon("", theme.ContentRemoveIcon(), func() {
 					ShowAccessDialog(w, app, "Revoke Concert Access", concert.Name, "Revoke", false, func(email *string, bandID *uint32, canEdit bool) error {
 						token := app.Preferences().String(prefToken)
 						server := app.Preferences().String(prefServer)
@@ -115,11 +115,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					revokeBtn.Disable()
 				}
 
-				editBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
+				editBtn := NewTouchButtonWithIcon("", theme.DocumentCreateIcon(), func() {
 					openSetup(&concert)
 				})
 
-				deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+				deleteBtn := NewTouchButtonWithIcon("", theme.DeleteIcon(), func() {
 					dialog.ShowConfirm("Delete Concert", fmt.Sprintf("Are you sure you want to delete '%s'?", concert.Name), func(confirmed bool) {
 						if confirmed {
 							_ = db.MarkConcertDeleted(concert.ID)
@@ -134,7 +134,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			} else if concert.CanEdit {
 				sharedBadge := widget.NewLabelWithStyle("Shared", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 
-				setAliasBtn := widget.NewButtonWithIcon("Alias", theme.SettingsIcon(), func() {
+				setAliasBtn := NewTouchButtonWithIcon("Alias", theme.SettingsIcon(), func() {
 					entry := NewAutoKeyboardEntry()
 					entry.SetText(concert.DisplayName())
 					var d dialog.Dialog
@@ -161,14 +161,14 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					w.Canvas().Focus(entry)
 				})
 
-				editBtn := widget.NewButtonWithIcon("Edit", theme.DocumentCreateIcon(), func() {
+				editBtn := NewTouchButtonWithIcon("Edit", theme.DocumentCreateIcon(), func() {
 					openSetup(&concert)
 				})
 
 				actionButtons = container.NewHBox(sharedBadge, setAliasBtn, editBtn, openBtn)
 			} else {
 				sharedBadge := widget.NewLabelWithStyle("Shared", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
-				setAliasBtn := widget.NewButtonWithIcon("Alias", theme.SettingsIcon(), func() {
+				setAliasBtn := NewTouchButtonWithIcon("Alias", theme.SettingsIcon(), func() {
 					entry := NewAutoKeyboardEntry()
 					entry.SetText(concert.DisplayName())
 					var d dialog.Dialog
@@ -216,10 +216,10 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 	showConcertList = func() {
 		updateGrid()
-		backBtn := widget.NewButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
+		backBtn := NewTouchButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 		backBtn.Importance = widget.WarningImportance
 
-		newConcertBtn := widget.NewButtonWithIcon("New Concert", theme.ContentAddIcon(), func() {
+		newConcertBtn := NewTouchButtonWithIcon("New Concert", theme.ContentAddIcon(), func() {
 			openSetup(nil)
 		})
 		newConcertBtn.Importance = widget.HighImportance
@@ -346,12 +346,12 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		}
 
 		syncStatusBtn := NewTouchButton("Offline", nil)
-		joinBtn := widget.NewButtonWithIcon("Join", theme.LoginIcon(), nil)
-		leadBtn := widget.NewButtonWithIcon("Lead", theme.DocumentCreateIcon(), nil)
-		previewBtn := widget.NewButtonWithIcon("Preview", theme.VisibilityIcon(), nil)
-		pushBtn := widget.NewButtonWithIcon("Push", theme.UploadIcon(), nil)
-		cancelBtn := widget.NewButtonWithIcon("Cancel", theme.CancelIcon(), nil)
-		exitSyncBtn := widget.NewButtonWithIcon("Exit Sync", theme.CancelIcon(), nil)
+		joinBtn := NewTouchButtonWithIcon("Join", theme.LoginIcon(), nil)
+		leadBtn := NewTouchButtonWithIcon("Lead", theme.DocumentCreateIcon(), nil)
+		previewBtn := NewTouchButtonWithIcon("Preview", theme.VisibilityIcon(), nil)
+		pushBtn := NewTouchButtonWithIcon("Push", theme.UploadIcon(), nil)
+		cancelBtn := NewTouchButtonWithIcon("Cancel", theme.CancelIcon(), nil)
+		exitSyncBtn := NewTouchButtonWithIcon("Exit Sync", theme.CancelIcon(), nil)
 
 		sendStateUpdate = func() {
 			if !isLeader || previewMode {
@@ -783,7 +783,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		lockOverlay := container.NewMax()
 		lockBg := canvas.NewRectangle(color.Black)
 
-		unlockBtn := widget.NewButtonWithIcon("Unlock Screen", theme.LoginIcon(), func() {
+		unlockBtn := NewTouchButtonWithIcon("Unlock Screen", theme.LoginIcon(), func() {
 			pinEntry := widget.NewPasswordEntry()
 			dialog.ShowCustomConfirm("Unlock Device", "Unlock", "Cancel", pinEntry, func(ok bool) {
 				if ok {
@@ -1023,7 +1023,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 				timerStatusLabel = widget.NewLabelWithStyle("PAUSED", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 
-				startPauseBtn = widget.NewButtonWithIcon("Start", theme.MediaPlayIcon(), func() {
+				startPauseBtn = NewTouchButtonWithIcon("Start", theme.MediaPlayIcon(), func() {
 					if !isLeader {
 						autoFollow = false
 						updateSyncUI()
@@ -1087,7 +1087,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				})
 				startPauseBtn.Importance = widget.HighImportance
 
-				resetBtn := widget.NewButtonWithIcon("Reset", theme.ViewRefreshIcon(), func() {
+				resetBtn := NewTouchButtonWithIcon("Reset", theme.ViewRefreshIcon(), func() {
 					if !isLeader {
 						autoFollow = false
 						updateSyncUI()
@@ -1195,7 +1195,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			}
 		}
 
-		exitConcertBtn = widget.NewButtonWithIcon("Exit", theme.CancelIcon(), func() {
+		exitConcertBtn = NewTouchButtonWithIcon("Exit", theme.CancelIcon(), func() {
 			if isLeader {
 				remoteServer.SetLeading("", false)
 			}
@@ -1230,7 +1230,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		})
 		exitConcertBtn.Importance = widget.DangerImportance
 
-		prevSongBtn = widget.NewButtonWithIcon("Prev Item", theme.MediaSkipPreviousIcon(), func() {
+		prevSongBtn = NewTouchButtonWithIcon("Prev Item", theme.MediaSkipPreviousIcon(), func() {
 			if !isLeader {
 				autoFollow = false
 			}
@@ -1241,7 +1241,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			sendStateUpdate()
 			updateSyncUI()
 		})
-		nextSongBtn = widget.NewButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() {
+		nextSongBtn = NewTouchButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() {
 			if !isLeader {
 				autoFollow = false
 			}
@@ -1254,7 +1254,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		})
 
 		var setlistDialog dialog.Dialog
-		setlistBtn := widget.NewButtonWithIcon("Setlist", theme.ListIcon(), func() {
+		setlistBtn := NewTouchButtonWithIcon("Setlist", theme.ListIcon(), func() {
 			var items []fyne.CanvasObject
 			for i, title := range setlistTitles {
 				idx := i
@@ -1295,7 +1295,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		})
 		setlistBtn.Importance = widget.HighImportance
 
-		toolsBtn := widget.NewButtonWithIcon("Tools", theme.SettingsIcon(), func() {
+		toolsBtn := NewTouchButtonWithIcon("Tools", theme.SettingsIcon(), func() {
 			var currentScoreID string
 			var currentScoreTitle string
 
@@ -1318,7 +1318,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			})
 		})
 
-		prevPageBtn = widget.NewButtonWithIcon("PREV\nPAGE", theme.NavigateBackIcon(), func() {
+		prevPageBtn = NewTouchButtonWithIcon("PREV\nPAGE", theme.NavigateBackIcon(), func() {
 			if !isLeader {
 				autoFollow = false
 			}
@@ -1337,7 +1337,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		})
 		prevPageBtn.Importance = widget.HighImportance
 
-		nextPageBtn = widget.NewButtonWithIcon("NEXT\nPAGE", theme.NavigateNextIcon(), func() {
+		nextPageBtn = NewTouchButtonWithIcon("NEXT\nPAGE", theme.NavigateNextIcon(), func() {
 			if !isLeader {
 				autoFollow = false
 			}

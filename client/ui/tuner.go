@@ -93,8 +93,8 @@ func ShowTunerDialog(w fyne.Window) {
 		refFreqLabel.SetText(fmt.Sprintf("A4 = %.1f Hz", refFreq))
 	}
 
-	minusBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() { updateRefFreq(-1) })
-	plusBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() { updateRefFreq(1) })
+	minusBtn := NewTouchButtonWithIcon("", theme.ContentRemoveIcon(), func() { updateRefFreq(-1) })
+	plusBtn := NewTouchButtonWithIcon("", theme.ContentAddIcon(), func() { updateRefFreq(1) })
 	refFreqControls := container.NewBorder(nil, nil, minusBtn, plusBtn, refFreqLabel)
 
 	updateTuner := func(freq float64) {
@@ -162,7 +162,7 @@ func ShowTunerDialog(w fyne.Window) {
 		needle.Refresh()
 	}
 
-	toggleBtn := widget.NewButtonWithIcon("Start Listening", theme.MediaRecordIcon(), nil)
+	toggleBtn := NewTouchButtonWithIcon("Start Listening", theme.MediaRecordIcon(), nil)
 	toggleBtn.Importance = widget.HighImportance
 
 	toggleBtn.OnTapped = func() {

@@ -73,7 +73,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 		}
 	}
 
-	switchBtn := widget.NewButtonWithIcon("Switch Profile", theme.AccountIcon(), func() {
+	switchBtn := NewTouchButtonWithIcon("Switch Profile", theme.AccountIcon(), func() {
 		closePanel()
 		if onSwitchProfile != nil {
 			onSwitchProfile()
@@ -81,7 +81,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 	})
 	switchBtn.Importance = widget.WarningImportance
 
-	lockBtn := widget.NewButtonWithIcon("Lock Screen", theme.LogoutIcon(), func() {
+	lockBtn := NewTouchButtonWithIcon("Lock Screen", theme.LogoutIcon(), func() {
 		closePanel()
 		if onLock != nil {
 			onLock()
@@ -89,7 +89,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 	})
 	lockBtn.Importance = widget.HighImportance
 
-	closeQuickSettingsBtn := widget.NewButtonWithIcon("Close Quick Settings", theme.CancelIcon(), func() {
+	closeQuickSettingsBtn := NewTouchButtonWithIcon("Close Quick Settings", theme.CancelIcon(), func() {
 		closePanel()
 	})
 
@@ -159,7 +159,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 		}
 	}
 
-	personalMixerBtn := widget.NewButtonWithIcon("Open Personal Monitor Mix", theme.SettingsIcon(), func() {
+	personalMixerBtn := NewTouchButtonWithIcon("Open Personal Monitor Mix", theme.SettingsIcon(), func() {
 		closePanel()
 		ShowPersonalMixerDialog(w, a, profileID)
 	})
@@ -179,7 +179,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 	})
 	eyetrackCheck.SetChecked(a.Preferences().BoolWithFallback("eyetrack_enabled", false))
 
-	calibBtn := widget.NewButtonWithIcon("Calibrate Eye Tracking", theme.SettingsIcon(), func() {
+	calibBtn := NewTouchButtonWithIcon("Calibrate Eye Tracking", theme.SettingsIcon(), func() {
 		closePanel()
 		ShowEyetrackCalibration(w, a)
 	})
@@ -262,7 +262,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 		}
 	}
 
-	toggleBtn = widget.NewButtonWithIcon("", theme.MenuDropDownIcon(), togglePanel)
+	toggleBtn = NewTouchButtonWithIcon("", theme.MenuDropDownIcon(), togglePanel)
 	toggleBtn.Importance = widget.LowImportance
 
 	SetQuickSettingsVisible = func(visible bool) {

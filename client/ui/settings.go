@@ -28,7 +28,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 	var showCategories func()
 
 	showDetail := func(title string, detailContent fyne.CanvasObject) {
-		backBtn := widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
+		backBtn := NewTouchButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
 			showCategories()
 		})
 		backBtn.Importance = widget.WarningImportance
@@ -57,7 +57,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		}
 		updateStatus()
 
-		savePinBtn := widget.NewButtonWithIcon("Save PIN", theme.DocumentSaveIcon(), func() {
+		savePinBtn := NewTouchButtonWithIcon("Save PIN", theme.DocumentSaveIcon(), func() {
 			if pinEntry.Text != "" {
 				if err := pm.UpdatePin(profileID, pinEntry.Text); err != nil {
 					dialog.ShowError(err, w)
@@ -70,7 +70,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		})
 		savePinBtn.Importance = widget.HighImportance
 
-		clearPinBtn := widget.NewButtonWithIcon("Remove PIN", theme.DeleteIcon(), func() {
+		clearPinBtn := NewTouchButtonWithIcon("Remove PIN", theme.DeleteIcon(), func() {
 			if err := pm.UpdatePin(profileID, ""); err != nil {
 				dialog.ShowError(err, w)
 				return
@@ -118,7 +118,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 						net := n
 						icon := theme.ComputerIcon()
 
-						btn := widget.NewButtonWithIcon(fmt.Sprintf("%s (%d%%)", net.SSID, net.Strength), icon, func() {
+						btn := NewTouchButtonWithIcon(fmt.Sprintf("%s (%d%%)", net.SSID, net.Strength), icon, func() {
 							connectAction := func(password string) {
 								progress := dialog.NewCustomWithoutButtons("Connecting to "+net.SSID+"...", container.NewPadded(widget.NewProgressBarInfinite()), w)
 								progress.Show()
@@ -154,10 +154,10 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 			}()
 		}
 
-		refreshBtn := widget.NewButtonWithIcon("Scan Networks", theme.SearchIcon(), refreshNetworks)
+		refreshBtn := NewTouchButtonWithIcon("Scan Networks", theme.SearchIcon(), refreshNetworks)
 		refreshBtn.Importance = widget.HighImportance
 
-		addHiddenBtn := widget.NewButtonWithIcon("Add Hidden Wi-Fi", theme.ContentAddIcon(), func() {
+		addHiddenBtn := NewTouchButtonWithIcon("Add Hidden Wi-Fi", theme.ContentAddIcon(), func() {
 			ssidEntry := widget.NewEntry()
 			ssidEntry.SetPlaceHolder("Network Name (SSID)")
 
@@ -182,7 +182,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 		})
 		addHiddenBtn.Importance = widget.WarningImportance
 
-		disconnectBtn := widget.NewButtonWithIcon("Disconnect", theme.CancelIcon(), func() {
+		disconnectBtn := NewTouchButtonWithIcon("Disconnect", theme.CancelIcon(), func() {
 			_ = netMgr.Disconnect()
 			statusLabel.SetText(fmt.Sprintf("Status: %s", netMgr.GetNetworkStatus()))
 		})
@@ -219,7 +219,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 			}
 		}
 
-		applyIpBtn := widget.NewButtonWithIcon("Apply IP Config", theme.DocumentSaveIcon(), func() {
+		applyIpBtn := NewTouchButtonWithIcon("Apply IP Config", theme.DocumentSaveIcon(), func() {
 			if dhcpCheckbox.Checked {
 				err := netMgr.SetDHCP("wlan0", true)
 				if err != nil {
@@ -341,12 +341,12 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 			widget.NewSeparator(),
 		}
 
-		rebootBtn := widget.NewButtonWithIcon("Reboot System", theme.ViewRefreshIcon(), func() {
+		rebootBtn := NewTouchButtonWithIcon("Reboot System", theme.ViewRefreshIcon(), func() {
 			_ = devMgr.Reboot()
 		})
 		rebootBtn.Importance = widget.WarningImportance
 
-		shutdownBtn := widget.NewButtonWithIcon("Shutdown System", theme.CancelIcon(), func() {
+		shutdownBtn := NewTouchButtonWithIcon("Shutdown System", theme.CancelIcon(), func() {
 			_ = devMgr.Shutdown()
 		})
 		shutdownBtn.Importance = widget.DangerImportance
@@ -365,7 +365,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 	buildUpdateView := func() fyne.CanvasObject {
 		versionLabel := widget.NewLabel(fmt.Sprintf("Current Version: %s", currentVersion))
 
-		updateBtn := widget.NewButtonWithIcon("Check for Updates", theme.DownloadIcon(), func() {
+		updateBtn := NewTouchButtonWithIcon("Check for Updates", theme.DownloadIcon(), func() {
 
 			loadingContent := container.NewVBox(
 				widget.NewLabel("Looking for updates on GitHub..."),
@@ -488,7 +488,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 			app.Preferences().SetString(prefMixerIP, s)
 		}
 
-		connectBtn := widget.NewButtonWithIcon("Apply & Connect", theme.MediaPlayIcon(), func() {
+		connectBtn := NewTouchButtonWithIcon("Apply & Connect", theme.MediaPlayIcon(), func() {
 			updateConnection(mixerSelect.Selected, ipEntry.Text)
 		})
 		connectBtn.Importance = widget.HighImportance
@@ -580,14 +580,14 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 			}, w)
 		}
 
-		netBtn := widget.NewButtonWithIcon("Network & Wi-Fi", theme.ComputerIcon(), func() { showDetail("Network Settings", buildNetworkView()) })
-		mediaBtn := widget.NewButtonWithIcon("Display & Audio", theme.ColorPaletteIcon(), func() { showDetail("Display & Audio", buildMediaView()) })
-		powerBtn := widget.NewButtonWithIcon("Power", theme.InfoIcon(), func() { showDetail("Power Management", buildPowerView()) })
-		sysBtn := widget.NewButtonWithIcon("System", theme.SettingsIcon(), func() { showDetail("System Controls", buildSystemView()) })
-		secBtn := widget.NewButtonWithIcon("Security & PIN", theme.VisibilityOffIcon(), func() { showDetail("Security Settings", buildSecurityView()) })
-		apprBtn := widget.NewButtonWithIcon("Appearance", theme.ColorPaletteIcon(), func() { showDetail("Appearance Settings", buildAppearanceView()) })
-		updBtn := widget.NewButtonWithIcon("Update App", theme.DownloadIcon(), func() { showDetail("Application Update", buildUpdateView()) })
-		mixerBtn := widget.NewButtonWithIcon("Stage Mixer", theme.VolumeUpIcon(), func() { showDetail("Mixer Configuration", buildMixerView()) })
+		netBtn := NewTouchButtonWithIcon("Network & Wi-Fi", theme.ComputerIcon(), func() { showDetail("Network Settings", buildNetworkView()) })
+		mediaBtn := NewTouchButtonWithIcon("Display & Audio", theme.ColorPaletteIcon(), func() { showDetail("Display & Audio", buildMediaView()) })
+		powerBtn := NewTouchButtonWithIcon("Power", theme.InfoIcon(), func() { showDetail("Power Management", buildPowerView()) })
+		sysBtn := NewTouchButtonWithIcon("System", theme.SettingsIcon(), func() { showDetail("System Controls", buildSystemView()) })
+		secBtn := NewTouchButtonWithIcon("Security & PIN", theme.VisibilityOffIcon(), func() { showDetail("Security Settings", buildSecurityView()) })
+		apprBtn := NewTouchButtonWithIcon("Appearance", theme.ColorPaletteIcon(), func() { showDetail("Appearance Settings", buildAppearanceView()) })
+		updBtn := NewTouchButtonWithIcon("Update App", theme.DownloadIcon(), func() { showDetail("Application Update", buildUpdateView()) })
+		mixerBtn := NewTouchButtonWithIcon("Stage Mixer", theme.VolumeUpIcon(), func() { showDetail("Mixer Configuration", buildMixerView()) })
 
 		netBtn.Importance = widget.HighImportance
 		mediaBtn.Importance = widget.HighImportance
@@ -600,7 +600,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 
 		grid := container.NewGridWithColumns(3, netBtn, mediaBtn, powerBtn, sysBtn, secBtn, apprBtn, updBtn, mixerBtn)
 
-		closeBtn := widget.NewButtonWithIcon("Close Settings", theme.CancelIcon(), onClose)
+		closeBtn := NewTouchButtonWithIcon("Close Settings", theme.CancelIcon(), onClose)
 		closeBtn.Importance = widget.DangerImportance
 		header := container.NewBorder(nil, nil, nil, closeBtn, widget.NewLabelWithStyle("Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
 

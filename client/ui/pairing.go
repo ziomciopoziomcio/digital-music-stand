@@ -42,7 +42,7 @@ func ShowPairingDialog(w fyne.Window, wsMgr *webserver.Manager) {
 
 	var confirmBtn *widget.Button
 
-	confirmBtn = widget.NewButtonWithIcon("Confirm PIN", theme.ConfirmIcon(), func() {
+	confirmBtn = NewTouchButtonWithIcon("Confirm PIN", theme.ConfirmIcon(), func() {
 		if wsMgr.ConfirmPIN(pinEntry.Text) {
 			statusLabel.SetText("Connected successfully! Ready for uploads.")
 			statusLabel.TextStyle = fyne.TextStyle{Bold: true}
