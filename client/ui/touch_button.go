@@ -2,7 +2,7 @@ package ui
 
 import (
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/driver/mobile"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -28,9 +28,17 @@ func NewTouchButtonWithIcon(text string, icon fyne.Resource, onTapped func()) *T
 	return b
 }
 
-func (b *TouchButton) MouseIn(_ *fyne.PointEvent) {}
+func NewTouchButtonIcon(icon fyne.Resource, onTapped func()) *TouchButton {
+	b := &TouchButton{}
+	b.Icon = icon
+	b.OnTapped = onTapped
+	b.ExtendBaseWidget(b)
+	return b
+}
 
-func (b *TouchButton) MouseMoved(_ *fyne.PointEvent) {}
+func (b *TouchButton) MouseIn(_ *desktop.MouseEvent) {}
+
+func (b *TouchButton) MouseMoved(_ *desktop.MouseEvent) {}
 
 func (b *TouchButton) MouseOut() {}
 
@@ -38,16 +46,14 @@ func (b *TouchButton) FocusGained() {}
 
 func (b *TouchButton) FocusLost() {}
 
-func (b *TouchButton) TouchDown(_ *mobile.TouchEvent) {
+func (b *TouchButton) MouseDown(_ *desktop.MouseEvent) {
 	b.ignoreNextTap = true
 	if b.OnTapped != nil {
 		b.OnTapped()
 	}
 }
 
-func (b *TouchButton) TouchUp(_ *mobile.TouchEvent) {}
-
-func (b *TouchButton) TouchCancel(_ *mobile.TouchEvent) {}
+func (b *TouchButton) MouseUp(_ *desktop.MouseEvent) {}
 
 func (b *TouchButton) Tapped(e *fyne.PointEvent) {
 	if b.ignoreNextTap {
