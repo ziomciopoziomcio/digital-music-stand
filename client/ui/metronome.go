@@ -75,8 +75,8 @@ func ShowMetronomeDialog(w fyne.Window, metroAudio *audio.MetronomeAudio, setDia
 		updateBPM(int(val))
 	}
 
-	minusBtn := widget.NewButtonWithIcon("", theme.ContentRemoveIcon(), func() { updateBPM(bpm - 1) })
-	plusBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() { updateBPM(bpm + 1) })
+	minusBtn := NewTouchButtonWithIcon("", theme.ContentRemoveIcon(), func() { updateBPM(bpm - 1) })
+	plusBtn := NewTouchButtonWithIcon("", theme.ContentAddIcon(), func() { updateBPM(bpm + 1) })
 
 	bpmControls := container.NewBorder(nil, nil, minusBtn, plusBtn, bpmSlider)
 
@@ -84,7 +84,7 @@ func ShowMetronomeDialog(w fyne.Window, metroAudio *audio.MetronomeAudio, setDia
 	if beatsPerMeasure > 1 {
 		measureBtnLabel = fmt.Sprintf("Time Sig: %d/4", beatsPerMeasure)
 	}
-	measureBtn := widget.NewButton(measureBtnLabel, nil)
+	measureBtn := NewTouchButton(measureBtnLabel, nil)
 	measureBtn.OnTapped = func() {
 		beatsPerMeasure++
 		if beatsPerMeasure > 7 {
@@ -103,7 +103,7 @@ func ShowMetronomeDialog(w fyne.Window, metroAudio *audio.MetronomeAudio, setDia
 		}
 	}
 
-	toggleBtn := widget.NewButtonWithIcon("", nil, nil)
+	toggleBtn := NewTouchButtonWithIcon("", nil, nil)
 	toggleBtn.Importance = widget.HighImportance
 
 	if playing {
@@ -133,7 +133,7 @@ func ShowMetronomeDialog(w fyne.Window, metroAudio *audio.MetronomeAudio, setDia
 		}
 	}
 
-	closeBtn := widget.NewButton("Close", func() {
+	closeBtn := NewTouchButton("Close", func() {
 		setDialogBeatCb(nil)
 		d.Hide()
 	})

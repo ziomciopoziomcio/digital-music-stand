@@ -40,7 +40,7 @@ func ShowProfileSelector(w fyne.Window, a fyne.App, pm *profiles.Manager, onProf
 			nameLabel.TextStyle = fyne.TextStyle{Bold: true}
 			nameLabel.TextSize = 20
 
-			btn := widget.NewButton("", func() {
+			btn := NewTouchButton("", func() {
 				if profile.PinHash != "" {
 					showPinScreen(profile)
 				} else {
@@ -53,7 +53,7 @@ func ShowProfileSelector(w fyne.Window, a fyne.App, pm *profiles.Manager, onProf
 			grid.Add(tile)
 		}
 
-		addBtn := widget.NewButtonWithIcon("New Profile", theme.ContentAddIcon(), func() {
+		addBtn := NewTouchButtonWithIcon("New Profile", theme.ContentAddIcon(), func() {
 			showCreateProfileDialog(w, a, pm, showProfiles)
 		})
 		addBtn.Importance = widget.HighImportance
@@ -79,27 +79,27 @@ func ShowProfileSelector(w fyne.Window, a fyne.App, pm *profiles.Manager, onProf
 			}
 		}
 
-		backBtn := widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
+		backBtn := NewTouchButtonWithIcon("Back", theme.NavigateBackIcon(), func() {
 			showProfiles()
 		})
 
 		keys := container.NewGridWithColumns(3)
 		for i := 1; i <= 9; i++ {
 			digit := i
-			keys.Add(widget.NewButton(string(rune('0'+digit)), func() {
+			keys.Add(NewTouchButton(string(rune('0'+digit)), func() {
 				enteredPin += string(rune('0' + digit))
 				updateDisplay()
 			}))
 		}
-		keys.Add(widget.NewButton("C", func() {
+		keys.Add(NewTouchButton("C", func() {
 			enteredPin = ""
 			updateDisplay()
 		}))
-		keys.Add(widget.NewButton("0", func() {
+		keys.Add(NewTouchButton("0", func() {
 			enteredPin += "0"
 			updateDisplay()
 		}))
-		keys.Add(widget.NewButton("OK", func() {
+		keys.Add(NewTouchButton("OK", func() {
 			if pm.VerifyPin(p.ID, enteredPin) {
 				onProfileSelected(p.ID)
 			} else {
@@ -141,7 +141,7 @@ func showCreateProfileDialog(w fyne.Window, a fyne.App, pm *profiles.Manager, re
 
 	var d dialog.Dialog
 
-	saveBtn := widget.NewButtonWithIcon("Create", theme.ConfirmIcon(), func() {
+	saveBtn := NewTouchButtonWithIcon("Create", theme.ConfirmIcon(), func() {
 		if nameEntry.Text != "" {
 			newProfile, err := pm.CreateProfile(nameEntry.Text, pinEntry.Text, colorSelect.Selected)
 			if err != nil {
@@ -157,7 +157,7 @@ func showCreateProfileDialog(w fyne.Window, a fyne.App, pm *profiles.Manager, re
 	})
 	saveBtn.Importance = widget.HighImportance
 
-	cancelBtn := widget.NewButtonWithIcon("Cancel", theme.CancelIcon(), func() {
+	cancelBtn := NewTouchButtonWithIcon("Cancel", theme.CancelIcon(), func() {
 		d.Hide()
 	})
 

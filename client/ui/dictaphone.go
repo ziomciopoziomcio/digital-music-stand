@@ -33,10 +33,10 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 	timeLabel := widget.NewLabelWithStyle("00:00 / 00:00", fyne.TextAlignCenter, fyne.TextStyle{Monospace: true})
 	nowPlayingLabel := widget.NewLabelWithStyle("Playing: ...", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
-	playPauseBtn := widget.NewButtonWithIcon("", theme.MediaPauseIcon(), nil)
-	stopBtn := widget.NewButtonWithIcon("", theme.MediaStopIcon(), nil)
-	rewindBtn := widget.NewButtonWithIcon("-5s", theme.MediaFastRewindIcon(), nil)
-	forwardBtn := widget.NewButtonWithIcon("+5s", theme.MediaFastForwardIcon(), nil)
+	playPauseBtn := NewTouchButtonWithIcon("", theme.MediaPauseIcon(), nil)
+	stopBtn := NewTouchButtonWithIcon("", theme.MediaStopIcon(), nil)
+	rewindBtn := NewTouchButtonWithIcon("-5s", theme.MediaFastRewindIcon(), nil)
+	forwardBtn := NewTouchButtonWithIcon("+5s", theme.MediaFastForwardIcon(), nil)
 
 	var updateTicker *time.Ticker
 	var ignoreSliderChange bool
@@ -152,7 +152,7 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 
 			infoLabel := widget.NewLabel(fmt.Sprintf("%s\n%s", titleStr, dateStr))
 
-			playBtn := widget.NewButtonWithIcon("Play", theme.MediaPlayIcon(), nil)
+			playBtn := NewTouchButtonWithIcon("Play", theme.MediaPlayIcon(), nil)
 
 			if recorder.IsRecording() {
 				playBtn.Disable()
@@ -173,7 +173,7 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 				startPlayerUIUpdater()
 			}
 
-			editBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
+			editBtn := NewTouchButtonWithIcon("", theme.DocumentCreateIcon(), func() {
 				nameEntry := widget.NewEntry()
 				nameEntry.SetText(rec.Name)
 				locEntry := widget.NewEntry()
@@ -193,7 +193,7 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 				}, w)
 			})
 
-			deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+			deleteBtn := NewTouchButtonWithIcon("", theme.DeleteIcon(), func() {
 				dialog.ShowConfirm("Delete", "Delete this recording permanently?", func(b bool) {
 					if b {
 						os.Remove(rec.FilePath)
@@ -211,7 +211,7 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 		listContainer.Refresh()
 	}
 
-	toggleBtn := widget.NewButtonWithIcon("Start Recording", theme.MediaRecordIcon(), nil)
+	toggleBtn := NewTouchButtonWithIcon("Start Recording", theme.MediaRecordIcon(), nil)
 	toggleBtn.Importance = widget.HighImportance
 
 	if recorder.IsRecording() {
@@ -248,7 +248,7 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 		}
 	}
 
-	closeBtn := widget.NewButton("Close", func() {
+	closeBtn := NewTouchButton("Close", func() {
 		if updateTicker != nil {
 			updateTicker.Stop()
 		}

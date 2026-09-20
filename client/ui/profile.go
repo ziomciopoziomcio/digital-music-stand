@@ -40,7 +40,7 @@ func BuildProfile(
 	serverAddr string,
 ) *fyne.Container {
 	topBar := container.NewHBox(
-		widget.NewButtonWithIcon("Back", theme.NavigateBackIcon(), onBack),
+		NewTouchButtonWithIcon("Back", theme.NavigateBackIcon(), onBack),
 		widget.NewLabelWithStyle("User Profile", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 	)
 
@@ -64,7 +64,7 @@ func BuildProfile(
 		return fmt.Errorf(errMsg)
 	}
 
-	changePassBtn := widget.NewButtonWithIcon("Change Password", theme.SettingsIcon(), func() {
+	changePassBtn := NewTouchButtonWithIcon("Change Password", theme.SettingsIcon(), func() {
 		oldPassEntry := NewAutoKeyboardPasswordEntry()
 		oldPassEntry.SetPlaceHolder("Current Password")
 
@@ -95,7 +95,7 @@ func BuildProfile(
 		}, w)
 	})
 
-	logoutBtn := widget.NewButtonWithIcon("Logout from Cloud", theme.LogoutIcon(), onCloudLogout)
+	logoutBtn := NewTouchButtonWithIcon("Logout from Cloud", theme.LogoutIcon(), onCloudLogout)
 	logoutBtn.Importance = widget.DangerImportance
 
 	accountSection := container.NewVBox(
@@ -151,7 +151,7 @@ func BuildProfile(
 						memberRow := container.NewHBox(widget.NewLabel(nameStr))
 
 						if band.IsManager && member.Role != "manager" {
-							deleteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+							deleteBtn := NewTouchButtonWithIcon("", theme.DeleteIcon(), func() {
 								msg := fmt.Sprintf("Are you sure you want to remove %s from the band?", member.Email)
 								if member.Role == "pending" {
 									msg = fmt.Sprintf("Are you sure you want to cancel the invitation for %s?", member.Email)
@@ -192,11 +192,11 @@ func BuildProfile(
 					d.Show()
 				}
 
-				membersBtn := widget.NewButtonWithIcon("Members", theme.VisibilityIcon(), showMembersDialog)
+				membersBtn := NewTouchButtonWithIcon("Members", theme.VisibilityIcon(), showMembersDialog)
 				row.Add(membersBtn)
 
 				if band.IsManager {
-					inviteBtn := widget.NewButtonWithIcon("Invite", theme.ContentAddIcon(), func() {
+					inviteBtn := NewTouchButtonWithIcon("Invite", theme.ContentAddIcon(), func() {
 						emailEntry := NewAutoKeyboardEntry()
 						emailEntry.SetPlaceHolder("musician@example.com")
 						dialog.ShowCustomConfirm("Invite to Band", "Send Invite", "Cancel", emailEntry, func(confirm bool) {
@@ -219,7 +219,7 @@ func BuildProfile(
 		}
 	}
 
-	createBandBtn := widget.NewButtonWithIcon("Create New Band", theme.FolderNewIcon(), func() {
+	createBandBtn := NewTouchButtonWithIcon("Create New Band", theme.FolderNewIcon(), func() {
 		nameEntry := NewAutoKeyboardEntry()
 		nameEntry.SetPlaceHolder("Band Name")
 		dialog.ShowCustomConfirm("Create Band", "Create", "Cancel", nameEntry, func(confirm bool) {

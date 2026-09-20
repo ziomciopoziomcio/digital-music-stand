@@ -44,7 +44,7 @@ func BuildLoginScreen(
 	var showLogin func()
 	var showRegister func()
 
-	forgotPasswordBtn := widget.NewButton("Forgot Password?", func() {
+	forgotPasswordBtn := NewTouchButton("Forgot Password?", func() {
 		emailEntry := NewAutoKeyboardEntry()
 		emailEntry.SetPlaceHolder("user@example.com")
 		if loginEmailEntry.Text != "" {
@@ -85,7 +85,7 @@ func BuildLoginScreen(
 		}, w)
 	})
 
-	loginBtn := widget.NewButtonWithIcon("Login", theme.LoginIcon(), nil)
+	loginBtn := NewTouchButtonWithIcon("Login", theme.LoginIcon(), nil)
 	loginBtn.OnTapped = func() {
 		server := serverEntry.Text
 		email := loginEmailEntry.Text
@@ -116,7 +116,7 @@ func BuildLoginScreen(
 	}
 	loginBtn.Importance = widget.HighImportance
 
-	registerBtn := widget.NewButtonWithIcon("Register", theme.DocumentCreateIcon(), nil)
+	registerBtn := NewTouchButtonWithIcon("Register", theme.DocumentCreateIcon(), nil)
 	registerBtn.OnTapped = func() {
 		server := serverEntry.Text
 		name := regNameEntry.Text
@@ -164,9 +164,9 @@ func BuildLoginScreen(
 			forgotPasswordBtn,
 			widget.NewLabel(""),
 			loginBtn,
-			widget.NewButton("Need an account? Register here", showRegister),
+			NewTouchButton("Need an account? Register here", showRegister),
 			widget.NewSeparator(),
-			widget.NewButtonWithIcon("Cancel (Work Offline)", theme.CancelIcon(), onCancel),
+			NewTouchButtonWithIcon("Cancel (Work Offline)", theme.CancelIcon(), onCancel),
 		)
 
 		scrollForm := container.NewVScroll(container.NewPadded(form))
@@ -193,9 +193,9 @@ func BuildLoginScreen(
 			widget.NewLabel("Password:"), regPasswordEntry,
 			widget.NewLabel(""),
 			registerBtn,
-			widget.NewButton("Already have an account? Login", showLogin),
+			NewTouchButton("Already have an account? Login", showLogin),
 			widget.NewSeparator(),
-			widget.NewButtonWithIcon("Cancel (Work Offline)", theme.CancelIcon(), onCancel),
+			NewTouchButtonWithIcon("Cancel (Work Offline)", theme.CancelIcon(), onCancel),
 		)
 
 		scrollForm := container.NewVScroll(container.NewPadded(form))

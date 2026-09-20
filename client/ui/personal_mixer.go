@@ -162,7 +162,7 @@ func ShowPersonalMixerDialog(w fyne.Window, a fyne.App, profileID string) {
 
 	mainMixerArea := container.NewBorder(nil, nil, nil, masterStrip, scrollableChannels)
 
-	closeBtn := widget.NewButtonWithIcon("Close", theme.CancelIcon(), func() {
+	closeBtn := NewTouchButtonWithIcon("Close", theme.CancelIcon(), func() {
 		d.Hide()
 	})
 
