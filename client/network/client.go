@@ -2,8 +2,11 @@ package network
 
 import (
 	"context"
+	"crypto/tls"
+	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -18,13 +21,28 @@ func (t TokenAuth) GetRequestMetadata(ctx context.Context, uri ...string) (map[s
 }
 
 func (t TokenAuth) RequireTransportSecurity() bool {
-	return false // todo: use TLS
+	return true
 }
 
 func NewGRPCClient(serverAddr, token string) (*grpc.ClientConn, error) {
+	cleanAddr := sanitizeAddress(serverAddr)
+
+	var creds credentials.TransportCredentials
+	if strings.HasSuffix(cleanAddr, ":443") {
+		creds = credentials.NewTLS(&tls.Config{})
+	} else {
+		creds = insecure.NewCredentials()
+	}
+
 	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(creds),
 		grpc.WithPerRPCCredentials(TokenAuth{Token: token}),
 	}
-	return grpc.NewClient(serverAddr, opts...)
+	return grpc.NewClient(cleanAddr, opts...)
+}
+
+func sanitizeAddress(addr string) string {
+	addr = strings.TrimPrefix(addr, "https://")
+	addr = strings.TrimPrefix(addr, "http://")
+	return strings.TrimRight(addr, "/")
 }
