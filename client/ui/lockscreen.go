@@ -55,21 +55,21 @@ func BuildLockScreen(w fyne.Window, a fyne.App, verifyPin func(string) bool, onS
 
 	for i := 1; i <= 9; i++ {
 		digit := fmt.Sprintf("%d", i)
-		btn := widget.NewButton(digit, func() {
+		btn := NewTouchButton(digit, func() {
 			appendPin(digit)
 		})
 		keypad.Add(btn)
 	}
 
-	keypad.Add(widget.NewButton("C", func() {
+	keypad.Add(NewTouchButton("C", func() {
 		pinEntry.SetText("")
 		pinEntry.SetPlaceHolder("Enter PIN")
 	}))
-	keypad.Add(widget.NewButton("0", func() {
+	keypad.Add(NewTouchButton("0", func() {
 		appendPin("0")
 	}))
 
-	unlockBtn := widget.NewButton("OK", func() {
+	unlockBtn := NewTouchButton("OK", func() {
 		if verifyPin(pinEntry.Text) {
 			close(stopClock)
 			pinEntry.SetText("")

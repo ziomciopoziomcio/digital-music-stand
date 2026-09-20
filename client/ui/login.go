@@ -44,7 +44,7 @@ func BuildLoginScreen(
 	var showLogin func()
 	var showRegister func()
 
-	forgotPasswordBtn := widget.NewButton("Forgot Password?", func() {
+	forgotPasswordBtn := NewTouchButton("Forgot Password?", func() {
 		emailEntry := NewAutoKeyboardEntry()
 		emailEntry.SetPlaceHolder("user@example.com")
 		if loginEmailEntry.Text != "" {
@@ -164,7 +164,7 @@ func BuildLoginScreen(
 			forgotPasswordBtn,
 			widget.NewLabel(""),
 			loginBtn,
-			widget.NewButton("Need an account? Register here", showRegister),
+			NewTouchButton("Need an account? Register here", showRegister),
 			widget.NewSeparator(),
 			widget.NewButtonWithIcon("Cancel (Work Offline)", theme.CancelIcon(), onCancel),
 		)
@@ -193,7 +193,7 @@ func BuildLoginScreen(
 			widget.NewLabel("Password:"), regPasswordEntry,
 			widget.NewLabel(""),
 			registerBtn,
-			widget.NewButton("Already have an account? Login", showLogin),
+			NewTouchButton("Already have an account? Login", showLogin),
 			widget.NewSeparator(),
 			widget.NewButtonWithIcon("Cancel (Work Offline)", theme.CancelIcon(), onCancel),
 		)

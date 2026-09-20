@@ -101,7 +101,7 @@ func ShowAccessDialog(
 
 	formItems = append(formItems, container.NewHBox(
 		layout.NewSpacer(),
-		widget.NewButton(actionBtnText, func() {
+		NewTouchButton(actionBtnText, func() {
 			isUser := targetType.Selected == "User (Email)"
 			if isUser && emailEntry.Text == "" {
 				return
@@ -134,7 +134,7 @@ func ShowAccessDialog(
 				}
 			}()
 		}),
-		widget.NewButton("Cancel", func() {
+		NewTouchButton("Cancel", func() {
 			d.Hide()
 		}),
 	))

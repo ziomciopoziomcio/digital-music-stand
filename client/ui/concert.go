@@ -143,17 +143,17 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 						entry,
 						container.NewHBox(
 							layout.NewSpacer(),
-							widget.NewButton("Save", func() {
+							NewTouchButton("Save", func() {
 								_ = db.SetConcertAlias(concert.ID, entry.Text)
 								updateGrid()
 								d.Hide()
 							}),
-							widget.NewButton("Clear", func() {
+							NewTouchButton("Clear", func() {
 								_ = db.SetConcertAlias(concert.ID, "")
 								updateGrid()
 								d.Hide()
 							}),
-							widget.NewButton("Cancel", func() { d.Hide() }),
+							NewTouchButton("Cancel", func() { d.Hide() }),
 						),
 					)
 					d = dialog.NewCustomWithoutButtons("Set Alias", formContent, w)
@@ -177,17 +177,17 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 						entry,
 						container.NewHBox(
 							layout.NewSpacer(),
-							widget.NewButton("Save", func() {
+							NewTouchButton("Save", func() {
 								_ = db.SetConcertAlias(concert.ID, entry.Text)
 								updateGrid()
 								d.Hide()
 							}),
-							widget.NewButton("Clear", func() {
+							NewTouchButton("Clear", func() {
 								_ = db.SetConcertAlias(concert.ID, "")
 								updateGrid()
 								d.Hide()
 							}),
-							widget.NewButton("Cancel", func() { d.Hide() }),
+							NewTouchButton("Cancel", func() { d.Hide() }),
 						),
 					)
 					d = dialog.NewCustomWithoutButtons("Set Alias", formContent, w)
@@ -345,7 +345,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			}
 		}
 
-		syncStatusBtn := widget.NewButton("Offline", nil)
+		syncStatusBtn := NewTouchButton("Offline", nil)
 		joinBtn := widget.NewButtonWithIcon("Join", theme.LoginIcon(), nil)
 		leadBtn := widget.NewButtonWithIcon("Lead", theme.DocumentCreateIcon(), nil)
 		previewBtn := widget.NewButtonWithIcon("Preview", theme.VisibilityIcon(), nil)
@@ -1104,7 +1104,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					updateRemoteState()
 				})
 
-				addMinBtn := widget.NewButton("+1 Min", func() {
+				addMinBtn := NewTouchButton("+1 Min", func() {
 					if !isLeader {
 						autoFollow = false
 						updateSyncUI()
@@ -1115,7 +1115,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					sendStateUpdate()
 					updateRemoteState()
 				})
-				subMinBtn := widget.NewButton("-1 Min", func() {
+				subMinBtn := NewTouchButton("-1 Min", func() {
 					if !isLeader {
 						autoFollow = false
 						updateSyncUI()
@@ -1258,7 +1258,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			var items []fyne.CanvasObject
 			for i, title := range setlistTitles {
 				idx := i
-				btn := widget.NewButton(fmt.Sprintf("%d. %s", idx+1, title), func() {
+				btn := NewTouchButton(fmt.Sprintf("%d. %s", idx+1, title), func() {
 					if !isLeader {
 						autoFollow = false
 					}

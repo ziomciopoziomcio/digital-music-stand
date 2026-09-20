@@ -324,7 +324,7 @@ func BuildSettings(w fyne.Window, app fyne.App, currentVersion string, onClose f
 
 		camEntry := widget.NewEntry()
 		camEntry.SetText(fmt.Sprintf("%d", app.Preferences().IntWithFallback("eyetrack_camera", 0)))
-		camBtn := widget.NewButton("Save", func() {
+		camBtn := NewTouchButton("Save", func() {
 			var cID int
 			var err error
 			if cID, err = strconv.Atoi(camEntry.Text); err == nil {

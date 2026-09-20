@@ -338,7 +338,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 							entry,
 							container.NewHBox(
 								layout.NewSpacer(),
-								widget.NewButton("Save", func() {
+								NewTouchButton("Save", func() {
 									if entry.Text != "" {
 										_ = db.UpdateScore(score.ID, entry.Text)
 										onScoresChanged()
@@ -346,7 +346,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 										d.Hide()
 									}
 								}),
-								widget.NewButton("Cancel", func() { d.Hide() }),
+								NewTouchButton("Cancel", func() { d.Hide() }),
 							),
 						)
 						d = dialog.NewCustomWithoutButtons("Edit Score", formContent, w)
@@ -377,19 +377,19 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 							entry,
 							container.NewHBox(
 								layout.NewSpacer(),
-								widget.NewButton("Save", func() {
+								NewTouchButton("Save", func() {
 									_ = db.SetScoreAlias(score.ID, entry.Text)
 									onScoresChanged()
 									updateGrid()
 									d.Hide()
 								}),
-								widget.NewButton("Clear", func() {
+								NewTouchButton("Clear", func() {
 									_ = db.SetScoreAlias(score.ID, "")
 									onScoresChanged()
 									updateGrid()
 									d.Hide()
 								}),
-								widget.NewButton("Cancel", func() { d.Hide() }),
+								NewTouchButton("Cancel", func() { d.Hide() }),
 							),
 						)
 						d = dialog.NewCustomWithoutButtons("Set Alias", formContent, w)

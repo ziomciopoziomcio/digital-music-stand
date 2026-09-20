@@ -40,7 +40,7 @@ func ShowProfileSelector(w fyne.Window, a fyne.App, pm *profiles.Manager, onProf
 			nameLabel.TextStyle = fyne.TextStyle{Bold: true}
 			nameLabel.TextSize = 20
 
-			btn := widget.NewButton("", func() {
+			btn := NewTouchButton("", func() {
 				if profile.PinHash != "" {
 					showPinScreen(profile)
 				} else {
@@ -86,20 +86,20 @@ func ShowProfileSelector(w fyne.Window, a fyne.App, pm *profiles.Manager, onProf
 		keys := container.NewGridWithColumns(3)
 		for i := 1; i <= 9; i++ {
 			digit := i
-			keys.Add(widget.NewButton(string(rune('0'+digit)), func() {
+			keys.Add(NewTouchButton(string(rune('0'+digit)), func() {
 				enteredPin += string(rune('0' + digit))
 				updateDisplay()
 			}))
 		}
-		keys.Add(widget.NewButton("C", func() {
+		keys.Add(NewTouchButton("C", func() {
 			enteredPin = ""
 			updateDisplay()
 		}))
-		keys.Add(widget.NewButton("0", func() {
+		keys.Add(NewTouchButton("0", func() {
 			enteredPin += "0"
 			updateDisplay()
 		}))
-		keys.Add(widget.NewButton("OK", func() {
+		keys.Add(NewTouchButton("OK", func() {
 			if pm.VerifyPin(p.ID, enteredPin) {
 				onProfileSelected(p.ID)
 			} else {

@@ -123,7 +123,7 @@ func ShowKeyboard(target *widget.Entry) {
 				if isShift && c >= 'a' && c <= 'z' {
 					c = rune(strings.ToUpper(string(c))[0])
 				}
-				btn := widget.NewButton(string(c), func() {
+				btn := NewTouchButton(string(c), func() {
 					typeRune(c)
 				})
 				hbox.Add(btn)
@@ -131,7 +131,7 @@ func ShowKeyboard(target *widget.Entry) {
 			vbox.Add(hbox)
 		}
 
-		shiftBtn := widget.NewButton("⇧ Shift", func() {
+		shiftBtn := NewTouchButton("⇧ Shift", func() {
 			isShift = !isShift
 			kbContent.Objects = []fyne.CanvasObject{buildKeyboard()}
 			kbContent.Refresh()
@@ -140,15 +140,15 @@ func ShowKeyboard(target *widget.Entry) {
 			shiftBtn.Importance = widget.HighImportance
 		}
 
-		spaceBtn := widget.NewButton("Space", func() {
+		spaceBtn := NewTouchButton("Space", func() {
 			typeRune(' ')
 		})
 
-		backspaceBtn := widget.NewButton("⌫ Del", func() {
+		backspaceBtn := NewTouchButton("⌫ Del", func() {
 			typeKey(fyne.KeyBackspace)
 		})
 
-		closeBtn := widget.NewButton("✓ Enter", func() {
+		closeBtn := NewTouchButton("✓ Enter", func() {
 			HideKeyboard()
 			if target.OnSubmitted != nil {
 				target.OnSubmitted(target.Text)

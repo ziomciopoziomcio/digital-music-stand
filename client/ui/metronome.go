@@ -84,7 +84,7 @@ func ShowMetronomeDialog(w fyne.Window, metroAudio *audio.MetronomeAudio, setDia
 	if beatsPerMeasure > 1 {
 		measureBtnLabel = fmt.Sprintf("Time Sig: %d/4", beatsPerMeasure)
 	}
-	measureBtn := widget.NewButton(measureBtnLabel, nil)
+	measureBtn := NewTouchButton(measureBtnLabel, nil)
 	measureBtn.OnTapped = func() {
 		beatsPerMeasure++
 		if beatsPerMeasure > 7 {
@@ -133,7 +133,7 @@ func ShowMetronomeDialog(w fyne.Window, metroAudio *audio.MetronomeAudio, setDia
 		}
 	}
 
-	closeBtn := widget.NewButton("Close", func() {
+	closeBtn := NewTouchButton("Close", func() {
 		setDialogBeatCb(nil)
 		d.Hide()
 	})

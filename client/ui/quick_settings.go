@@ -209,7 +209,7 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 
 	settingsPanel = container.NewMax(bg, container.NewPadded(panelContent))
 
-	backdrop = widget.NewButton("", func() {
+	backdrop = NewTouchButton("", func() {
 		closePanel()
 	})
 	backdropBg := canvas.NewRectangle(color.Transparent)

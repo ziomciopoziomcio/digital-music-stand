@@ -248,7 +248,7 @@ func ShowDictaphoneDialog(w fyne.Window, db *localdb.DBManager, recorder *audio.
 		}
 	}
 
-	closeBtn := widget.NewButton("Close", func() {
+	closeBtn := NewTouchButton("Close", func() {
 		if updateTicker != nil {
 			updateTicker.Stop()
 		}

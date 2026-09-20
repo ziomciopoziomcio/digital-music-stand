@@ -186,7 +186,7 @@ func ShowTunerDialog(w fyne.Window) {
 		}
 	}
 
-	closeBtn := widget.NewButton("Close", func() {
+	closeBtn := NewTouchButton("Close", func() {
 		if micTuner != nil {
 			micTuner.Stop()
 		}

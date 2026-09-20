@@ -185,8 +185,8 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 			}
 		}
 
-		saveBtn := widget.NewButton("Add", submitAction)
-		cancelBtn := widget.NewButton("Cancel", func() { d.Hide() })
+		saveBtn := NewTouchButton("Add", submitAction)
+		cancelBtn := NewTouchButton("Cancel", func() { d.Hide() })
 		controls := container.NewHBox(layout.NewSpacer(), saveBtn, cancelBtn)
 		content := container.NewVBox(widget.NewLabel("Enter break duration (minutes):"), entry, controls)
 
