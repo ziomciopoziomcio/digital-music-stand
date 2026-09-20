@@ -11,7 +11,8 @@ import (
 )
 
 type TokenAuth struct {
-	Token string
+	Token  string
+	Secure bool
 }
 
 func (t TokenAuth) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
@@ -21,14 +22,15 @@ func (t TokenAuth) GetRequestMetadata(ctx context.Context, uri ...string) (map[s
 }
 
 func (t TokenAuth) RequireTransportSecurity() bool {
-	return true
+	return t.Secure
 }
 
 func NewGRPCClient(serverAddr, token string) (*grpc.ClientConn, error) {
 	cleanAddr := sanitizeAddress(serverAddr)
+	isSecure := strings.HasSuffix(cleanAddr, ":443")
 
 	var creds credentials.TransportCredentials
-	if strings.HasSuffix(cleanAddr, ":443") {
+	if isSecure {
 		creds = credentials.NewTLS(&tls.Config{})
 	} else {
 		creds = insecure.NewCredentials()
@@ -36,7 +38,10 @@ func NewGRPCClient(serverAddr, token string) (*grpc.ClientConn, error) {
 
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),
-		grpc.WithPerRPCCredentials(TokenAuth{Token: token}),
+		grpc.WithPerRPCCredentials(TokenAuth{
+			Token:  token,
+			Secure: isSecure,
+		}),
 	}
 	return grpc.NewClient(cleanAddr, opts...)
 }
