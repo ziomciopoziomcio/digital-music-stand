@@ -239,7 +239,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			return
 		}
 
-		var exitConcertBtn, prevSongBtn, nextSongBtn, prevPageBtn, nextPageBtn *widget.Button
+		var exitConcertBtn, prevSongBtn, nextSongBtn, prevPageBtn, nextPageBtn *TouchButton
 		var handleRemoteCommand func(action string)
 		var stopGaze func()
 
@@ -268,7 +268,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 		var timerClockLabel *canvas.Text
 		var timerStatusLabel *widget.Label
-		var startPauseBtn *widget.Button
+		var startPauseBtn *TouchButton
 		var isTimerRunning bool
 		var remainingSec int
 

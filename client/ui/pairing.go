@@ -40,7 +40,7 @@ func ShowPairingDialog(w fyne.Window, wsMgr *webserver.Manager) {
 
 	statusLabel := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 
-	var confirmBtn *widget.Button
+	var confirmBtn *TouchButton
 
 	confirmBtn = NewTouchButtonWithIcon("Confirm PIN", theme.ConfirmIcon(), func() {
 		if wsMgr.ConfirmPIN(pinEntry.Text) {

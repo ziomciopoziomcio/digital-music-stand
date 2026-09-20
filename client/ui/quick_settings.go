@@ -45,10 +45,10 @@ func WrapWithQuickSettings(w fyne.Window, a fyne.App, content fyne.CanvasObject,
 	isOpen := false
 	globalVisible := true
 
-	var toggleBtn *widget.Button
+	var toggleBtn *TouchButton
 	var settingsPanel *fyne.Container
 	var overlay *fyne.Container
-	var backdrop *widget.Button
+	var backdrop *TouchButton
 	var togglePanel func()
 
 	panelHeightVal := float32(520)
