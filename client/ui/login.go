@@ -67,16 +67,26 @@ func BuildLoginScreen(
 				return
 			}
 
-			msg, err := resetPasswordCallback(server, email)
-			if err != nil {
-				dialog.ShowError(err, w)
-				return
-			}
-			dialog.ShowInformation("Reset Password", msg, w)
+			progress := dialog.NewCustom("Resetting Password", "Cancel", widget.NewProgressBarInfinite(), w)
+			progress.Show()
+
+			go func() {
+				msg, err := resetPasswordCallback(server, email)
+
+				progress.Hide()
+
+				if err != nil {
+					dialog.ShowError(err, w)
+					return
+				}
+				dialog.ShowInformation("Reset Password", msg, w)
+			}()
+
 		}, w)
 	})
 
-	loginBtn := widget.NewButtonWithIcon("Login", theme.LoginIcon(), func() {
+	loginBtn := widget.NewButtonWithIcon("Login", theme.LoginIcon(), nil)
+	loginBtn.OnTapped = func() {
 		server := serverEntry.Text
 		email := loginEmailEntry.Text
 		password := loginPasswordEntry.Text
@@ -86,17 +96,28 @@ func BuildLoginScreen(
 			return
 		}
 
-		err := loginCallback(server, email, password)
-		if err != nil {
-			dialog.ShowError(err, w)
-			return
-		}
+		loginBtn.Disable()
+		progress := dialog.NewCustom("Authenticating", "Cancel", widget.NewProgressBarInfinite(), w)
+		progress.Show()
 
-		loginPasswordEntry.SetText("")
-	})
+		go func() {
+			err := loginCallback(server, email, password)
+
+			progress.Hide()
+			loginBtn.Enable()
+
+			if err != nil {
+				dialog.ShowError(err, w)
+				return
+			}
+
+			loginPasswordEntry.SetText("")
+		}()
+	}
 	loginBtn.Importance = widget.HighImportance
 
-	registerBtn := widget.NewButtonWithIcon("Register", theme.DocumentCreateIcon(), func() {
+	registerBtn := widget.NewButtonWithIcon("Register", theme.DocumentCreateIcon(), nil)
+	registerBtn.OnTapped = func() {
 		server := serverEntry.Text
 		name := regNameEntry.Text
 		surname := regSurnameEntry.Text
@@ -108,19 +129,29 @@ func BuildLoginScreen(
 			return
 		}
 
-		msg, err := registerCallback(server, email, password, name, surname)
-		if err != nil {
-			dialog.ShowError(err, w)
-			return
-		}
+		registerBtn.Disable()
+		progress := dialog.NewCustom("Registering", "Cancel", widget.NewProgressBarInfinite(), w)
+		progress.Show()
 
-		dialog.ShowInformation("Success", msg, w)
-		regNameEntry.SetText("")
-		regSurnameEntry.SetText("")
-		regPasswordEntry.SetText("")
-		loginEmailEntry.SetText(email)
-		showLogin()
-	})
+		go func() {
+			msg, err := registerCallback(server, email, password, name, surname)
+
+			progress.Hide()
+			registerBtn.Enable()
+
+			if err != nil {
+				dialog.ShowError(err, w)
+				return
+			}
+
+			dialog.ShowInformation("Success", msg, w)
+			regNameEntry.SetText("")
+			regSurnameEntry.SetText("")
+			regPasswordEntry.SetText("")
+			loginEmailEntry.SetText(email)
+			showLogin()
+		}()
+	}
 	registerBtn.Importance = widget.HighImportance
 
 	showLogin = func() {
