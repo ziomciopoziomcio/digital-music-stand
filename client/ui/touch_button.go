@@ -2,65 +2,177 @@ package ui
 
 import (
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
 type TouchButton struct {
-	widget.Button
-	ignoreNextTap bool
+	widget.BaseWidget
+	Text       string
+	Icon       fyne.Resource
+	Importance widget.ButtonImportance
+	OnTapped   func()
+	disabled   bool
+	hovered    bool
 }
 
-func NewTouchButton(text string, onTapped func()) *TouchButton {
-	b := &TouchButton{}
-	b.Text = text
-	b.OnTapped = onTapped
-	b.ExtendBaseWidget(b)
-	return b
-}
-
-func NewTouchButtonWithIcon(text string, icon fyne.Resource, onTapped func()) *TouchButton {
-	b := &TouchButton{}
-	b.Text = text
-	b.Icon = icon
-	b.OnTapped = onTapped
-	b.ExtendBaseWidget(b)
-	return b
-}
-
-func NewTouchButtonIcon(icon fyne.Resource, onTapped func()) *TouchButton {
-	b := &TouchButton{}
-	b.Icon = icon
-	b.OnTapped = onTapped
-	b.ExtendBaseWidget(b)
-	return b
-}
-
-func (b *TouchButton) MouseIn(_ *desktop.MouseEvent) {}
-
-func (b *TouchButton) MouseMoved(_ *desktop.MouseEvent) {}
-
-func (b *TouchButton) MouseOut() {}
-
-func (b *TouchButton) FocusGained() {}
-
-func (b *TouchButton) FocusLost() {}
-
-func (b *TouchButton) MouseDown(_ *desktop.MouseEvent) {
-	b.ignoreNextTap = true
-	if b.OnTapped != nil {
-		b.OnTapped()
+func NewTouchButton(text string, tapped func()) *TouchButton {
+	b := &TouchButton{
+		Text:       text,
+		OnTapped:   tapped,
+		Importance: widget.MediumImportance,
 	}
+	b.ExtendBaseWidget(b)
+	return b
 }
 
-func (b *TouchButton) MouseUp(_ *desktop.MouseEvent) {}
+func NewTouchButtonWithIcon(text string, icon fyne.Resource, tapped func()) *TouchButton {
+	b := &TouchButton{
+		Text:       text,
+		Icon:       icon,
+		OnTapped:   tapped,
+		Importance: widget.MediumImportance,
+	}
+	b.ExtendBaseWidget(b)
+	return b
+}
 
-func (b *TouchButton) Tapped(e *fyne.PointEvent) {
-	if b.ignoreNextTap {
-		b.ignoreNextTap = false
+func (b *TouchButton) Disable() {
+	b.disabled = true
+	b.Refresh()
+}
+
+func (b *TouchButton) Enable() {
+	b.disabled = false
+	b.Refresh()
+}
+
+func (b *TouchButton) Disabled() bool {
+	return b.disabled
+}
+
+func (b *TouchButton) SetText(text string) {
+	b.Text = text
+	b.Refresh()
+}
+
+func (b *TouchButton) SetIcon(icon fyne.Resource) {
+	b.Icon = icon
+	b.Refresh()
+}
+
+func (b *TouchButton) Tapped(_ *fyne.PointEvent) {
+	if b.disabled {
 		return
 	}
 	if b.OnTapped != nil {
 		b.OnTapped()
 	}
+}
+
+func (b *TouchButton) MouseIn(_ *desktop.MouseEvent) {
+	if b.disabled {
+		return
+	}
+	b.hovered = true
+	b.Refresh()
+}
+
+func (b *TouchButton) MouseOut() {
+	b.hovered = false
+	b.Refresh()
+}
+
+func (b *TouchButton) MouseMoved(_ *desktop.MouseEvent) {}
+
+func (b *TouchButton) CreateRenderer() fyne.WidgetRenderer {
+	bg := canvas.NewRectangle(theme.ButtonColor())
+	bg.CornerRadius = theme.InputRadiusSize()
+
+	hoverBg := canvas.NewRectangle(theme.HoverColor())
+	hoverBg.CornerRadius = theme.InputRadiusSize()
+	hoverBg.Hide()
+
+	icon := &canvas.Image{FillMode: canvas.ImageFillContain}
+	icon.SetMinSize(fyne.NewSquareSize(theme.IconInlineSize()))
+	if b.Icon != nil {
+		icon.Resource = b.Icon
+	} else {
+		icon.Hide()
+	}
+
+	text := canvas.NewText(b.Text, theme.ForegroundColor())
+	text.Alignment = fyne.TextAlignCenter
+	if b.Text == "" {
+		text.Hide()
+	}
+
+	content := container.NewHBox(icon, text)
+	c := container.NewMax(bg, hoverBg, container.NewCenter(content))
+
+	return &touchButtonRenderer{
+		WidgetRenderer: widget.NewSimpleRenderer(c),
+		button:         b,
+		bg:             bg,
+		hoverBg:        hoverBg,
+		text:           text,
+		icon:           icon,
+	}
+}
+
+type touchButtonRenderer struct {
+	fyne.WidgetRenderer
+	button  *TouchButton
+	bg      *canvas.Rectangle
+	hoverBg *canvas.Rectangle
+	text    *canvas.Text
+	icon    *canvas.Image
+}
+
+func (r *touchButtonRenderer) Refresh() {
+	if r.button.Disabled() {
+		r.bg.FillColor = theme.DisabledColor()
+		r.text.Color = theme.DisabledColor()
+	} else {
+		switch r.button.Importance {
+		case widget.HighImportance:
+			r.bg.FillColor = theme.PrimaryColor()
+		case widget.DangerImportance:
+			r.bg.FillColor = theme.ErrorColor()
+		case widget.LowImportance:
+			r.bg.FillColor = theme.BackgroundColor()
+		default:
+			r.bg.FillColor = theme.ButtonColor()
+		}
+		r.text.Color = theme.ForegroundColor()
+	}
+
+	if r.button.hovered && !r.button.Disabled() {
+		r.hoverBg.FillColor = theme.HoverColor()
+		r.hoverBg.Show()
+	} else {
+		r.hoverBg.Hide()
+	}
+
+	r.text.Text = r.button.Text
+	if r.button.Text == "" {
+		r.text.Hide()
+	} else {
+		r.text.Show()
+	}
+	r.text.Refresh()
+
+	r.icon.Resource = r.button.Icon
+	if r.button.Icon == nil {
+		r.icon.Hide()
+	} else {
+		r.icon.Show()
+	}
+	r.icon.Refresh()
+
+	r.bg.Refresh()
+	r.hoverBg.Refresh()
 }
