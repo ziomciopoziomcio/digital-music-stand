@@ -91,26 +91,18 @@ func (b *TouchButton) MouseOut() {
 func (b *TouchButton) MouseMoved(_ *desktop.MouseEvent) {}
 
 func (b *TouchButton) CreateRenderer() fyne.WidgetRenderer {
-	bg := canvas.NewRectangle(theme.ButtonColor())
+	bg := canvas.NewRectangle(color.Transparent)
 	bg.CornerRadius = theme.InputRadiusSize()
 
-	hoverBg := canvas.NewRectangle(theme.HoverColor())
+	hoverBg := canvas.NewRectangle(color.Transparent)
 	hoverBg.CornerRadius = theme.InputRadiusSize()
 	hoverBg.Hide()
 
 	icon := &canvas.Image{FillMode: canvas.ImageFillContain}
 	icon.SetMinSize(fyne.NewSquareSize(theme.IconInlineSize()))
-	if b.Icon != nil {
-		icon.Resource = b.Icon
-	} else {
-		icon.Hide()
-	}
 
-	text := canvas.NewText(b.Text, theme.ForegroundColor())
+	text := canvas.NewText("", color.Transparent)
 	text.Alignment = fyne.TextAlignCenter
-	if b.Text == "" {
-		text.Hide()
-	}
 
 	content := container.NewHBox(icon, text)
 	paddedContent := container.NewPadded(content)
@@ -120,7 +112,7 @@ func (b *TouchButton) CreateRenderer() fyne.WidgetRenderer {
 
 	c := container.NewMax(bg, hoverBg, spacer, container.NewCenter(paddedContent))
 
-	return &touchButtonRenderer{
+	r := &touchButtonRenderer{
 		WidgetRenderer: widget.NewSimpleRenderer(c),
 		button:         b,
 		bg:             bg,
@@ -128,6 +120,8 @@ func (b *TouchButton) CreateRenderer() fyne.WidgetRenderer {
 		text:           text,
 		icon:           icon,
 	}
+	r.Refresh()
+	return r
 }
 
 type touchButtonRenderer struct {
