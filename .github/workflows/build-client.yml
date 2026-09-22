@@ -37,7 +37,7 @@ jobs:
       # 1. Windows (64-bit)
       - name: Build Windows amd64
         run: |
-          fyne-cross windows -arch=amd64 -dir=client -name=dms-windows-amd64 -debug -app-id=com.digitalmusicstand.client
+          fyne-cross windows -arch=amd64 -dir=client -name=dms-windows-amd64 -debug -app-id=com.digitalmusicstand.client --pull
 
       # 2. LLinux (64-bit)
       - name: Build Linux amd64

@@ -70,6 +70,17 @@ func (b *TouchButton) Tapped(_ *fyne.PointEvent) {
 	if b.disabled {
 		return
 	}
+
+	if app := fyne.CurrentApp(); app != nil {
+		if driver := app.Driver(); driver != nil {
+			for _, window := range driver.AllWindows() {
+				if canvas := window.Canvas(); canvas != nil {
+					canvas.Unfocus()
+				}
+			}
+		}
+	}
+
 	if b.OnTapped != nil {
 		b.OnTapped()
 	}
