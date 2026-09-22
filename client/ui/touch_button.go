@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"image/color"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
@@ -111,7 +113,12 @@ func (b *TouchButton) CreateRenderer() fyne.WidgetRenderer {
 	}
 
 	content := container.NewHBox(icon, text)
-	c := container.NewMax(bg, hoverBg, container.NewCenter(content))
+	paddedContent := container.NewPadded(content)
+
+	spacer := canvas.NewRectangle(color.Transparent)
+	spacer.SetMinSize(fyne.NewSize(64, 40))
+
+	c := container.NewMax(bg, hoverBg, spacer, container.NewCenter(paddedContent))
 
 	return &touchButtonRenderer{
 		WidgetRenderer: widget.NewSimpleRenderer(c),
@@ -134,20 +141,23 @@ type touchButtonRenderer struct {
 
 func (r *touchButtonRenderer) Refresh() {
 	if r.button.Disabled() {
-		r.bg.FillColor = theme.DisabledColor()
+		r.bg.FillColor = color.Transparent
 		r.text.Color = theme.DisabledColor()
 	} else {
 		switch r.button.Importance {
 		case widget.HighImportance:
 			r.bg.FillColor = theme.PrimaryColor()
+			r.text.Color = color.White
 		case widget.DangerImportance:
 			r.bg.FillColor = theme.ErrorColor()
+			r.text.Color = color.White
 		case widget.LowImportance:
-			r.bg.FillColor = theme.BackgroundColor()
+			r.bg.FillColor = color.Transparent
+			r.text.Color = theme.ForegroundColor()
 		default:
 			r.bg.FillColor = theme.ButtonColor()
+			r.text.Color = theme.ForegroundColor()
 		}
-		r.text.Color = theme.ForegroundColor()
 	}
 
 	if r.button.hovered && !r.button.Disabled() {
