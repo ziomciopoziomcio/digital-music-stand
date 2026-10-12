@@ -13,7 +13,6 @@ func BuildInbox(w fyne.Window, db *localdb.DBManager, goBack func(), onAction fu
 	contentWrapper := container.NewMax()
 
 	var renderList func()
-
 	renderList = func() {
 		notifications, err := db.GetPendingNotifications()
 		if err != nil {
@@ -22,12 +21,12 @@ func BuildInbox(w fyne.Window, db *localdb.DBManager, goBack func(), onAction fu
 
 		if len(notifications) == 0 {
 			emptyLabel := widget.NewLabelWithStyle("Your inbox is empty.", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
-
 			backBtn := NewTouchButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 			backBtn.Importance = widget.WarningImportance
-			header := container.NewBorder(nil, nil, backBtn, nil, widget.NewLabelWithStyle("Inbox", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
 
+			header := container.NewBorder(nil, nil, backBtn, nil, widget.NewLabelWithStyle("Inbox", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
 			view := container.NewBorder(header, nil, nil, nil, container.NewCenter(emptyLabel))
+
 			contentWrapper.Objects = []fyne.CanvasObject{view}
 			contentWrapper.Refresh()
 			return
@@ -78,17 +77,15 @@ func BuildInbox(w fyne.Window, db *localdb.DBManager, goBack func(), onAction fu
 				if body != nil {
 					body.SetText(notif.Body)
 				}
-
 				if actions != nil {
-					acceptBtn := actions.Objects[0].(*widget.Button)
-					declineBtn := actions.Objects[1].(*widget.Button)
+					acceptBtn := actions.Objects[0].(*TouchButton)
+					declineBtn := actions.Objects[1].(*TouchButton)
 
 					acceptBtn.OnTapped = func() {
 						onAction(notif, true)
 						_ = db.ResolveNotification(notif.ID, "accepted")
 						renderList()
 					}
-
 					declineBtn.OnTapped = func() {
 						onAction(notif, false)
 						_ = db.ResolveNotification(notif.ID, "declined")
@@ -100,7 +97,6 @@ func BuildInbox(w fyne.Window, db *localdb.DBManager, goBack func(), onAction fu
 
 		backBtn := NewTouchButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 		backBtn.Importance = widget.WarningImportance
-
 		refreshBtn := NewTouchButtonWithIcon("", theme.ViewRefreshIcon(), renderList)
 
 		header := container.NewBorder(nil, nil, backBtn, refreshBtn, widget.NewLabelWithStyle("Inbox", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
