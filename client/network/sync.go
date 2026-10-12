@@ -38,6 +38,8 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 		return fmt.Errorf("failed to get local concerts: %w", err)
 	}
 
+	pushedConcerts := make(map[string]bool)
+
 	for _, lc := range localConcerts {
 		if lc.Checksum == "" {
 			if _, existsOnServer := remoteMap[lc.ID]; existsOnServer {
@@ -52,7 +54,6 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 					log.Printf("Failed to update concert %s on server: %v", lc.Name, err)
 					continue
 				}
-
 				for _, item := range lc.Items {
 					req := &concertpb.AddConcertItemRequest{
 						ConcertId: lc.ID,
@@ -64,7 +65,10 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 						breakMin := uint32(*item.BreakMin)
 						req.BreakMin = &breakMin
 					}
-					_, _ = concertClient.AddConcertItem(ctx, req)
+					_, err = concertClient.AddConcertItem(ctx, req)
+					if err != nil {
+						log.Printf("Failed to add item to remote concert: %v", err)
+					}
 				}
 			} else {
 				log.Printf("Pushing new concert %s (%s) to cloud...", lc.Name, lc.ID)
@@ -78,7 +82,6 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 					log.Printf("Failed to push concert %s to cloud: %v", lc.Name, err)
 					continue
 				}
-
 				for _, item := range lc.Items {
 					req := &concertpb.AddConcertItemRequest{
 						ConcertId: lc.ID,
@@ -90,20 +93,19 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 						breakMin := uint32(*item.BreakMin)
 						req.BreakMin = &breakMin
 					}
-					_, _ = concertClient.AddConcertItem(ctx, req)
+					_, err = concertClient.AddConcertItem(ctx, req)
+					if err != nil {
+						log.Printf("Failed to add item to remote concert: %v", err)
+					}
 				}
 			}
+			pushedConcerts[lc.ID] = true
 		}
 	}
 
 	remoteResp, err = concertClient.ListMyConcerts(ctx, &concertpb.ListMyConcertsRequest{})
 	if err != nil {
 		return fmt.Errorf("failed to list remote concerts after push: %w", err)
-	}
-
-	remoteMap = make(map[string]*concertpb.Concert)
-	for _, rc := range remoteResp.GetConcerts() {
-		remoteMap[rc.Id] = rc
 	}
 
 	localConcertsMap := make(map[string]localdb.Concert)
@@ -113,8 +115,12 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 	}
 
 	for _, remoteConcert := range remoteResp.GetConcerts() {
-		localConcert, exists := localConcertsMap[remoteConcert.Id]
+		if pushedConcerts[remoteConcert.Id] {
+			_ = dbMgr.UpdateConcertChecksum(remoteConcert.Id, remoteConcert.Checksum)
+			continue
+		}
 
+		localConcert, exists := localConcertsMap[remoteConcert.Id]
 		if !exists || localConcert.Checksum != remoteConcert.Checksum {
 			log.Printf("Updating concert %s (%s) due to checksum mismatch", remoteConcert.Id, remoteConcert.Name)
 
@@ -129,7 +135,6 @@ func SynchronizeConcerts(ctx context.Context, concertClient concertpb.ConcertSer
 					val := int(*item.BreakMin)
 					breakMin = &val
 				}
-
 				remoteItems = append(remoteItems, localdb.ConcertItem{
 					ID:        item.Id,
 					SortOrder: int(item.Order),

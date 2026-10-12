@@ -474,3 +474,8 @@ func (m *DBManager) GetScoreFilePath(id string) (string, error) {
 	err := m.db.QueryRow("SELECT file_path FROM scores WHERE id = ?", id).Scan(&filePath)
 	return filePath, err
 }
+
+func (m *DBManager) UpdateConcertChecksum(id string, checksum string) error {
+	_, err := m.db.Exec("UPDATE concerts SET checksum = ? WHERE id = ?", checksum, id)
+	return err
+}
