@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image/color"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -26,11 +27,11 @@ import (
 func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profilePath string, onScoresChanged func(), goBack func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 	editMode := false
-
 	var showLibrary func()
 	var updateGrid func()
 
 	gridWrapper := container.NewMax()
+
 	searchEntry := NewAutoKeyboardEntry()
 	searchEntry.SetPlaceHolder("Search scores (min. 3 chars)...")
 
@@ -47,7 +48,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 		recIndicator.SetMinSize(fyne.NewSize(20, 20))
 		recIndicator.CornerRadius = 10
 		recIndicatorContainer := container.NewCenter(recIndicator)
-
 		var recTicker *time.Ticker
 
 		if recorderAudio != nil {
@@ -59,7 +59,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 				}
 				recIndicator.Refresh()
 			}
-
 			recTicker = time.NewTicker(500 * time.Millisecond)
 			go func() {
 				pulse := true
@@ -96,6 +95,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 					metroIndicator.FillColor = theme.DisabledColor()
 					metroIndicator.Refresh()
 				})
+
 				if dialogBeatCb != nil {
 					dialogBeatCb(isAccent)
 				}
@@ -156,9 +156,9 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 				pdfContainer.Refresh()
 				return
 			}
+
 			canvasImg := canvas.NewImageFromImage(img)
 			canvasImg.FillMode = canvas.ImageFillContain
-
 			pdfContainer.Objects = []fyne.CanvasObject{canvasImg}
 			pdfContainer.Refresh()
 			pageLabel.SetText(fmt.Sprintf("Page %d / %d", currentPage+1, totalPages))
@@ -238,7 +238,9 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 			if nextBtn != nil && !nextBtn.Disabled() {
 				nextBtn.OnTapped()
 			}
-		}, func() bool { return false })
+		}, func() bool {
+			return false
+		})
 		stopGaze = stopper
 
 		mainView := container.NewMax(
@@ -265,25 +267,21 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 			scores = []localdb.Score{}
 		}
 
-		grid := container.NewGridWrap(fyne.NewSize(200, 200))
+		grid := container.NewGridWrap(fyne.NewSize(160, 220))
 		query := strings.ToLower(searchEntry.Text)
 
 		for _, s := range scores {
 			score := s
-
 			if len(query) >= 3 && !strings.Contains(strings.ToLower(score.DisplayTitle()), query) {
 				continue
 			}
 
-			cardContent := container.NewVBox(
-				widget.NewLabelWithStyle(score.DisplayTitle(), fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-				layout.NewSpacer(),
-			)
-			card := widget.NewCard("", "", cardContent)
+			titleLabel := widget.NewLabelWithStyle(score.DisplayTitle(), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+			titleLabel.Wrapping = fyne.TextWrapWord
+			card := widget.NewCard("", "", container.NewPadded(titleLabel))
 
 			if editMode {
 				var editControls *fyne.Container
-
 				if score.IsOwner {
 					shareBtn := NewTouchButtonWithIcon("", theme.MailSendIcon(), func() {
 						ShowAccessDialog(w, app, "Share Score", score.Title, "Share", false, func(email *string, bandID *uint32, canEdit bool) error {
@@ -350,6 +348,12 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 							),
 						)
 						d = dialog.NewCustomWithoutButtons("Edit Score", formContent, w)
+						winSize := w.Canvas().Size()
+						targetWidth := float32(350)
+						if winSize.Width < targetWidth {
+							targetWidth = winSize.Width * 0.95
+						}
+						d.Resize(fyne.NewSize(targetWidth, 200))
 						d.Show()
 						w.Canvas().Focus(entry)
 					})
@@ -365,7 +369,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 					})
 					deleteBtn.Importance = widget.DangerImportance
 
-					editControls = container.NewHBox(shareBtn, revokeBtn, editTitleBtn, deleteBtn)
+					editControls = container.NewGridWithColumns(2, shareBtn, revokeBtn, editTitleBtn, deleteBtn)
 				} else {
 					readOnlyLabel := widget.NewLabelWithStyle("Shared with you", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 					setAliasBtn := NewTouchButtonWithIcon("", theme.DocumentCreateIcon(), func() {
@@ -393,21 +397,25 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 							),
 						)
 						d = dialog.NewCustomWithoutButtons("Set Alias", formContent, w)
+						winSize := w.Canvas().Size()
+						targetWidth := float32(350)
+						if winSize.Width < targetWidth {
+							targetWidth = winSize.Width * 0.95
+						}
+						d.Resize(fyne.NewSize(targetWidth, 250))
 						d.Show()
 						w.Canvas().Focus(entry)
 					})
-					editControls = container.NewHBox(readOnlyLabel, setAliasBtn)
+					editControls = container.NewVBox(readOnlyLabel, setAliasBtn)
 				}
 
 				item := container.NewBorder(nil, editControls, nil, nil, card)
 				grid.Add(item)
 			} else {
-				openBtn := NewTouchButtonWithIcon("OPEN", theme.MediaPlayIcon(), func() {
-					showScore(score)
-				})
-				openBtn.Importance = widget.HighImportance
+				openBtn := NewTouchButton("", func() { showScore(score) })
+				openBtn.Importance = widget.LowImportance
 
-				item := container.NewBorder(nil, openBtn, nil, nil, card)
+				item := container.NewMax(card, openBtn)
 				grid.Add(item)
 			}
 		}
@@ -431,9 +439,12 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 					return
 				}
 				defer reader.Close()
-
 				filePath := reader.URI().Path()
 				title := reader.URI().Name()
+
+				ext := filepath.Ext(title)
+				title = strings.TrimSuffix(title, ext)
+
 				_, err = db.AddScore(title, filePath)
 				if err != nil {
 					dialog.ShowError(err, w)
@@ -451,7 +462,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 			editMode = !editMode
 			showLibrary()
 		})
-
 		if editMode {
 			editToggleBtn.SetText("Done")
 			editToggleBtn.SetIcon(theme.ConfirmIcon())
@@ -459,7 +469,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 		}
 
 		topControls := container.NewHBox(addBtn, editToggleBtn)
-
 		backToDashBtn := NewTouchButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 		backToDashBtn.Importance = widget.WarningImportance
 
@@ -467,7 +476,6 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 		header := container.NewBorder(nil, nil, backToDashBtn, topControls, searchContainer)
 
 		view := container.NewBorder(header, nil, nil, nil, gridWrapper)
-
 		contentWrapper.Objects = []fyne.CanvasObject{view}
 		contentWrapper.Refresh()
 	}

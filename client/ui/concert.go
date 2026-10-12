@@ -30,7 +30,6 @@ import (
 
 func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remoteServer *remote.Server, goBack func(), openSetup func(editingConcert *localdb.Concert), onDeleteConcert func(), forceSync func(), showLockScreen func(), verifyPin func(string) bool, prefToken string, prefServer string, profilePath string) *fyne.Container {
 	contentWrapper := container.NewMax()
-
 	var showConcertList func()
 	var updateGrid func()
 	var playConcert func(concert localdb.Concert)
@@ -47,26 +46,24 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			concerts = []localdb.Concert{}
 		}
 
-		grid := container.NewGridWrap(fyne.NewSize(280, 220))
+		grid := container.NewGridWrap(fyne.NewSize(200, 240))
 		query := strings.ToLower(searchEntry.Text)
 
 		for _, c := range concerts {
 			concert := c
-
 			if len(query) >= 3 && !strings.Contains(strings.ToLower(concert.DisplayName()), query) {
 				continue
 			}
 
 			nameLabel := widget.NewLabelWithStyle(concert.DisplayName(), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+			nameLabel.Wrapping = fyne.TextWrapWord
 			detailsLabel := widget.NewLabelWithStyle(fmt.Sprintf("%s\n%s\nItems: %d", concert.Location, concert.StartTime, len(concert.Items)), fyne.TextAlignCenter, fyne.TextStyle{})
+			detailsLabel.Wrapping = fyne.TextWrapWord
 
-			openBtn := NewTouchButtonWithIcon("ENTER", theme.MediaPlayIcon(), func() {
-				playConcert(concert)
-			})
-			openBtn.Importance = widget.HighImportance
+			openBtn := NewTouchButton("", func() { playConcert(concert) })
+			openBtn.Importance = widget.LowImportance
 
 			var actionButtons *fyne.Container
-
 			if concert.IsOwner {
 				shareBtn := NewTouchButtonWithIcon("", theme.MailSendIcon(), func() {
 					ShowAccessDialog(w, app, "Share Concert", concert.Name, "Share", true, func(email *string, bandID *uint32, canEdit bool) error {
@@ -77,7 +74,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 							return err
 						}
 						defer conn.Close()
-
 						client := concertpb.NewConcertServiceClient(conn)
 						_, err = client.ShareConcert(context.Background(), &concertpb.ShareConcertRequest{
 							ConcertId:    concert.ID,
@@ -98,7 +94,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 							return err
 						}
 						defer conn.Close()
-
 						client := concertpb.NewConcertServiceClient(conn)
 						_, err = client.RevokeConcertAccess(context.Background(), &concertpb.RevokeConcertAccessRequest{
 							ConcertId:    concert.ID,
@@ -115,10 +110,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					revokeBtn.Disable()
 				}
 
-				editBtn := NewTouchButtonWithIcon("", theme.DocumentCreateIcon(), func() {
-					openSetup(&concert)
-				})
-
+				editBtn := NewTouchButtonWithIcon("", theme.DocumentCreateIcon(), func() { openSetup(&concert) })
 				deleteBtn := NewTouchButtonWithIcon("", theme.DeleteIcon(), func() {
 					dialog.ShowConfirm("Delete Concert", fmt.Sprintf("Are you sure you want to delete '%s'?", concert.Name), func(confirmed bool) {
 						if confirmed {
@@ -130,10 +122,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				})
 				deleteBtn.Importance = widget.DangerImportance
 
-				actionButtons = container.NewHBox(shareBtn, revokeBtn, editBtn, deleteBtn, openBtn)
+				actionButtons = container.NewGridWithColumns(2, shareBtn, revokeBtn, editBtn, deleteBtn)
 			} else if concert.CanEdit {
 				sharedBadge := widget.NewLabelWithStyle("Shared", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
-
 				setAliasBtn := NewTouchButtonWithIcon("Alias", theme.SettingsIcon(), func() {
 					entry := NewAutoKeyboardEntry()
 					entry.SetText(concert.DisplayName())
@@ -157,15 +148,17 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 						),
 					)
 					d = dialog.NewCustomWithoutButtons("Set Alias", formContent, w)
+					winSize := w.Canvas().Size()
+					targetWidth := float32(350)
+					if winSize.Width < targetWidth {
+						targetWidth = winSize.Width * 0.95
+					}
+					d.Resize(fyne.NewSize(targetWidth, 250))
 					d.Show()
 					w.Canvas().Focus(entry)
 				})
-
-				editBtn := NewTouchButtonWithIcon("Edit", theme.DocumentCreateIcon(), func() {
-					openSetup(&concert)
-				})
-
-				actionButtons = container.NewHBox(sharedBadge, setAliasBtn, editBtn, openBtn)
+				editBtn := NewTouchButtonWithIcon("Edit", theme.DocumentCreateIcon(), func() { openSetup(&concert) })
+				actionButtons = container.NewVBox(sharedBadge, setAliasBtn, editBtn)
 			} else {
 				sharedBadge := widget.NewLabelWithStyle("Shared", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 				setAliasBtn := NewTouchButtonWithIcon("Alias", theme.SettingsIcon(), func() {
@@ -191,16 +184,23 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 						),
 					)
 					d = dialog.NewCustomWithoutButtons("Set Alias", formContent, w)
+					winSize := w.Canvas().Size()
+					targetWidth := float32(350)
+					if winSize.Width < targetWidth {
+						targetWidth = winSize.Width * 0.95
+					}
+					d.Resize(fyne.NewSize(targetWidth, 250))
 					d.Show()
 					w.Canvas().Focus(entry)
 				})
-				actionButtons = container.NewHBox(sharedBadge, setAliasBtn, openBtn)
+				actionButtons = container.NewVBox(sharedBadge, setAliasBtn)
 			}
 
 			cardContent := container.NewVBox(nameLabel, detailsLabel, layout.NewSpacer())
 			card := widget.NewCard("", "", cardContent)
+			cardItem := container.NewMax(card, openBtn)
 
-			item := container.NewBorder(nil, actionButtons, nil, nil, card)
+			item := container.NewBorder(nil, actionButtons, nil, nil, cardItem)
 			grid.Add(item)
 		}
 
@@ -216,6 +216,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 	showConcertList = func() {
 		updateGrid()
+
 		backBtn := NewTouchButtonWithIcon("Dashboard", theme.HomeIcon(), goBack)
 		backBtn.Importance = widget.WarningImportance
 
@@ -223,12 +224,12 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			openSetup(nil)
 		})
 		newConcertBtn.Importance = widget.HighImportance
-		topControls := container.NewHBox(newConcertBtn)
 
+		topControls := container.NewHBox(newConcertBtn)
 		searchContainer := container.NewPadded(searchEntry)
 		header := container.NewBorder(nil, nil, backBtn, topControls, searchContainer)
-		view := container.NewBorder(header, nil, nil, nil, gridWrapper)
 
+		view := container.NewBorder(header, nil, nil, nil, gridWrapper)
 		contentWrapper.Objects = []fyne.CanvasObject{view}
 		contentWrapper.Refresh()
 	}
@@ -252,7 +253,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		var isConnectedCloud bool
 		var isConnectedP2P bool
 		var wantsToSync bool
-
 		var isLeader bool
 		var previewMode bool
 		var autoFollow bool
@@ -285,7 +285,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		currentPage := 0
 		totalPages := 0
 		pagesToShow := 1
-
 		var currentPdfMgr *pdf.Manager
 		var viewerSize fyne.Size
 		var activeTimerStopChan chan struct{}
@@ -321,11 +320,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					metroIndicator.FillColor = theme.PrimaryColor()
 				}
 				metroIndicator.Refresh()
-
 				time.AfterFunc(100*time.Millisecond, func() {
 					metroIndicator.FillColor = theme.DisabledColor()
 					metroIndicator.Refresh()
 				})
+
 				if dialogBeatCb != nil {
 					dialogBeatCb(isAccent)
 				}
@@ -357,7 +356,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			if !isLeader || previewMode {
 				return
 			}
-
 			req := &syncpb.SyncRequest{
 				ConcertId:    concert.ID,
 				Action:       syncpb.ActionType_STATE_UPDATE,
@@ -366,7 +364,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				TimerSeconds: uint32(remainingSec),
 				IsLeader:     isLeader,
 			}
-
 			if isConnectedCloud && syncStreamCloud != nil {
 				_ = syncStreamCloud.Send(req)
 			}
@@ -490,7 +487,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					ip := webserver.GetLocalIP()
 					pin := remoteServer.GetPIN()
 					payload := fmt.Sprintf("%s|%s", ip, pin)
-
 					if isConnectedCloud && syncStreamCloud != nil {
 						_ = syncStreamCloud.Send(&syncpb.SyncRequest{
 							ConcertId: concert.ID,
@@ -500,7 +496,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 						})
 					}
 				}
-
 				switch msg.GetAction() {
 				case syncpb.ActionType_NEXT_PAGE:
 					if handleRemoteCommand != nil {
@@ -530,7 +525,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				if isLeader {
 					return
 				}
-
 				leaderItemIdx = int(msg.GetItemIndex())
 				leaderPage = int(msg.GetPageNumber())
 				leaderTimer = int(msg.GetTimerSeconds())
@@ -546,7 +540,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					} else {
 						renderPage()
 					}
-
 					if timerClockLabel != nil {
 						isTimerRunning = false
 						if startPauseBtn != nil {
@@ -572,7 +565,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			if err != nil {
 				return false
 			}
-
 			client := syncpb.NewLiveSyncServiceClient(conn)
 			ctx, cancel := context.WithCancel(context.Background())
 			stream, err := client.SyncConcertStream(ctx)
@@ -608,6 +600,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				isConnectedCloud = false
 				updateSyncUI()
 			}()
+
 			return true
 		}
 
@@ -617,7 +610,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			if err != nil {
 				return false
 			}
-
 			client := syncpb.NewLiveSyncServiceClient(conn)
 			ctx, cancel := context.WithCancel(context.Background())
 			stream, err := client.SyncConcertStream(ctx)
@@ -672,18 +664,16 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					if !wantsToSync {
 						continue
 					}
-
 					if !isConnectedCloud {
 						if connectCloud() {
 							if isConnectedP2P {
 								p2pCancel()
 								p2pConn.Close()
 								isConnectedP2P = false
+								updateSyncUI()
 							}
-							updateSyncUI()
 						}
 					}
-
 					if !isConnectedCloud && !isLeader && !isConnectedP2P {
 						peer, found := remoteServer.GetPeerForConcert(concert.ID)
 						if found {
@@ -777,12 +767,10 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			cancelBtn,
 			exitSyncBtn,
 		)
-
 		updateSyncUI()
 
 		lockOverlay := container.NewMax()
 		lockBg := canvas.NewRectangle(color.Black)
-
 		unlockBtn := NewTouchButtonWithIcon("Unlock Screen", theme.LoginIcon(), func() {
 			pinEntry := widget.NewPasswordEntry()
 			dialog.ShowCustomConfirm("Unlock Device", "Unlock", "Cancel", pinEntry, func(ok bool) {
@@ -869,7 +857,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			if s == "" {
 				return time.Time{}, false
 			}
-
 			now := time.Now()
 			formats := []string{
 				"2006-01-02 15:04:05",
@@ -991,19 +978,17 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 		loadCurrentSong = func(startAtEnd bool) {
 			stopCurrentTimer()
-
 			if metroAudio != nil {
 				metroAudio.Stop()
 			}
-
 			if currentPdfMgr != nil {
 				currentPdfMgr.Close()
 				currentPdfMgr = nil
 			}
+
 			if currentSongIdx < 0 || currentSongIdx >= len(concert.Items) {
 				return
 			}
-
 			item := concert.Items[currentSongIdx]
 
 			if item.BreakMin != nil {
@@ -1013,8 +998,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 				if !isTimerRunning && (!autoFollow || isLeader) {
 					remainingSec = breakDuration * 60
+					isTimerRunning = false
 				}
-				isTimerRunning = false
 
 				timerClockLabel = canvas.NewText(formatTimerText(remainingSec), theme.ForegroundColor())
 				timerClockLabel.Alignment = fyne.TextAlignCenter
@@ -1049,7 +1034,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 						stopCh := make(chan struct{})
 						activeTimerStopChan = stopCh
-
 						go func(stop <-chan struct{}) {
 							ticker := time.NewTicker(time.Second)
 							defer ticker.Stop()
@@ -1063,9 +1047,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 										if timerClockLabel != nil {
 											timerClockLabel.Text = formatTimerText(remainingSec)
 											timerClockLabel.Refresh()
+											updateRemoteState()
 										}
-										updateRemoteState()
-
 										if remainingSec <= 0 {
 											isTimerRunning = false
 											if timerStatusLabel != nil {
@@ -1075,9 +1058,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 												startPauseBtn.SetText("Start")
 												startPauseBtn.SetIcon(theme.MediaPlayIcon())
 											}
-										}
-										if isLeader && !previewMode {
-											sendStateUpdate()
+											if isLeader && !previewMode {
+												sendStateUpdate()
+											}
 										}
 									}
 								}
@@ -1115,6 +1098,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					sendStateUpdate()
 					updateRemoteState()
 				})
+
 				subMinBtn := NewTouchButton("-1 Min", func() {
 					if !isLeader {
 						autoFollow = false
@@ -1158,7 +1142,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			if item.ScoreName != nil {
 				title = *item.ScoreName
 			}
-
 			songTitleLabel.SetText(fmt.Sprintf("%d/%d: %s", currentSongIdx+1, len(concert.Items), title))
 
 			if item.ScoreID != nil && item.FilePath != nil && *item.FilePath != "" {
@@ -1175,6 +1158,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				}
 				currentPdfMgr = pdfMgr
 				totalPages = pdfMgr.GetPageCount()
+
 				if startAtEnd && totalPages > 0 {
 					currentPage = totalPages - 1
 					if viewerSize.Width > viewerSize.Height && totalPages >= 2 {
@@ -1207,6 +1191,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					Action:    syncpb.ActionType_STOP_LEADING,
 				})
 			}
+
 			stopCurrentTimer()
 
 			stopClockOnce.Do(func() {
@@ -1223,6 +1208,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			if recorderAudio != nil {
 				recorderAudio.Close()
 			}
+
 			showConcertList()
 			if stopGaze != nil {
 				stopGaze()
@@ -1237,10 +1223,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			if currentSongIdx > 0 {
 				currentSongIdx--
 				loadCurrentSong(false)
+				sendStateUpdate()
+				updateSyncUI()
 			}
-			sendStateUpdate()
-			updateSyncUI()
 		})
+
 		nextSongBtn = NewTouchButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() {
 			if !isLeader {
 				autoFollow = false
@@ -1248,9 +1235,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			if currentSongIdx < len(concert.Items)-1 {
 				currentSongIdx++
 				loadCurrentSong(false)
+				sendStateUpdate()
+				updateSyncUI()
 			}
-			sendStateUpdate()
-			updateSyncUI()
 		})
 
 		var setlistDialog dialog.Dialog
@@ -1282,14 +1269,12 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			winSize := w.Canvas().Size()
 			targetWidth := float32(350)
 			targetHeight := float32(400)
-
 			if winSize.Width < targetWidth {
 				targetWidth = winSize.Width * 0.95
 			}
 			if winSize.Height < targetHeight {
 				targetHeight = winSize.Height * 0.95
 			}
-
 			setlistDialog.Resize(fyne.NewSize(targetWidth, targetHeight))
 			setlistDialog.Show()
 		})
@@ -1360,9 +1345,14 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		)
 
 		topRightControls := container.NewHBox(
-			topSyncControls, widget.NewSeparator(), metroIndicatorContainer,
-			widget.NewLabel(" "), recIndicatorContainer, widget.NewLabel(" "),
-			concertClockLabel, widget.NewLabel(" "),
+			topSyncControls,
+			widget.NewSeparator(),
+			metroIndicatorContainer,
+			widget.NewLabel(" "),
+			recIndicatorContainer,
+			widget.NewLabel(" "),
+			concertClockLabel,
+			widget.NewLabel(" "),
 			prevSongBtn, nextSongBtn,
 		)
 		topBar := container.NewBorder(nil, nil, exitConcertBtn, topRightControls, songTitleLabel)
@@ -1381,7 +1371,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			if nextPageBtn != nil && !nextPageBtn.Disabled() {
 				nextPageBtn.OnTapped()
 			}
-		}, func() bool { return isLocked })
+		}, func() bool {
+			return isLocked
+		})
 		stopGaze = stopper
 
 		mainView := container.NewMax(

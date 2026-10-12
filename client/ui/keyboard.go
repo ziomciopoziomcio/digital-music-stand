@@ -56,7 +56,6 @@ func (p *physicalKeyboardAdapter) TypedKey(e *fyne.KeyEvent) {
 		}
 		return
 	}
-
 	p.target.TypedKey(e)
 	if p.onUpdate != nil {
 		p.onUpdate()
@@ -81,12 +80,20 @@ func ShowKeyboard(target *widget.Entry) {
 		if target.Password {
 			txt = strings.Repeat("*", utf8.RuneCountInString(txt))
 		}
-		if txt == "" {
-			mirrorLabel.SetText("_")
-		} else {
-			mirrorLabel.SetText(txt + " █")
+
+		runes := []rune(txt)
+		col := target.CursorColumn
+		if col < 0 {
+			col = 0
 		}
+		if col > len(runes) {
+			col = len(runes)
+		}
+
+		withCursor := string(runes[:col]) + "_" + string(runes[col:])
+		mirrorLabel.SetText(withCursor)
 	}
+
 	updateMirror()
 
 	mirrorBg := canvas.NewRectangle(theme.InputBackgroundColor())
@@ -123,6 +130,7 @@ func ShowKeyboard(target *widget.Entry) {
 				if isShift && c >= 'a' && c <= 'z' {
 					c = rune(strings.ToUpper(string(c))[0])
 				}
+
 				btn := NewTouchButton(string(c), func() {
 					typeRune(c)
 				})
@@ -131,7 +139,7 @@ func ShowKeyboard(target *widget.Entry) {
 			vbox.Add(hbox)
 		}
 
-		shiftBtn := NewTouchButton("⇧ Shift", func() {
+		shiftBtn := NewTouchButton("  Shift", func() {
 			isShift = !isShift
 			kbContent.Objects = []fyne.CanvasObject{buildKeyboard()}
 			kbContent.Refresh()
@@ -140,15 +148,13 @@ func ShowKeyboard(target *widget.Entry) {
 			shiftBtn.Importance = widget.HighImportance
 		}
 
-		spaceBtn := NewTouchButton("Space", func() {
-			typeRune(' ')
-		})
+		leftBtn := NewTouchButton("<", func() { typeKey(fyne.KeyLeft) })
+		rightBtn := NewTouchButton(">", func() { typeKey(fyne.KeyRight) })
+		arrows := container.NewGridWithColumns(2, leftBtn, rightBtn)
 
-		backspaceBtn := NewTouchButton("⌫ Del", func() {
-			typeKey(fyne.KeyBackspace)
-		})
-
-		closeBtn := NewTouchButton("✓ Enter", func() {
+		spaceBtn := NewTouchButton("Space", func() { typeRune(' ') })
+		backspaceBtn := NewTouchButton("  Del", func() { typeKey(fyne.KeyBackspace) })
+		closeBtn := NewTouchButton("  Enter", func() {
 			HideKeyboard()
 			if target.OnSubmitted != nil {
 				target.OnSubmitted(target.Text)
@@ -156,7 +162,7 @@ func ShowKeyboard(target *widget.Entry) {
 		})
 		closeBtn.Importance = widget.HighImportance
 
-		bottomRow := container.NewGridWithColumns(4, shiftBtn, spaceBtn, backspaceBtn, closeBtn)
+		bottomRow := container.NewGridWithColumns(5, shiftBtn, arrows, spaceBtn, backspaceBtn, closeBtn)
 		vbox.Add(bottomRow)
 
 		return container.NewVBox(
@@ -182,7 +188,6 @@ func ShowKeyboard(target *widget.Entry) {
 
 	currentKbPopUp = widget.NewPopUp(kbAdapter, w.Canvas())
 	currentKbPopUp.Show()
-
 	w.Canvas().Focus(kbAdapter)
 }
 
