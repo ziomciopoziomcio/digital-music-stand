@@ -66,7 +66,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			var actionButtons *fyne.Container
 			if concert.IsOwner {
 				shareBtn := NewTouchButtonWithIcon("", theme.MailSendIcon(), func() {
-					ShowAccessDialog(w, app, "Share Concert", concert.Name, "Share", true, func(email *string, bandID *uint32, canEdit bool) error {
+					ShowAccessDialog(w, app, "Share Concert", concert.Name, "Share", true, prefToken, prefServer, func(email *string, bandID *uint32, canEdit bool) error {
 						token := app.Preferences().String(prefToken)
 						server := app.Preferences().String(prefServer)
 						conn, err := network.NewGRPCClient(server, token)
@@ -86,7 +86,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				})
 
 				revokeBtn := NewTouchButtonWithIcon("", theme.ContentRemoveIcon(), func() {
-					ShowAccessDialog(w, app, "Revoke Concert Access", concert.Name, "Revoke", false, func(email *string, bandID *uint32, canEdit bool) error {
+					ShowAccessDialog(w, app, "Revoke Concert Access", concert.Name, "Revoke", false, prefToken, prefServer, func(email *string, bandID *uint32, canEdit bool) error {
 						token := app.Preferences().String(prefToken)
 						server := app.Preferences().String(prefServer)
 						conn, err := network.NewGRPCClient(server, token)

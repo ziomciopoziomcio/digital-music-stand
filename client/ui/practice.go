@@ -24,7 +24,7 @@ import (
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 )
 
-func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profilePath string, onScoresChanged func(), goBack func()) *fyne.Container {
+func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profilePath string, prefToken string, prefServer string, onScoresChanged func(), goBack func()) *fyne.Container {
 	contentWrapper := container.NewMax()
 	editMode := false
 	var showLibrary func()
@@ -260,7 +260,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 	}
 
 	updateGrid = func() {
-		isLoggedIn := app.Preferences().String("jwt_token") != ""
+		isLoggedIn := app.Preferences().String(prefToken) != ""
 		scores, err := db.GetScores()
 		if err != nil {
 			dialog.ShowError(err, w)
@@ -284,9 +284,9 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 				var editControls *fyne.Container
 				if score.IsOwner {
 					shareBtn := NewTouchButtonWithIcon("", theme.MailSendIcon(), func() {
-						ShowAccessDialog(w, app, "Share Score", score.Title, "Share", false, func(email *string, bandID *uint32, canEdit bool) error {
-							token := app.Preferences().String("jwt_token")
-							server := app.Preferences().String("server_addr")
+						ShowAccessDialog(w, app, "Share Score", score.Title, "Share", false, prefToken, prefServer, func(email *string, bandID *uint32, canEdit bool) error {
+							token := app.Preferences().String(prefToken)
+							server := app.Preferences().String(prefServer)
 							conn, err := network.NewGRPCClient(server, token)
 							if err != nil {
 								return err
@@ -303,9 +303,9 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 					})
 
 					revokeBtn := NewTouchButtonWithIcon("", theme.ContentRemoveIcon(), func() {
-						ShowAccessDialog(w, app, "Revoke Score Access", score.Title, "Revoke", false, func(email *string, bandID *uint32, canEdit bool) error {
-							token := app.Preferences().String("jwt_token")
-							server := app.Preferences().String("server_addr")
+						ShowAccessDialog(w, app, "Revoke Score Access", score.Title, "Revoke", false, prefToken, prefServer, func(email *string, bandID *uint32, canEdit bool) error {
+							token := app.Preferences().String(prefToken)
+							server := app.Preferences().String(prefServer)
 							conn, err := network.NewGRPCClient(server, token)
 							if err != nil {
 								return err

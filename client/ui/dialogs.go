@@ -9,10 +9,10 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
+	"google.golang.org/grpc/status"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/network"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/bandpb"
-	"google.golang.org/grpc/status"
 )
 
 func FormatAppError(err error) error {
@@ -32,6 +32,8 @@ func ShowAccessDialog(
 	itemTitle string,
 	actionBtnText string,
 	showEditOption bool,
+	prefToken string,
+	prefServer string,
 	actionFunc func(targetEmail *string, targetBandID *uint32, canEdit bool) error,
 ) {
 	emailEntry := NewAutoKeyboardEntry()
@@ -52,8 +54,9 @@ func ShowAccessDialog(
 	targetType.SetSelected("User (Email)")
 
 	go func() {
-		token := app.Preferences().String("jwt_token")
-		server := app.Preferences().String("server_addr")
+		token := app.Preferences().String(prefToken)
+		server := app.Preferences().String(prefServer)
+
 		if token != "" && server != "" {
 			if conn, err := network.NewGRPCClient(server, token); err == nil {
 				defer conn.Close()
@@ -80,7 +83,6 @@ func ShowAccessDialog(
 	}()
 
 	var d dialog.Dialog
-
 	var canEditCheck *widget.Check
 	if showEditOption {
 		canEditCheck = widget.NewCheck("Allow editing (full access)", nil)
@@ -134,12 +136,23 @@ func ShowAccessDialog(
 				}
 			}()
 		}),
-		NewTouchButton("Cancel", func() {
-			d.Hide()
-		}),
+		NewTouchButton("Cancel", func() { d.Hide() }),
 	))
 
 	form := container.NewVBox(formItems...)
-	d = dialog.NewCustomWithoutButtons(dialogTitle, form, w)
+	scrollForm := container.NewVScroll(container.NewPadded(form))
+
+	d = dialog.NewCustomWithoutButtons(dialogTitle, scrollForm, w)
+
+	winSize := w.Canvas().Size()
+	targetWidth := float32(400)
+	targetHeight := float32(350)
+	if winSize.Width < targetWidth {
+		targetWidth = winSize.Width * 0.95
+	}
+	if winSize.Height < targetHeight {
+		targetHeight = winSize.Height * 0.95
+	}
+	d.Resize(fyne.NewSize(targetWidth, targetHeight))
 	d.Show()
 }
