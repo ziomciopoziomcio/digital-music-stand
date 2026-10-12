@@ -90,12 +90,12 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 			score := availableScores[i]
 			c := o.(*fyne.Container)
 			var title *widget.Label
-			var addBtn *widget.Button
+			var addBtn *TouchButton
 			for _, obj := range c.Objects {
 				if l, ok := obj.(*widget.Label); ok {
 					title = l
 				}
-				if b, ok := obj.(*widget.Button); ok {
+				if b, ok := obj.(*TouchButton); ok {
 					addBtn = b
 				}
 			}
@@ -144,9 +144,9 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 				title.SetText(fmt.Sprintf("%d. %s", i+1, item.Title))
 			}
 			if buttons != nil {
-				upBtn := buttons.Objects[0].(*widget.Button)
-				downBtn := buttons.Objects[1].(*widget.Button)
-				delBtn := buttons.Objects[2].(*widget.Button)
+				upBtn := buttons.Objects[0].(*TouchButton)
+				downBtn := buttons.Objects[1].(*TouchButton)
+				delBtn := buttons.Objects[2].(*TouchButton)
 
 				upBtn.OnTapped = func() {
 					if i > 0 {
