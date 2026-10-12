@@ -395,7 +395,7 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 
 	showPractice = func() {
 		currentView = "practice"
-		practiceView := ui.BuildPracticeMode(myWindow, myApp, dbMgr, profilePath, forceSync, showDashboard)
+		practiceView := ui.BuildPracticeMode(myWindow, myApp, dbMgr, profilePath, prefToken, prefServer, forceSync, showDashboard)
 		mainWrapper.Objects = []fyne.CanvasObject{practiceView}
 		mainWrapper.Refresh()
 	}
