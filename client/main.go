@@ -14,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/ziomciopoziomcio/digital-music-stand/client/system"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -43,6 +44,11 @@ func main() {
 		log.Fatalf("Fatal: %v", err)
 	}
 	appDataDir := filepath.Join(homeDir, ".digitalmusicstand")
+
+	logFile, err := system.InitLogger(appDataDir)
+	if err == nil && logFile != nil {
+		defer logFile.Close()
+	}
 
 	pm, err := profiles.NewManager(appDataDir)
 	if err != nil {
