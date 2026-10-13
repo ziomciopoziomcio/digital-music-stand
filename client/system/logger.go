@@ -2,7 +2,6 @@ package system
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -25,9 +24,7 @@ func InitLogger(appDataDir string) (*os.File, error) {
 		return nil, err
 	}
 
-	multiWriter := io.MultiWriter(os.Stdout, file)
-	log.SetOutput(multiWriter)
-
+	log.SetOutput(file)
 	os.Stdout = file
 	os.Stderr = file
 
