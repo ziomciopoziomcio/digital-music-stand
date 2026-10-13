@@ -19,7 +19,7 @@ func InitLogger(appDataDir string) (*os.File, error) {
 	logFileName := fmt.Sprintf("dms_%s.log", time.Now().Format("2006-01-02_15-04-05"))
 	logFilePath := filepath.Join(logsDir, logFileName)
 
-	file, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	file, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND|os.O_SYNC, 0666)
 	if err != nil {
 		return nil, err
 	}
@@ -27,6 +27,8 @@ func InitLogger(appDataDir string) (*os.File, error) {
 	log.SetOutput(file)
 	os.Stdout = file
 	os.Stderr = file
+
+	redirectStderr(file)
 
 	return file, nil
 }
