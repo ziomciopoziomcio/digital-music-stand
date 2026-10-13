@@ -479,6 +479,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				if dialogBeatCb != nil {
 					dialogBeatCb(msg.GetIsAccent())
 				}
+
+				if !isLeader && metroAudio != nil && !metroAudio.IsPlaying() {
+					metroAudio.PlayTick(msg.GetIsAccent())
+				}
+
 				return
 			}
 
