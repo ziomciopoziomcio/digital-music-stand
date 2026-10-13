@@ -28,6 +28,7 @@ func (p *BehringerXAirPlugin) sendOSC(address string, arg interface{}) error {
 	}
 	client := osc.NewClient(p.ip, 10024)
 	msg := osc.NewMessage(address)
+
 	if arg != nil {
 		switch v := arg.(type) {
 		case float64:
@@ -52,6 +53,7 @@ func (p *BehringerXAirPlugin) queryOSC(address string) (*osc.Message, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	conn, err := net.DialUDP("udp", nil, addr)
 	if err != nil {
 		return nil, err
@@ -63,6 +65,7 @@ func (p *BehringerXAirPlugin) queryOSC(address string) (*osc.Message, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if _, err := conn.Write(b); err != nil {
 		return nil, err
 	}
@@ -74,7 +77,6 @@ func (p *BehringerXAirPlugin) queryOSC(address string) (*osc.Message, error) {
 		return nil, fmt.Errorf("mixer timeout or offline: %v", err)
 	}
 
-	// Jawne rzutowanie []byte na string
 	packet, err := osc.ParsePacket(string(buf[:n]))
 	if err != nil {
 		return nil, err
@@ -95,7 +97,6 @@ func (p *BehringerXAirPlugin) Connect(ipAddress string) error {
 		p.connected = false
 		return fmt.Errorf("failed to connect to XR18 at %s: %v", ipAddress, err)
 	}
-
 	return nil
 }
 
@@ -142,7 +143,7 @@ func (p *BehringerXAirPlugin) MuteMain(mute bool) error {
 }
 
 func (p *BehringerXAirPlugin) GetBusVolume(bus int) (float64, error) {
-	addr := fmt.Sprintf("/bus/%02d/mix/fader", bus)
+	addr := fmt.Sprintf("/bus/%d/mix/fader", bus)
 	msg, err := p.queryOSC(addr)
 	if err != nil {
 		return 0, err
@@ -156,7 +157,7 @@ func (p *BehringerXAirPlugin) GetBusVolume(bus int) (float64, error) {
 }
 
 func (p *BehringerXAirPlugin) SetBusVolume(bus int, level float64) error {
-	return p.sendOSC(fmt.Sprintf("/bus/%02d/mix/fader", bus), float32(level))
+	return p.sendOSC(fmt.Sprintf("/bus/%d/mix/fader", bus), float32(level))
 }
 
 func (p *BehringerXAirPlugin) GetChannelSendVolume(channel int, bus int) (float64, error) {
@@ -196,7 +197,7 @@ func (p *BehringerXAirPlugin) SetChannelName(channel int, name string) error {
 }
 
 func (p *BehringerXAirPlugin) GetBusName(bus int) (string, error) {
-	addr := fmt.Sprintf("/bus/%02d/config/name", bus)
+	addr := fmt.Sprintf("/bus/%d/config/name", bus)
 	msg, err := p.queryOSC(addr)
 	if err != nil {
 		return "", err
