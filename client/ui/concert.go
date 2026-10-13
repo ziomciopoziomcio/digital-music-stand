@@ -352,7 +352,20 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			}
 		}
 
-		syncStatusBtn := NewTouchButton("Offline", nil)
+		syncStatusLabel := widget.NewLabelWithStyle("Offline", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+		syncNowBtn := NewTouchButtonWithIcon("Sync to Leader", theme.ViewRefreshIcon(), func() {
+			if !isLeader && !autoFollow {
+				autoFollow = true
+				currentSongIdx = leaderItemIdx
+				currentPage = leaderPage
+				remainingSec = leaderTimer
+				loadCurrentSong(false)
+				renderPage()
+				updateSyncUI()
+			}
+		})
+		syncNowBtn.Importance = widget.HighImportance
+
 		joinBtn := NewTouchButtonWithIcon("Join", theme.LoginIcon(), nil)
 		leadBtn := NewTouchButtonWithIcon("Lead", theme.DocumentCreateIcon(), nil)
 		previewBtn := NewTouchButtonWithIcon("Preview", theme.VisibilityIcon(), nil)
@@ -424,7 +437,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		}
 
 		updateSyncUI = func() {
-			syncStatusBtn.Hide()
+			syncStatusLabel.Hide()
+			syncNowBtn.Hide()
 			joinBtn.Hide()
 			leadBtn.Hide()
 			previewBtn.Hide()
@@ -433,36 +447,37 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			exitSyncBtn.Hide()
 
 			if !wantsToSync {
-				syncStatusBtn.SetText("Offline")
-				syncStatusBtn.Show()
+				syncStatusLabel.SetText("Offline")
+				syncStatusLabel.Show()
 				joinBtn.Show()
 				leadBtn.Show()
 				return
 			}
 
-			syncStatusBtn.Show()
+			syncStatusLabel.Show()
 			exitSyncBtn.Show()
 
-			connText := "Cloud"
-			if isConnectedP2P {
+			connText := "Searching..."
+			if isConnectedCloud && isConnectedP2P {
+				connText = "Cloud & P2P"
+			} else if isConnectedCloud {
+				connText = "Cloud"
+			} else if isConnectedP2P {
 				connText = "P2P LAN"
-			}
-			if !isConnectedCloud && !isConnectedP2P {
-				connText = "Searching..."
 			}
 
 			if isLeader {
 				if previewMode {
-					syncStatusBtn.SetText(fmt.Sprintf("PREVIEW (%s)", connText))
+					syncStatusLabel.SetText(fmt.Sprintf("PREVIEW (%s)", connText))
 					pushBtn.Show()
 					cancelBtn.Show()
 				} else {
-					syncStatusBtn.SetText(fmt.Sprintf("LEADING (%s)", connText))
+					syncStatusLabel.SetText(fmt.Sprintf("LEADING (%s)", connText))
 					previewBtn.Show()
 				}
 			} else {
 				if autoFollow {
-					syncStatusBtn.SetText(fmt.Sprintf("Following (%s)", connText))
+					syncStatusLabel.SetText(fmt.Sprintf("Following (%s)", connText))
 				} else {
 					diffStr := ""
 					if currentSongIdx != leaderItemIdx {
@@ -477,7 +492,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 							diffStr = "Synced"
 						}
 					}
-					syncStatusBtn.SetText(fmt.Sprintf("Diff: %s (Click to Sync)", diffStr))
+					syncStatusLabel.SetText(fmt.Sprintf("Diff: %s (%s)", diffStr, connText))
+					syncNowBtn.Show()
 				}
 			}
 		}
@@ -694,15 +710,10 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					}
 					if !isConnectedCloud {
 						if connectCloud() {
-							if isConnectedP2P {
-								p2pCancel()
-								p2pConn.Close()
-								isConnectedP2P = false
-								updateSyncUI()
-							}
+							updateSyncUI()
 						}
 					}
-					if !isConnectedCloud && !isLeader && !isConnectedP2P {
+					if !isLeader && !isConnectedP2P {
 						peer, found := remoteServer.GetPeerForConcert(concert.ID)
 						if found {
 							if connectP2P(peer.IP, peer.Port) {
@@ -771,23 +782,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			updateSyncUI()
 		}
 
-		syncStatusBtn.OnTapped = func() {
-			if !wantsToSync {
-				return
-			}
-			if !isLeader && !autoFollow {
-				autoFollow = true
-				currentSongIdx = leaderItemIdx
-				currentPage = leaderPage
-				remainingSec = leaderTimer
-				loadCurrentSong(false)
-				renderPage()
-				updateSyncUI()
-			}
-		}
-
 		topSyncControls := container.NewHBox(
-			syncStatusBtn,
+			syncStatusLabel,
 			joinBtn,
 			leadBtn,
 			previewBtn,
