@@ -22,6 +22,7 @@ enum ActionType {
   LOCK_SCREEN = 10;
   UNLOCK_SCREEN = 11;
   JUMP_TO_ITEM = 12;
+  REQUEST_STATE = 13;
 }
 
 message SyncRequest {

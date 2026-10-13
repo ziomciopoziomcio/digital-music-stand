@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
+	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpb"
@@ -355,10 +356,13 @@ func main() {
 		var syncClient syncpb.LiveSyncServiceClient
 		var activeConcertID string
 
+		var cloudStream syncpb.LiveSyncService_SyncConcertStreamClient
+		var cloudStreamCancel context.CancelFunc
+
 		fastClient := &http.Client{Timeout: 500 * time.Millisecond}
 		stopPolling := make(chan struct{})
 
-		infoLabel := widget.NewLabelWithStyle("Fetching state...", fyne.TextAlignCenter, fyne.TextStyle{})
+		infoLabel := widget.NewLabelWithStyle("Fetching state...", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 		itemInfoLabel := widget.NewLabelWithStyle("-", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 		pageInfoLabel := widget.NewLabelWithStyle("-", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 
@@ -398,7 +402,6 @@ func main() {
 					if payloadStr != "" {
 						targetPayload = localPIN + "|" + payloadStr
 					}
-
 					_ = stream.Send(&syncpb.SyncRequest{
 						ConcertId: activeConcertID,
 						Action:    grpcAction,
@@ -470,9 +473,191 @@ func main() {
 		previewBtn := widget.NewButtonWithIcon("Preview Current Page", theme.VisibilityIcon(), func() {
 			if currentScoreID != "" {
 				close(stopPolling)
+				if cloudStreamCancel != nil {
+					cloudStreamCancel()
+				}
 				viewScore(localIP, localPIN, server, token, currentScoreID, "Preview", currentPage, localIP != "", tlsMode)
 			}
 		})
+
+		processState := func(state map[string]interface{}) {
+			if cid, ok := state["concert_id"].(string); ok {
+				activeConcertID = cid
+			}
+			name, _ := state["concert_name"].(string)
+			page := int(state["current_page"].(float64))
+			total := int(state["total_pages"].(float64))
+			isLocked, _ := state["is_locked"].(bool)
+			timerSec, _ := state["timer_seconds"].(float64)
+
+			currentScoreID, _ = state["current_score_id"].(string)
+			currentPage = page
+
+			var newList []string
+			if rawList, ok := state["setlist"].([]interface{}); ok {
+				for _, v := range rawList {
+					newList = append(newList, v.(string))
+				}
+			}
+
+			newIdx := int(state["current_item_idx"].(float64))
+
+			setlistChanged := false
+			if len(newList) != len(setlistTitles) {
+				setlistChanged = true
+			} else {
+				for i := range newList {
+					if newList[i] != setlistTitles[i] {
+						setlistChanged = true
+						break
+					}
+				}
+			}
+
+			if setlistChanged || newIdx != currentItemIdx {
+				setlistTitles = newList
+				currentItemIdx = newIdx
+				setlistList.Refresh()
+			}
+
+			if name == "" {
+				infoLabel.SetText("Tablet is idle")
+				itemInfoLabel.SetText("-")
+				pageInfoLabel.SetText("")
+			} else {
+				infoLabel.SetText(name)
+
+				if len(setlistTitles) > 0 && currentItemIdx >= 0 && currentItemIdx < len(setlistTitles) {
+					itemInfoLabel.SetText(fmt.Sprintf("Item %d/%d: %s", currentItemIdx+1, len(setlistTitles), setlistTitles[currentItemIdx]))
+				} else {
+					itemInfoLabel.SetText("-")
+				}
+
+				if total > 0 {
+					pageInfoLabel.SetText(fmt.Sprintf("Page %d of %d", page+1, total))
+				} else {
+					pageInfoLabel.SetText(fmt.Sprintf("Timer: %02d:%02d", int(timerSec)/60, int(timerSec)%60))
+				}
+
+				if isLocked {
+					lockBtn.SetText("Unlock Tablet")
+					lockBtn.SetIcon(theme.LoginIcon())
+					lockBtn.OnTapped = func() {
+						pinEntry := widget.NewPasswordEntry()
+						dialog.ShowCustomConfirm("Unlock Tablet", "Unlock", "Cancel", pinEntry, func(ok bool) {
+							if ok {
+								sendCommand("UNLOCK_SCREEN", syncpb.ActionType_UNLOCK_SCREEN, pinEntry.Text, 0)
+							}
+						}, myWindow)
+					}
+					prevPageBtn.Disable()
+					nextPageBtn.Disable()
+					prevItemBtn.Disable()
+					nextItemBtn.Disable()
+				} else {
+					lockBtn.SetText("Lock Tablet")
+					lockBtn.SetIcon(theme.LogoutIcon())
+					lockBtn.OnTapped = func() {
+						sendCommand("LOCK_SCREEN", syncpb.ActionType_LOCK_SCREEN, "", 0)
+					}
+					prevPageBtn.Enable()
+					nextPageBtn.Enable()
+					prevItemBtn.Enable()
+					nextItemBtn.Enable()
+				}
+			}
+		}
+
+		ensureCloudStream := func(cid string) {
+			if syncClient == nil || cid == "" || cloudStream != nil {
+				return
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token)
+			stream, err := syncClient.SyncConcertStream(ctx)
+			if err != nil {
+				cancel()
+				return
+			}
+			cloudStream = stream
+			cloudStreamCancel = cancel
+
+			go func() {
+				for {
+					msg, err := stream.Recv()
+					if err != nil {
+						cloudStream = nil
+						cloudStreamCancel = nil
+						return
+					}
+					if msg.GetAction() == syncpb.ActionType_BROADCAST_INFO {
+						parts := strings.SplitN(msg.GetPayload(), "|", 3)
+						if len(parts) >= 2 {
+							if localPIN == "" {
+								localPIN = parts[1]
+								myApp.Preferences().SetString("local_pin", localPIN)
+							}
+							if len(parts) == 3 {
+								var state map[string]interface{}
+								if json.Unmarshal([]byte(parts[2]), &state) == nil {
+									processState(state)
+									connStatusLabel.Text = "Link: Cloud"
+									connStatusLabel.Color = theme.PrimaryColor()
+									connStatusLabel.Refresh()
+								}
+							}
+						}
+					}
+				}
+			}()
+		}
+
+		var isDiscovering bool
+		discoverActiveConcert := func() {
+			if isDiscovering || syncClient == nil {
+				return
+			}
+			isDiscovering = true
+			defer func() { isDiscovering = false }()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token)
+
+			concertClient := concertpb.NewConcertServiceClient(syncConn)
+			resp, err := concertClient.ListMyConcerts(ctx, &concertpb.ListMyConcertsRequest{})
+			if err != nil {
+				return
+			}
+
+			for _, c := range resp.GetConcerts() {
+				stream, err := syncClient.SyncConcertStream(ctx)
+				if err == nil {
+					_ = stream.Send(&syncpb.SyncRequest{ConcertId: c.Id, Action: syncpb.ActionType_REQUEST_STATE})
+					msg, err := stream.Recv()
+					if err == nil && msg.GetAction() == syncpb.ActionType_BROADCAST_INFO {
+						parts := strings.SplitN(msg.GetPayload(), "|", 3)
+						if len(parts) >= 2 {
+							localIP = parts[0]
+							localPIN = parts[1]
+							activeConcertID = c.Id
+							myApp.Preferences().SetString("local_ip", localIP)
+							myApp.Preferences().SetString("local_pin", localPIN)
+
+							if len(parts) == 3 {
+								var state map[string]interface{}
+								if json.Unmarshal([]byte(parts[2]), &state) == nil {
+									processState(state)
+								}
+							}
+							stream.CloseSend()
+							return
+						}
+					}
+					stream.CloseSend()
+				}
+			}
+		}
 
 		go func() {
 			ticker := time.NewTicker(1 * time.Second)
@@ -480,6 +665,9 @@ func main() {
 			for {
 				select {
 				case <-stopPolling:
+					if cloudStreamCancel != nil {
+						cloudStreamCancel()
+					}
 					return
 				case <-ticker.C:
 					connected := false
@@ -490,95 +678,25 @@ func main() {
 						if resp, err := httpClient.Do(req); err == nil && resp.StatusCode == 200 {
 							var state map[string]interface{}
 							if json.NewDecoder(resp.Body).Decode(&state) == nil {
-								if cid, ok := state["concert_id"].(string); ok {
-									activeConcertID = cid
-								}
-								name := state["concert_name"].(string)
-								page := int(state["current_page"].(float64))
-								total := int(state["total_pages"].(float64))
-								isLocked, _ := state["is_locked"].(bool)
-								timerSec, _ := state["timer_seconds"].(float64)
-
-								currentScoreID, _ = state["current_score_id"].(string)
-								currentPage = page
-
-								var newList []string
-								if rawList, ok := state["setlist"].([]interface{}); ok {
-									for _, v := range rawList {
-										newList = append(newList, v.(string))
-									}
-								}
-
-								newIdx := int(state["current_item_idx"].(float64))
-
-								setlistChanged := false
-								if len(newList) != len(setlistTitles) {
-									setlistChanged = true
-								} else {
-									for i := range newList {
-										if newList[i] != setlistTitles[i] {
-											setlistChanged = true
-											break
-										}
-									}
-								}
-
-								if setlistChanged || newIdx != currentItemIdx {
-									setlistTitles = newList
-									currentItemIdx = newIdx
-									setlistList.Refresh()
-								}
-
-								if name == "" {
-									infoLabel.SetText("Tablet is idle")
-									itemInfoLabel.SetText("-")
-									pageInfoLabel.SetText("")
-								} else {
-									infoLabel.SetText(name)
-
-									if len(setlistTitles) > 0 && currentItemIdx >= 0 && currentItemIdx < len(setlistTitles) {
-										itemInfoLabel.SetText(fmt.Sprintf("Item %d/%d: %s", currentItemIdx+1, len(setlistTitles), setlistTitles[currentItemIdx]))
-									} else {
-										itemInfoLabel.SetText("-")
-									}
-
-									if total > 0 {
-										pageInfoLabel.SetText(fmt.Sprintf("Page %d of %d", page+1, total))
-									} else {
-										pageInfoLabel.SetText(fmt.Sprintf("Timer: %02d:%02d", int(timerSec)/60, int(timerSec)%60))
-									}
-
-									if isLocked {
-										lockBtn.SetText("Unlock Tablet")
-										lockBtn.SetIcon(theme.LoginIcon())
-										lockBtn.OnTapped = func() {
-											pinEntry := widget.NewPasswordEntry()
-											dialog.ShowCustomConfirm("Unlock Tablet", "Unlock", "Cancel", pinEntry, func(ok bool) {
-												if ok {
-													sendCommand("UNLOCK_SCREEN", syncpb.ActionType_UNLOCK_SCREEN, pinEntry.Text, 0)
-												}
-											}, myWindow)
-										}
-										prevPageBtn.Disable()
-										nextPageBtn.Disable()
-										prevItemBtn.Disable()
-										nextItemBtn.Disable()
-									} else {
-										lockBtn.SetText("Lock Tablet")
-										lockBtn.SetIcon(theme.LogoutIcon())
-										lockBtn.OnTapped = func() {
-											sendCommand("LOCK_SCREEN", syncpb.ActionType_LOCK_SCREEN, "", 0)
-										}
-										prevPageBtn.Enable()
-										nextPageBtn.Enable()
-										prevItemBtn.Enable()
-										nextItemBtn.Enable()
-									}
-								}
-
+								processState(state)
 								connStatusLabel.Text = "Link: Wi-Fi"
 								connStatusLabel.Color = theme.SuccessColor()
 								connStatusLabel.Refresh()
+								connected = true
+							}
+						}
+					}
+
+					if !connected && syncClient != nil && token != "" {
+						if activeConcertID == "" {
+							go discoverActiveConcert()
+						} else {
+							ensureCloudStream(activeConcertID)
+							if cloudStream != nil {
+								_ = cloudStream.Send(&syncpb.SyncRequest{
+									ConcertId: activeConcertID,
+									Action:    syncpb.ActionType_REQUEST_STATE,
+								})
 								connected = true
 							}
 						}
@@ -697,6 +815,9 @@ func main() {
 						btn.SetIcon(icon)
 						btn.OnTapped = func() {
 							close(stopPolling)
+							if cloudStreamCancel != nil {
+								cloudStreamCancel()
+							}
 							useLAN := s.OnLAN && localIP != ""
 							viewScore(localIP, localPIN, server, token, s.ID, s.Title, 0, useLAN, tlsMode)
 						}
@@ -716,6 +837,9 @@ func main() {
 
 		disconnectBtn := widget.NewButtonWithIcon("Disconnect & Forget", theme.LogoutIcon(), func() {
 			close(stopPolling)
+			if cloudStreamCancel != nil {
+				cloudStreamCancel()
+			}
 			if syncConn != nil {
 				syncConn.Close()
 			}
