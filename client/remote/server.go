@@ -47,15 +47,24 @@ type PeerInfo struct {
 	LastSeen  time.Time
 }
 
+type PairRequest struct {
+	IP           string
+	ResponseChan chan bool
+}
+
 type Server struct {
 	syncpb.UnimplementedLiveSyncServiceServer
 	mu          sync.RWMutex
 	PIN         string
 	State       ConcertState
 	CommandChan chan Command
-	server      *http.Server
-	port        int
-	db          *localdb.DBManager
+
+	ProfileName     string
+	PairRequestChan chan PairRequest
+
+	server *http.Server
+	port   int
+	db     *localdb.DBManager
 
 	grpcServer   *grpc.Server
 	grpcPort     int
@@ -66,16 +75,18 @@ type Server struct {
 	activeCID string
 }
 
-func NewServer(port int, db *localdb.DBManager) *Server {
+func NewServer(port int, db *localdb.DBManager, profileName string) *Server {
 	rand.Seed(time.Now().UnixNano())
 	return &Server{
-		PIN:          fmt.Sprintf("%04d", rand.Intn(10000)),
-		CommandChan:  make(chan Command, 20),
-		port:         port,
-		db:           db,
-		grpcPort:     50052,
-		localStreams: make(map[string]map[syncpb.LiveSyncService_SyncConcertStreamServer]bool),
-		peers:        make(map[string]PeerInfo),
+		PIN:             fmt.Sprintf("%04d", rand.Intn(10000)),
+		CommandChan:     make(chan Command, 20),
+		ProfileName:     profileName,
+		PairRequestChan: make(chan PairRequest),
+		port:            port,
+		db:              db,
+		grpcPort:        50052,
+		localStreams:    make(map[string]map[syncpb.LiveSyncService_SyncConcertStreamServer]bool),
+		peers:           make(map[string]PeerInfo),
 	}
 }
 
@@ -85,6 +96,7 @@ func (s *Server) Start() {
 	mux.HandleFunc("/api/command", s.handleCommand)
 	mux.HandleFunc("/api/scores", s.handleScores)
 	mux.HandleFunc("/api/render", s.handleRender)
+	mux.HandleFunc("/api/pair", s.handlePair)
 
 	s.server = &http.Server{Addr: fmt.Sprintf("0.0.0.0:%d", s.port), Handler: mux}
 	go s.server.ListenAndServe()
@@ -266,25 +278,6 @@ func (s *Server) BroadcastLocal(req *syncpb.SyncRequest) {
 	}
 }
 
-func (s *Server) startUDPDiscovery() {
-	addr, err := net.ResolveUDPAddr("udp4", ":8090")
-	if err != nil {
-		return
-	}
-	conn, err := net.ListenUDP("udp4", addr)
-	if err != nil {
-		return
-	}
-	defer conn.Close()
-	buf := make([]byte, 1024)
-	for {
-		n, remoteAddr, err := conn.ReadFromUDP(buf)
-		if err == nil && string(buf[:n]) == "DMS_DISCOVER" {
-			conn.WriteToUDP([]byte(s.GetPIN()), remoteAddr)
-		}
-	}
-}
-
 func (s *Server) SetState(state ConcertState) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -377,4 +370,43 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "image/png")
 	png.Encode(w, img)
+}
+
+func (s *Server) handlePair(w http.ResponseWriter, r *http.Request) {
+	if !s.auth(w, r) {
+		return
+	}
+	respChan := make(chan bool)
+	s.PairRequestChan <- PairRequest{
+		IP:           r.RemoteAddr,
+		ResponseChan: respChan,
+	}
+
+	accepted := <-respChan
+	if accepted {
+		w.WriteHeader(http.StatusOK)
+	} else {
+		http.Error(w, "Rejected", http.StatusForbidden)
+	}
+}
+
+func (s *Server) startUDPDiscovery() {
+	addr, err := net.ResolveUDPAddr("udp4", ":8090")
+	if err != nil {
+		return
+	}
+	conn, err := net.ListenUDP("udp4", addr)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	buf := make([]byte, 1024)
+	for {
+		n, remoteAddr, err := conn.ReadFromUDP(buf)
+		if err == nil && string(buf[:n]) == "DMS_DISCOVER" {
+			payload := fmt.Sprintf("%s|%s", s.GetPIN(), s.ProfileName)
+			conn.WriteToUDP([]byte(payload), remoteAddr)
+		}
+	}
 }

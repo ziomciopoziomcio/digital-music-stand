@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -102,8 +103,27 @@ func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Man
 	wsMgr := webserver.NewManager(scoresPath)
 	wsMgr.Start(8088)
 
-	remoteServer := remote.NewServer(8089, dbMgr)
+	profileName := "Unknown"
+	if profilesList, err := pm.GetProfiles(); err == nil {
+		for _, p := range profilesList {
+			if p.ID == profileID {
+				profileName = p.Name
+				break
+			}
+		}
+	}
+
+	remoteServer := remote.NewServer(8089, dbMgr, profileName)
 	remoteServer.Start()
+
+	go func() {
+		for req := range remoteServer.PairRequestChan {
+			ip := strings.Split(req.IP, ":")[0]
+			dialog.ShowConfirm("Mobile Pilot Connection", fmt.Sprintf("Mobile device at IP %s is trying to connect. Allow?", ip), func(ok bool) {
+				req.ResponseChan <- ok
+			}, myWindow)
+		}
+	}()
 
 	netMgr, pwrMgr, medMgr, devMgr := InitManagers()
 	mainWrapper := container.NewMax()
