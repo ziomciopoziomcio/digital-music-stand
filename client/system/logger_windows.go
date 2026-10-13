@@ -4,10 +4,11 @@ package system
 
 import (
 	"os"
-	"syscall"
+
+	"golang.org/x/sys/windows"
 )
 
 func redirectStderr(f *os.File) {
-	_ = syscall.SetStdHandle(syscall.STD_ERROR_HANDLE, syscall.Handle(f.Fd()))
-	_ = syscall.SetStdHandle(syscall.STD_OUTPUT_HANDLE, syscall.Handle(f.Fd()))
+	_ = windows.SetStdHandle(windows.STD_ERROR_HANDLE, windows.Handle(f.Fd()))
+	_ = windows.SetStdHandle(windows.STD_OUTPUT_HANDLE, windows.Handle(f.Fd()))
 }
