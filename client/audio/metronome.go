@@ -10,21 +10,18 @@ import (
 )
 
 type MetronomeAudio struct {
-	ctx        *malgo.AllocatedContext
-	device     *malgo.Device
-	sampleRate uint32
-	mu         sync.Mutex
-
+	ctx             *malgo.AllocatedContext
+	device          *malgo.Device
+	sampleRate      uint32
+	mu              sync.Mutex
 	playing         bool
 	bpm             float64
 	beatsPerMeasure int
-
-	startTime time.Time
-	nextBeat  int
-
-	phase      float64
-	framesLeft int
-	isAccent   bool
+	startTime       time.Time
+	nextBeat        int
+	phase           float64
+	framesLeft      int
+	isAccent        bool
 
 	OnBeat func(accent bool)
 }
@@ -57,7 +54,6 @@ func NewMetronomeAudio() (*MetronomeAudio, error) {
 
 		if m.playing {
 			elapsed := time.Since(m.startTime).Seconds()
-
 			expectedBeats := int(elapsed * (m.bpm / 60.0))
 
 			if expectedBeats >= m.nextBeat {
@@ -102,8 +98,8 @@ func NewMetronomeAudio() (*MetronomeAudio, error) {
 		ctx.Free()
 		return nil, err
 	}
-	m.device = device
 
+	m.device = device
 	err = device.Start()
 	if err != nil {
 		device.Uninit()
@@ -171,4 +167,12 @@ func (m *MetronomeAudio) GetBeatsPerMeasure() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.beatsPerMeasure
+}
+
+func (m *MetronomeAudio) PlayTick(isAccent bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.isAccent = isAccent
+	m.framesLeft = int(m.sampleRate) / 20
+	m.phase = 0
 }
