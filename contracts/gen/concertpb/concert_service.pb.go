@@ -29,6 +29,7 @@ type ConcertItem struct {
 	ScoreName     *string                `protobuf:"bytes,4,opt,name=score_name,json=scoreName,proto3,oneof" json:"score_name,omitempty"`
 	FilePath      *string                `protobuf:"bytes,5,opt,name=file_path,json=filePath,proto3,oneof" json:"file_path,omitempty"`
 	BreakMin      *uint32                `protobuf:"varint,6,opt,name=break_min,json=breakMin,proto3,oneof" json:"break_min,omitempty"`
+	CustomTitle   *string                `protobuf:"bytes,7,opt,name=custom_title,json=customTitle,proto3,oneof" json:"custom_title,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -103,6 +104,13 @@ func (x *ConcertItem) GetBreakMin() uint32 {
 		return *x.BreakMin
 	}
 	return 0
+}
+
+func (x *ConcertItem) GetCustomTitle() string {
+	if x != nil && x.CustomTitle != nil {
+		return *x.CustomTitle
+	}
+	return ""
 }
 
 type CreateConcertRequest struct {
@@ -471,6 +479,7 @@ type AddConcertItemRequest struct {
 	ScoreId       *string                `protobuf:"bytes,2,opt,name=score_id,json=scoreId,proto3,oneof" json:"score_id,omitempty"`
 	BreakMin      *uint32                `protobuf:"varint,3,opt,name=break_min,json=breakMin,proto3,oneof" json:"break_min,omitempty"`
 	Order         uint32                 `protobuf:"varint,4,opt,name=order,proto3" json:"order,omitempty"`
+	CustomTitle   *string                `protobuf:"bytes,5,opt,name=custom_title,json=customTitle,proto3,oneof" json:"custom_title,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -531,6 +540,13 @@ func (x *AddConcertItemRequest) GetOrder() uint32 {
 		return x.Order
 	}
 	return 0
+}
+
+func (x *AddConcertItemRequest) GetCustomTitle() string {
+	if x != nil && x.CustomTitle != nil {
+		return *x.CustomTitle
+	}
+	return ""
 }
 
 type AddConcertItemResponse struct {
@@ -1489,7 +1505,7 @@ var File_contracts_proto_concert_service_proto protoreflect.FileDescriptor
 
 const file_contracts_proto_concert_service_proto_rawDesc = "" +
 	"\n" +
-	"%contracts/proto/concert_service.proto\x12\x1bdigital_music_stand.concert\"\xf3\x01\n" +
+	"%contracts/proto/concert_service.proto\x12\x1bdigital_music_stand.concert\"\xac\x02\n" +
 	"\vConcertItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05order\x18\x02 \x01(\rR\x05order\x12\x1e\n" +
@@ -1497,13 +1513,15 @@ const file_contracts_proto_concert_service_proto_rawDesc = "" +
 	"\n" +
 	"score_name\x18\x04 \x01(\tH\x01R\tscoreName\x88\x01\x01\x12 \n" +
 	"\tfile_path\x18\x05 \x01(\tH\x02R\bfilePath\x88\x01\x01\x12 \n" +
-	"\tbreak_min\x18\x06 \x01(\rH\x03R\bbreakMin\x88\x01\x01B\v\n" +
+	"\tbreak_min\x18\x06 \x01(\rH\x03R\bbreakMin\x88\x01\x01\x12&\n" +
+	"\fcustom_title\x18\a \x01(\tH\x04R\vcustomTitle\x88\x01\x01B\v\n" +
 	"\t_score_idB\r\n" +
 	"\v_score_nameB\f\n" +
 	"\n" +
 	"_file_pathB\f\n" +
 	"\n" +
-	"_break_min\"\x91\x02\n" +
+	"_break_minB\x0f\n" +
+	"\r_custom_title\"\x91\x02\n" +
 	"\x14CreateConcertRequest\x12\x13\n" +
 	"\x02id\x18\x01 \x01(\tH\x00R\x02id\x88\x01\x01\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1c\n" +
@@ -1536,16 +1554,18 @@ const file_contracts_proto_concert_service_proto_rawDesc = "" +
 	"\x14DeleteConcertRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"1\n" +
 	"\x15DeleteConcertResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"\xa9\x01\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\xe2\x01\n" +
 	"\x15AddConcertItemRequest\x12\x1d\n" +
 	"\n" +
 	"concert_id\x18\x01 \x01(\tR\tconcertId\x12\x1e\n" +
 	"\bscore_id\x18\x02 \x01(\tH\x00R\ascoreId\x88\x01\x01\x12 \n" +
 	"\tbreak_min\x18\x03 \x01(\rH\x01R\bbreakMin\x88\x01\x01\x12\x14\n" +
-	"\x05order\x18\x04 \x01(\rR\x05orderB\v\n" +
+	"\x05order\x18\x04 \x01(\rR\x05order\x12&\n" +
+	"\fcustom_title\x18\x05 \x01(\tH\x02R\vcustomTitle\x88\x01\x01B\v\n" +
 	"\t_score_idB\f\n" +
 	"\n" +
-	"_break_min\"B\n" +
+	"_break_minB\x0f\n" +
+	"\r_custom_title\"B\n" +
 	"\x16AddConcertItemResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"9\n" +

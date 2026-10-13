@@ -31,14 +31,15 @@ func (c *Concert) BeforeCreate(tx *gorm.DB) error {
 }
 
 type ConcertItem struct {
-	ID        string  `gorm:"primaryKey;type:varchar(36)"`
-	ConcertID string  `gorm:"not null;type:varchar(36);index"`
-	SortOrder int     `gorm:"not null"`
-	ScoreID   *string `gorm:"type:varchar(36)"`
-	BreakMin  *int
-	CreatedAt time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
-	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
-	DeletedAt gorm.DeletedAt `gorm:"index"`
+	ID          string  `gorm:"primaryKey;type:varchar(36)"`
+	ConcertID   string  `gorm:"not null;type:varchar(36);index"`
+	SortOrder   int     `gorm:"not null"`
+	ScoreID     *string `gorm:"type:varchar(36)"`
+	BreakMin    *int
+	CustomTitle string         `gorm:"default:''"`
+	CreatedAt   time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP"`
+	UpdatedAt   time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt   gorm.DeletedAt `gorm:"index"`
 
 	Concert Concert `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	Score   Score   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`

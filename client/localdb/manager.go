@@ -28,17 +28,19 @@ func (s Score) DisplayTitle() string {
 }
 
 type SetlistItem struct {
-	ScoreID  *string
-	BreakMin *int
+	ScoreID     *string
+	BreakMin    *int
+	CustomTitle string
 }
 
 type ConcertItem struct {
-	ID        string
-	SortOrder int
-	ScoreID   *string
-	BreakMin  *int
-	ScoreName *string
-	FilePath  *string
+	ID          string
+	SortOrder   int
+	ScoreID     *string
+	BreakMin    *int
+	ScoreName   *string
+	FilePath    *string
+	CustomTitle string
 }
 
 type Concert struct {
@@ -89,7 +91,6 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 		is_owner INTEGER NOT NULL DEFAULT 1,
 		is_deleted INTEGER NOT NULL DEFAULT 0
 	);
-
 	CREATE TABLE IF NOT EXISTS concerts (
 		id TEXT PRIMARY KEY,
 		name TEXT NOT NULL,
@@ -99,7 +100,6 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 		is_owner INTEGER NOT NULL DEFAULT 1,
 		is_deleted INTEGER NOT NULL DEFAULT 0
 	);
-
 	CREATE TABLE IF NOT EXISTS concert_items (
 		id TEXT PRIMARY KEY,
 		concert_id TEXT NOT NULL,
@@ -109,7 +109,6 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 		FOREIGN KEY(concert_id) REFERENCES concerts(id) ON DELETE CASCADE,
 		FOREIGN KEY(score_id) REFERENCES scores(id) ON DELETE CASCADE
 	);
-
 	CREATE TABLE IF NOT EXISTS notifications (
 		id TEXT PRIMARY KEY,
 		type TEXT NOT NULL,
@@ -124,7 +123,6 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 	}
 
 	DBM := &DBManager{db: db}
-
 	if err := DBM.InitRecordingsTable(); err != nil {
 		return nil, fmt.Errorf("failed to create recordings table: %w", err)
 	}
@@ -132,6 +130,7 @@ func NewDBManager(dbPath string) (*DBManager, error) {
 	_, _ = db.Exec("ALTER TABLE scores ADD COLUMN local_alias TEXT NOT NULL DEFAULT ''")
 	_, _ = db.Exec("ALTER TABLE concerts ADD COLUMN local_alias TEXT NOT NULL DEFAULT ''")
 	_, _ = db.Exec("ALTER TABLE concerts ADD COLUMN can_edit INTEGER NOT NULL DEFAULT 0")
+	_, _ = db.Exec("ALTER TABLE concert_items ADD COLUMN custom_title TEXT NOT NULL DEFAULT ''")
 
 	return DBM, nil
 }
@@ -262,13 +261,12 @@ func (m *DBManager) AddConcert(name, location, startTime string, setlist []Setli
 
 	for pos, item := range setlist {
 		itemID := uuid.New().String()
-		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min) VALUES (?, ?, ?, ?, ?)",
-			itemID, concertID, pos+1, item.ScoreID, item.BreakMin)
+		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min, custom_title) VALUES (?, ?, ?, ?, ?, ?)",
+			itemID, concertID, pos+1, item.ScoreID, item.BreakMin, item.CustomTitle)
 		if err != nil {
 			return "", err
 		}
 	}
-
 	return concertID, tx.Commit()
 }
 
@@ -291,13 +289,12 @@ func (m *DBManager) UpdateConcert(id, name, location, startTime string, setlist 
 
 	for pos, item := range setlist {
 		itemID := uuid.New().String()
-		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min) VALUES (?, ?, ?, ?, ?)",
-			itemID, id, pos+1, item.ScoreID, item.BreakMin)
+		_, err := tx.Exec("INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min, custom_title) VALUES (?, ?, ?, ?, ?, ?)",
+			itemID, id, pos+1, item.ScoreID, item.BreakMin, item.CustomTitle)
 		if err != nil {
 			return err
 		}
 	}
-
 	return tx.Commit()
 }
 
@@ -336,17 +333,25 @@ func (m *DBManager) SyncConcertFromServer(concertID string, name, location, star
 		INSERT INTO concerts (id, name, location, start_time, checksum, is_owner, can_edit, is_deleted) 
 		VALUES (?, ?, ?, ?, ?, ?, ?, 0)
 		ON CONFLICT(id) DO UPDATE SET 
-		name = excluded.name,
-		location = excluded.location,
-		start_time = excluded.start_time,
-		checksum = excluded.checksum,
-		is_owner = excluded.is_owner,
-		can_edit = excluded.can_edit,
-		is_deleted = 0`,
+		name = excluded.name, location = excluded.location, start_time = excluded.start_time, 
+		checksum = excluded.checksum, is_owner = excluded.is_owner, can_edit = excluded.can_edit, is_deleted = 0`,
 		concertID, name, location, startTime, checksum, ownerVal, editVal,
 	)
 	if err != nil {
 		return err
+	}
+
+	rows, _ := tx.Query("SELECT sort_order, custom_title FROM concert_items WHERE concert_id = ? AND custom_title != ''", concertID)
+	customTitles := make(map[int]string)
+	if rows != nil {
+		for rows.Next() {
+			var order int
+			var title string
+			if err := rows.Scan(&order, &title); err == nil {
+				customTitles[order] = title
+			}
+		}
+		rows.Close()
 	}
 
 	_, err = tx.Exec("DELETE FROM concert_items WHERE concert_id = ?", concertID)
@@ -355,16 +360,19 @@ func (m *DBManager) SyncConcertFromServer(concertID string, name, location, star
 	}
 
 	for _, item := range remoteItems {
+		cTitle := item.CustomTitle
+		if cTitle == "" {
+			cTitle = customTitles[item.SortOrder]
+		}
 		_, err = tx.Exec(`
-			INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min) 
-			VALUES (?, ?, ?, ?, ?)`,
-			item.ID, concertID, item.SortOrder, item.ScoreID, item.BreakMin,
+			INSERT INTO concert_items (id, concert_id, sort_order, score_id, break_min, custom_title) 
+			VALUES (?, ?, ?, ?, ?, ?)`,
+			item.ID, concertID, item.SortOrder, item.ScoreID, item.BreakMin, cTitle,
 		)
 		if err != nil {
 			return err
 		}
 	}
-
 	return tx.Commit()
 }
 
@@ -387,7 +395,7 @@ func (m *DBManager) GetConcerts() ([]Concert, error) {
 		c.CanEdit = canEdit == 1
 
 		itemRows, err := m.db.Query(`
-			SELECT ci.id, ci.sort_order, ci.score_id, ci.break_min, COALESCE(NULLIF(s.local_alias, ''), s.title), s.file_path 
+			SELECT ci.id, ci.sort_order, ci.score_id, ci.break_min, ci.custom_title, COALESCE(NULLIF(s.local_alias, ''), s.title), s.file_path 
 			FROM concert_items ci 
 			LEFT JOIN scores s ON ci.score_id = s.id 
 			WHERE ci.concert_id = ? 
@@ -395,11 +403,10 @@ func (m *DBManager) GetConcerts() ([]Concert, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		for itemRows.Next() {
 			var item ConcertItem
-			var scoreTitle, filePath sql.NullString
-			if err := itemRows.Scan(&item.ID, &item.SortOrder, &item.ScoreID, &item.BreakMin, &scoreTitle, &filePath); err != nil {
+			var scoreTitle, filePath, customTitle sql.NullString
+			if err := itemRows.Scan(&item.ID, &item.SortOrder, &item.ScoreID, &item.BreakMin, &customTitle, &scoreTitle, &filePath); err != nil {
 				itemRows.Close()
 				return nil, err
 			}
@@ -409,12 +416,14 @@ func (m *DBManager) GetConcerts() ([]Concert, error) {
 			if filePath.Valid {
 				item.FilePath = &filePath.String
 			}
+			if customTitle.Valid && customTitle.String != "" {
+				item.CustomTitle = customTitle.String
+			}
 			c.Items = append(c.Items, item)
 		}
 		itemRows.Close()
 		concerts = append(concerts, c)
 	}
-
 	return concerts, nil
 }
 
