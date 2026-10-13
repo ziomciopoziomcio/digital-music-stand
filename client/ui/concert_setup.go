@@ -16,9 +16,10 @@ import (
 )
 
 type setlistSetupItem struct {
-	ScoreID  *string
-	BreakMin *int
-	Title    string
+	ScoreID     *string
+	BreakMin    *int
+	Title       string
+	CustomTitle string
 }
 
 func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *localdb.Concert, onSave func(id, name, location, startTime string, setlist []localdb.SetlistItem) error, goBack func()) *fyne.Container {
@@ -62,9 +63,14 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 				}
 			} else if item.BreakMin != nil {
 				bm := *item.BreakMin
+				t := "Break"
+				if item.CustomTitle != "" {
+					t = item.CustomTitle
+				}
 				setlist = append(setlist, setlistSetupItem{
-					BreakMin: &bm,
-					Title:    fmt.Sprintf("Break (%d min)", bm),
+					BreakMin:    &bm,
+					Title:       fmt.Sprintf("%s (%d min)", t, bm),
+					CustomTitle: item.CustomTitle,
 				})
 			}
 		}
@@ -169,16 +175,23 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 	)
 
 	addBreakBtn := NewTouchButtonWithIcon("Add Break", theme.ContentAddIcon(), func() {
-		entry := NewAutoKeyboardEntry()
-		entry.SetText("10")
+		durEntry := NewAutoKeyboardEntry()
+		durEntry.SetText("10")
+		titleEntry := NewAutoKeyboardEntry()
+		titleEntry.SetPlaceHolder("Optional custom name")
 		var d dialog.Dialog
 
 		submitAction := func() {
-			if mins, err := strconv.Atoi(entry.Text); err == nil && mins > 0 {
+			if mins, err := strconv.Atoi(durEntry.Text); err == nil && mins > 0 {
 				bm := mins
+				t := "Break"
+				if titleEntry.Text != "" {
+					t = titleEntry.Text
+				}
 				setlist = append(setlist, setlistSetupItem{
-					BreakMin: &bm,
-					Title:    fmt.Sprintf("Break (%d min)", bm),
+					BreakMin:    &bm,
+					Title:       fmt.Sprintf("%s (%d min)", t, bm),
+					CustomTitle: titleEntry.Text,
 				})
 				rightList.Refresh()
 				d.Hide()
@@ -188,11 +201,16 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 		saveBtn := NewTouchButton("Add", submitAction)
 		cancelBtn := NewTouchButton("Cancel", func() { d.Hide() })
 		controls := container.NewHBox(layout.NewSpacer(), saveBtn, cancelBtn)
-		content := container.NewVBox(widget.NewLabel("Enter break duration (minutes):"), entry, controls)
+
+		form := widget.NewForm(
+			widget.NewFormItem("Name (Optional)", titleEntry),
+			widget.NewFormItem("Duration (min)", durEntry),
+		)
+		content := container.NewVBox(form, controls)
 
 		d = dialog.NewCustomWithoutButtons("Add Break", content, w)
 		d.Show()
-		w.Canvas().Focus(entry)
+		w.Canvas().Focus(durEntry)
 	})
 
 	rightHeader := container.NewBorder(
@@ -221,8 +239,9 @@ func BuildConcertSetup(w fyne.Window, db *localdb.DBManager, editingConcert *loc
 		var finalSetlist []localdb.SetlistItem
 		for _, item := range setlist {
 			finalSetlist = append(finalSetlist, localdb.SetlistItem{
-				ScoreID:  item.ScoreID,
-				BreakMin: item.BreakMin,
+				ScoreID:     item.ScoreID,
+				BreakMin:    item.BreakMin,
+				CustomTitle: item.CustomTitle,
 			})
 		}
 

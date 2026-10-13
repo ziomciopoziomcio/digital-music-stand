@@ -50,7 +50,7 @@ func (s *ConcertService) calculateConcertChecksum(concertID string) (string, err
 		if item.BreakMin != nil {
 			breakStr = fmt.Sprintf("%d", *item.BreakMin)
 		}
-		h.Write([]byte(fmt.Sprintf(":%d-%s-%s", item.SortOrder, scoreStr, breakStr)))
+		h.Write([]byte(fmt.Sprintf(":%d-%s-%s-%s", item.SortOrder, scoreStr, breakStr, item.CustomTitle)))
 	}
 
 	return hex.EncodeToString(h.Sum(nil)), nil
@@ -95,6 +95,7 @@ func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.Creat
 		if err := tx.Create(&concert).Error; err != nil {
 			return err
 		}
+
 		for idx, item := range req.GetItems() {
 			itemUUID := item.GetId()
 			if itemUUID == "" {
@@ -105,13 +106,17 @@ func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.Creat
 				bm := int(*item.BreakMin)
 				breakMin = &bm
 			}
-
+			var customTitle string
+			if item.CustomTitle != nil {
+				customTitle = *item.CustomTitle
+			}
 			concertItem := models.ConcertItem{
-				ID:        itemUUID,
-				ConcertID: concert.ID,
-				SortOrder: idx + 1,
-				ScoreID:   item.ScoreId,
-				BreakMin:  breakMin,
+				ID:          itemUUID,
+				ConcertID:   concert.ID,
+				SortOrder:   idx + 1,
+				ScoreID:     item.ScoreId,
+				BreakMin:    breakMin,
+				CustomTitle: customTitle,
 			}
 			if err := tx.Create(&concertItem).Error; err != nil {
 				return err
@@ -125,7 +130,6 @@ func (s *ConcertService) CreateConcert(ctx context.Context, req *concertpb.Creat
 	}
 
 	checksum, _ := s.calculateConcertChecksum(concert.ID)
-
 	return &concertpb.CreateConcertResponse{
 		Id:       concert.ID,
 		Message:  "Concert created successfully",
@@ -198,13 +202,17 @@ func (s *ConcertService) UpdateConcert(ctx context.Context, req *concertpb.Updat
 					bm := int(*item.BreakMin)
 					breakMin = &bm
 				}
-
+				var customTitle string
+				if item.CustomTitle != nil {
+					customTitle = *item.CustomTitle
+				}
 				concertItem := models.ConcertItem{
-					ID:        itemUUID,
-					ConcertID: concert.ID,
-					SortOrder: idx + 1,
-					ScoreID:   item.ScoreId,
-					BreakMin:  breakMin,
+					ID:          itemUUID,
+					ConcertID:   concert.ID,
+					SortOrder:   idx + 1,
+					ScoreID:     item.ScoreId,
+					BreakMin:    breakMin,
+					CustomTitle: customTitle,
 				}
 				if err := tx.Create(&concertItem).Error; err != nil {
 					return err
@@ -219,7 +227,6 @@ func (s *ConcertService) UpdateConcert(ctx context.Context, req *concertpb.Updat
 	}
 
 	checksum, _ := s.calculateConcertChecksum(concert.ID)
-
 	return &concertpb.UpdateConcertResponse{
 		Message:  "Concert updated successfully",
 		Checksum: checksum,
@@ -304,10 +311,17 @@ func (s *ConcertService) ListMyConcerts(ctx context.Context, req *concertpb.List
 				ScoreName: scoreName,
 				FilePath:  filePath,
 			}
+
 			if item.BreakMin != nil {
 				bm := uint32(*item.BreakMin)
 				pbItem.BreakMin = &bm
 			}
+
+			if item.CustomTitle != "" {
+				ct := item.CustomTitle
+				pbItem.CustomTitle = &ct
+			}
+
 			pbItems = append(pbItems, pbItem)
 		}
 
@@ -553,4 +567,40 @@ func (s *ConcertService) RespondToConcertInvitation(ctx context.Context, req *co
 	}
 
 	return &concertpb.RespondToConcertInvitationResponse{Message: "Concert invitation processed successfully"}, nil
+}
+
+func (s *ConcertService) AddConcertItem(ctx context.Context, req *concertpb.AddConcertItemRequest) (*concertpb.AddConcertItemResponse, error) {
+	_, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
+	}
+
+	var breakMin *int
+	if req.BreakMin != nil {
+		bm := int(*req.BreakMin)
+		breakMin = &bm
+	}
+
+	var customTitle string
+	if req.CustomTitle != nil {
+		customTitle = *req.CustomTitle
+	}
+
+	item := models.ConcertItem{
+		ID:          uuid.New().String(),
+		ConcertID:   req.GetConcertId(),
+		SortOrder:   int(req.GetOrder()),
+		ScoreID:     req.ScoreId,
+		BreakMin:    breakMin,
+		CustomTitle: customTitle,
+	}
+
+	if err := s.db.Create(&item).Error; err != nil {
+		return nil, fmt.Errorf("failed to add item: %v", err)
+	}
+
+	return &concertpb.AddConcertItemResponse{
+		Id:      item.ID,
+		Message: "Item added successfully",
+	}, nil
 }

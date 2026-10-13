@@ -243,6 +243,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		var exitConcertBtn, prevSongBtn, nextSongBtn, prevPageBtn, nextPageBtn *TouchButton
 		var handleRemoteCommand func(action string)
 		var stopGaze func()
+		var toggleTimer func(remote bool)
 
 		var cloudConn *grpc.ClientConn
 		var p2pConn *grpc.ClientConn
@@ -288,6 +289,13 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		var currentPdfMgr *pdf.Manager
 		var viewerSize fyne.Size
 		var activeTimerStopChan chan struct{}
+
+		formatTimerText := func(sec int) string {
+			if sec < 0 {
+				sec = 0
+			}
+			return fmt.Sprintf("%02d:%02d", sec/60, sec%60)
+		}
 
 		metroAudio, _ := audio.NewMetronomeAudio()
 		metroIndicator := canvas.NewRectangle(theme.DisabledColor())
@@ -356,6 +364,10 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			if !isLeader || previewMode {
 				return
 			}
+			payload := "paused"
+			if isTimerRunning {
+				payload = "running"
+			}
 			req := &syncpb.SyncRequest{
 				ConcertId:    concert.ID,
 				Action:       syncpb.ActionType_STATE_UPDATE,
@@ -363,6 +375,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				ItemIndex:    uint32(currentSongIdx),
 				TimerSeconds: uint32(remainingSec),
 				IsLeader:     isLeader,
+				Payload:      payload,
 			}
 			if isConnectedCloud && syncStreamCloud != nil {
 				_ = syncStreamCloud.Send(req)
@@ -375,7 +388,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			if it.ScoreName != nil {
 				setlistTitles = append(setlistTitles, *it.ScoreName)
 			} else if it.BreakMin != nil {
-				setlistTitles = append(setlistTitles, fmt.Sprintf("Break (%d min)", *it.BreakMin))
+				t := "Break"
+				if it.CustomTitle != "" {
+					t = it.CustomTitle
+				}
+				setlistTitles = append(setlistTitles, fmt.Sprintf("%s (%d min)", t, *it.BreakMin))
 			} else {
 				setlistTitles = append(setlistTitles, "Unknown Item")
 			}
@@ -533,6 +550,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				leaderItemIdx = int(msg.GetItemIndex())
 				leaderPage = int(msg.GetPageNumber())
 				leaderTimer = int(msg.GetTimerSeconds())
+				leaderTimerRunning := msg.GetPayload() == "running"
 
 				if autoFollow {
 					needLoad := currentSongIdx != leaderItemIdx
@@ -545,13 +563,18 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					} else {
 						renderPage()
 					}
+
 					if timerClockLabel != nil {
-						isTimerRunning = false
-						if startPauseBtn != nil {
-							startPauseBtn.SetText("Start")
-							startPauseBtn.SetIcon(theme.MediaPlayIcon())
+						if leaderTimerRunning && !isTimerRunning {
+							if toggleTimer != nil {
+								toggleTimer(true)
+							}
+						} else if !leaderTimerRunning && isTimerRunning {
+							if toggleTimer != nil {
+								toggleTimer(true)
+							}
 						}
-						timerClockLabel.Text = fmt.Sprintf("%02d:%02d", remainingSec/60, remainingSec%60)
+						timerClockLabel.Text = formatTimerText(remainingSec)
 						timerClockLabel.Refresh()
 					}
 				}
@@ -823,8 +846,8 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 					prevSongBtn.OnTapped()
 				}
 			case "TOGGLE_TIMER":
-				if startPauseBtn != nil {
-					startPauseBtn.OnTapped()
+				if toggleTimer != nil {
+					toggleTimer(true)
 				}
 			case "LOCK_SCREEN":
 				isLocked = true
@@ -974,13 +997,6 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			updateRemoteState()
 		}
 
-		formatTimerText := func(sec int) string {
-			if sec < 0 {
-				sec = 0
-			}
-			return fmt.Sprintf("%02d:%02d", sec/60, sec%60)
-		}
-
 		loadCurrentSong = func(startAtEnd bool) {
 			stopCurrentTimer()
 			if metroAudio != nil {
@@ -998,8 +1014,15 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 			if item.BreakMin != nil {
 				breakDuration := *item.BreakMin
-				songTitleLabel.SetText(fmt.Sprintf("%d/%d: Break (%d min)", currentSongIdx+1, len(concert.Items), breakDuration))
-				pageLabel.SetText("Break")
+				tList := "Break"
+				tScreen := "STAGE BREAK"
+				if item.CustomTitle != "" {
+					tList = item.CustomTitle
+					tScreen = strings.ToUpper(item.CustomTitle)
+				}
+
+				songTitleLabel.SetText(fmt.Sprintf("%d/%d: %s (%d min)", currentSongIdx+1, len(concert.Items), tList, breakDuration))
+				pageLabel.SetText(tList)
 
 				if !isTimerRunning && (!autoFollow || isLeader) {
 					remainingSec = breakDuration * 60
@@ -1013,8 +1036,11 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 				timerStatusLabel = widget.NewLabelWithStyle("PAUSED", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 
-				startPauseBtn = NewTouchButtonWithIcon("Start", theme.MediaPlayIcon(), func() {
-					if !isLeader {
+				toggleTimer = func(remote bool) {
+					if timerClockLabel == nil {
+						return
+					}
+					if !remote && !isLeader {
 						autoFollow = false
 						updateSyncUI()
 					}
@@ -1024,8 +1050,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 						startPauseBtn.SetText("Start")
 						startPauseBtn.SetIcon(theme.MediaPlayIcon())
 						timerStatusLabel.SetText("PAUSED")
-						sendStateUpdate()
-						updateRemoteState()
+						if isLeader && !previewMode {
+							sendStateUpdate()
+						}
 					} else {
 						if remainingSec <= 0 {
 							return
@@ -1034,8 +1061,9 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 						startPauseBtn.SetText("Pause")
 						startPauseBtn.SetIcon(theme.MediaPauseIcon())
 						timerStatusLabel.SetText("COUNTDOWN IN PROGRESS")
-						sendStateUpdate()
-						updateRemoteState()
+						if isLeader && !previewMode {
+							sendStateUpdate()
+						}
 
 						stopCh := make(chan struct{})
 						activeTimerStopChan = stopCh
@@ -1057,7 +1085,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 										if remainingSec <= 0 {
 											isTimerRunning = false
 											if timerStatusLabel != nil {
-												timerStatusLabel.SetText("BREAK FINISHED!")
+												timerStatusLabel.SetText("FINISHED!")
 											}
 											if startPauseBtn != nil {
 												startPauseBtn.SetText("Start")
@@ -1072,6 +1100,10 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 							}
 						}(stopCh)
 					}
+				}
+
+				startPauseBtn = NewTouchButtonWithIcon("Start", theme.MediaPlayIcon(), func() {
+					toggleTimer(false)
 				})
 				startPauseBtn.Importance = widget.HighImportance
 
@@ -1128,7 +1160,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 				breakView := container.NewVBox(
 					layout.NewSpacer(),
-					widget.NewLabelWithStyle("STAGE BREAK", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+					widget.NewLabelWithStyle(tScreen, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 					timerClockLabel,
 					timerStatusLabel,
 					widget.NewLabel(""),
