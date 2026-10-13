@@ -568,3 +568,39 @@ func (s *ConcertService) RespondToConcertInvitation(ctx context.Context, req *co
 
 	return &concertpb.RespondToConcertInvitationResponse{Message: "Concert invitation processed successfully"}, nil
 }
+
+func (s *ConcertService) AddConcertItem(ctx context.Context, req *concertpb.AddConcertItemRequest) (*concertpb.AddConcertItemResponse, error) {
+	_, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: %v", err)
+	}
+
+	var breakMin *int
+	if req.BreakMin != nil {
+		bm := int(*req.BreakMin)
+		breakMin = &bm
+	}
+
+	var customTitle string
+	if req.CustomTitle != nil {
+		customTitle = *req.CustomTitle
+	}
+
+	item := models.ConcertItem{
+		ID:          uuid.New().String(),
+		ConcertID:   req.GetConcertId(),
+		SortOrder:   int(req.GetOrder()),
+		ScoreID:     req.ScoreId,
+		BreakMin:    breakMin,
+		CustomTitle: customTitle,
+	}
+
+	if err := s.db.Create(&item).Error; err != nil {
+		return nil, fmt.Errorf("failed to add item: %v", err)
+	}
+
+	return &concertpb.AddConcertItemResponse{
+		Id:      item.ID,
+		Message: "Item added successfully",
+	}, nil
+}
