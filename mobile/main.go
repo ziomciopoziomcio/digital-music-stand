@@ -28,7 +28,6 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
-	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpb"
@@ -39,6 +38,12 @@ type ScoreItem struct {
 	Title   string
 	OnLAN   bool
 	OnCloud bool
+}
+
+type DiscoveredDevice struct {
+	IP   string
+	PIN  string
+	Name string
 }
 
 func sanitizeAddress(addr string) string {
@@ -76,149 +81,157 @@ func main() {
 	httpClient := &http.Client{Timeout: 3 * time.Second}
 
 	showLogin = func() {
-		myWindow.SetContent(container.NewCenter(widget.NewLabel("Discovering tablet...")))
+		serverEntry := widget.NewEntry()
+		serverEntry.SetText(myApp.Preferences().StringWithFallback("server", "localhost:50051"))
+
+		emailEntry := widget.NewEntry()
+		emailEntry.SetText(myApp.Preferences().String("email"))
+
+		passEntry := widget.NewPasswordEntry()
+
+		tlsMode := myApp.Preferences().StringWithFallback("tls_mode", "AUTO")
+		tlsSelect := widget.NewSelect([]string{"AUTO", "ON", "OFF"}, nil)
+		tlsSelect.SetSelected(tlsMode)
+
+		discoveredListContainer := container.NewVBox(widget.NewLabelWithStyle("Searching for local tablets...", fyne.TextAlignCenter, fyne.TextStyle{Italic: true}))
 
 		go func() {
-			var localIP, localPIN string
-
 			connUDP, err := net.ListenPacket("udp4", ":0")
-			if err == nil {
-				addr, _ := net.ResolveUDPAddr("udp4", "255.255.255.255:8090")
-				connUDP.WriteTo([]byte("DMS_DISCOVER"), addr)
-				connUDP.SetReadDeadline(time.Now().Add(1500 * time.Millisecond))
-				buf := make([]byte, 1024)
-				n, srvAddr, err := connUDP.ReadFrom(buf)
-				if err == nil {
-					localIP = strings.Split(srvAddr.String(), ":")[0]
-					localPIN = string(buf[:n])
-				}
-				connUDP.Close()
-			}
-
-			tlsMode := myApp.Preferences().StringWithFallback("tls_mode", "AUTO")
-
-			if localIP != "" && localPIN != "" {
-				myApp.Preferences().SetString("local_ip", localIP)
-				myApp.Preferences().SetString("local_pin", localPIN)
-				showMain("", "", localIP, localPIN, tlsMode)
+			if err != nil {
+				discoveredListContainer.Objects = []fyne.CanvasObject{widget.NewLabel("Network discovery error")}
+				discoveredListContainer.Refresh()
 				return
 			}
+			defer connUDP.Close()
 
-			serverEntry := widget.NewEntry()
-			serverEntry.SetText(myApp.Preferences().StringWithFallback("server", "localhost:50051"))
+			addr, _ := net.ResolveUDPAddr("udp4", "255.255.255.255:8090")
+			connUDP.WriteTo([]byte("DMS_DISCOVER"), addr)
+			connUDP.SetReadDeadline(time.Now().Add(2 * time.Second))
 
-			emailEntry := widget.NewEntry()
-			emailEntry.SetText(myApp.Preferences().String("email"))
+			devicesMap := make(map[string]DiscoveredDevice)
 
-			passEntry := widget.NewPasswordEntry()
+			for {
+				buf := make([]byte, 1024)
+				n, srvAddr, err := connUDP.ReadFrom(buf)
+				if err != nil {
+					break
+				}
+				ip := strings.Split(srvAddr.String(), ":")[0]
+				payload := string(buf[:n])
+				parts := strings.SplitN(payload, "|", 2)
+				pin := parts[0]
+				name := "Tablet (" + ip + ")"
+				if len(parts) == 2 && parts[1] != "" {
+					name = parts[1]
+				}
+				devicesMap[ip] = DiscoveredDevice{IP: ip, PIN: pin, Name: name}
+			}
 
-			tlsSelect := widget.NewSelect([]string{"AUTO", "ON", "OFF"}, nil)
-			tlsSelect.SetSelected(tlsMode)
+			if len(devicesMap) == 0 {
+				discoveredListContainer.Objects = []fyne.CanvasObject{widget.NewLabelWithStyle("No local tablets found.", fyne.TextAlignCenter, fyne.TextStyle{})}
+			} else {
+				var items []fyne.CanvasObject
+				for _, d := range devicesMap {
+					dev := d
+					btn := widget.NewButtonWithIcon(dev.Name, theme.ComputerIcon(), func() {
+						pairProgress := dialog.NewCustomWithoutButtons("Waiting for tablet confirmation...", container.NewPadded(widget.NewProgressBarInfinite()), myWindow)
+						pairProgress.Show()
 
-			loginBtn := widget.NewButtonWithIcon("Login to Cloud", theme.LoginIcon(), func() {
-				server := serverEntry.Text
-				selectedTlsMode := tlsSelect.Selected
+						go func() {
+							url := fmt.Sprintf("http://%s:8089/api/pair", dev.IP)
+							req, _ := http.NewRequest("POST", url, nil)
+							req.Header.Set("X-Remote-PIN", dev.PIN)
+							pairClient := &http.Client{Timeout: 30 * time.Second}
+							resp, err := pairClient.Do(req)
 
-				myApp.Preferences().SetString("server", server)
-				myApp.Preferences().SetString("email", emailEntry.Text)
-				myApp.Preferences().SetString("tls_mode", selectedTlsMode)
+							pairProgress.Hide()
 
-				progress := dialog.NewCustomWithoutButtons("", container.NewPadded(widget.NewProgressBarInfinite()), myWindow)
-				progress.Show()
-
-				go func() {
-					cleanServer := sanitizeAddress(server)
-					useTLS := shouldUseTLS(server, selectedTlsMode)
-					creds := getTransportCredentials(useTLS)
-
-					conn, err := grpc.NewClient(cleanServer, grpc.WithTransportCredentials(creds))
-					if err != nil {
-						progress.Hide()
-						dialog.ShowError(err, myWindow)
-						return
-					}
-					defer conn.Close()
-
-					client := userpb.NewUserServiceClient(conn)
-					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-					defer cancel()
-
-					resp, err := client.LoginUser(ctx, &userpb.LoginUserRequest{
-						Email:    emailEntry.Text,
-						Password: passEntry.Text,
+							if err == nil && resp.StatusCode == 200 {
+								myApp.Preferences().SetString("local_ip", dev.IP)
+								myApp.Preferences().SetString("local_pin", dev.PIN)
+								showMain("", "", dev.IP, dev.PIN, tlsSelect.Selected)
+							} else {
+								dialog.ShowInformation("Pairing Rejected", "The tablet rejected the connection or timed out.", myWindow)
+							}
+						}()
 					})
-					progress.Hide()
-					if err != nil {
-						dialog.ShowError(err, myWindow)
-						return
-					}
-
-					myApp.Preferences().SetString("token", resp.GetToken())
-
-					concertClient := concertpb.NewConcertServiceClient(conn)
-					ctx2 := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+resp.GetToken())
-					concertsResp, err := concertClient.ListMyConcerts(ctx2, &concertpb.ListMyConcertsRequest{})
-					if err == nil && len(concertsResp.GetConcerts()) > 0 {
-						for _, c := range concertsResp.GetConcerts() {
-							syncClient := syncpb.NewLiveSyncServiceClient(conn)
-							streamCtx, streamCancel := context.WithCancel(ctx2)
-							defer streamCancel()
-							stream, err := syncClient.SyncConcertStream(streamCtx)
-							if err == nil {
-								_ = stream.Send(&syncpb.SyncRequest{
-									ConcertId: c.Id,
-									Action:    syncpb.ActionType_UNKNOWN_ACTION,
-								})
-								go func() { time.Sleep(1 * time.Second); streamCancel() }()
-								for {
-									msg, err := stream.Recv()
-									if err != nil {
-										break
-									}
-									if msg.GetAction() == syncpb.ActionType_BROADCAST_INFO {
-										parts := strings.Split(msg.GetPayload(), "|")
-										if len(parts) == 2 {
-											localIP = parts[0]
-											localPIN = parts[1]
-										}
-										break
-									}
-								}
-							}
-							if localIP != "" {
-								break
-							}
-						}
-					}
-
-					showMain(server, resp.GetToken(), localIP, localPIN, selectedTlsMode)
-				}()
-			})
-			loginBtn.Importance = widget.HighImportance
-
-			skipBtn := widget.NewButton("Skip & Work Offline", func() {
-				showMain("", "", "", "", tlsSelect.Selected)
-			})
-
-			form := container.NewVScroll(container.NewVBox(
-				widget.NewLabelWithStyle("Digital Music Stand", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
-				widget.NewSeparator(),
-				widget.NewLabel("Server:"),
-				serverEntry,
-				widget.NewLabel("TLS Mode:"),
-				tlsSelect,
-				widget.NewLabel("Email:"),
-				emailEntry,
-				widget.NewLabel("Password:"),
-				passEntry,
-				widget.NewLabel(""),
-				loginBtn,
-				widget.NewLabel(""),
-				skipBtn,
-			))
-
-			myWindow.SetContent(container.NewPadded(form))
+					items = append(items, btn)
+				}
+				discoveredListContainer.Objects = items
+			}
+			discoveredListContainer.Refresh()
 		}()
+
+		loginBtn := widget.NewButtonWithIcon("Login to Cloud", theme.LoginIcon(), func() {
+			server := serverEntry.Text
+			selectedTlsMode := tlsSelect.Selected
+
+			myApp.Preferences().SetString("server", server)
+			myApp.Preferences().SetString("email", emailEntry.Text)
+			myApp.Preferences().SetString("tls_mode", selectedTlsMode)
+
+			progress := dialog.NewCustomWithoutButtons("Authenticating...", container.NewPadded(widget.NewProgressBarInfinite()), myWindow)
+			progress.Show()
+
+			go func() {
+				cleanServer := sanitizeAddress(server)
+				useTLS := shouldUseTLS(server, selectedTlsMode)
+				creds := getTransportCredentials(useTLS)
+
+				conn, err := grpc.NewClient(cleanServer, grpc.WithTransportCredentials(creds))
+				if err != nil {
+					progress.Hide()
+					dialog.ShowError(err, myWindow)
+					return
+				}
+				defer conn.Close()
+
+				client := userpb.NewUserServiceClient(conn)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+
+				resp, err := client.LoginUser(ctx, &userpb.LoginUserRequest{
+					Email:    emailEntry.Text,
+					Password: passEntry.Text,
+				})
+				progress.Hide()
+				if err != nil {
+					dialog.ShowError(err, myWindow)
+					return
+				}
+
+				myApp.Preferences().SetString("token", resp.GetToken())
+				showMain(server, resp.GetToken(), "", "", selectedTlsMode)
+			}()
+		})
+		loginBtn.Importance = widget.HighImportance
+
+		skipBtn := widget.NewButton("Skip & Work Offline", func() {
+			showMain("", "", "", "", tlsSelect.Selected)
+		})
+
+		form := container.NewVScroll(container.NewVBox(
+			widget.NewLabelWithStyle("Digital Music Stand", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+			widget.NewSeparator(),
+			widget.NewLabelWithStyle("Local Network Discovery", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+			discoveredListContainer,
+			widget.NewSeparator(),
+			widget.NewLabelWithStyle("Cloud Connection", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+			widget.NewLabel("Server:"),
+			serverEntry,
+			widget.NewLabel("TLS Mode:"),
+			tlsSelect,
+			widget.NewLabel("Email:"),
+			emailEntry,
+			widget.NewLabel("Password:"),
+			passEntry,
+			widget.NewLabel(""),
+			loginBtn,
+			widget.NewLabel(""),
+			skipBtn,
+		))
+
+		myWindow.SetContent(container.NewPadded(form))
 	}
 
 	viewScore = func(ip, pin, server, token, scoreID, title string, startPage int, useLAN bool, tlsMode string) {
@@ -667,12 +680,14 @@ func main() {
 			container.NewTabItemWithIcon("Library", theme.DocumentIcon(), container.NewPadded(libraryContent)),
 		)
 
-		disconnectBtn := widget.NewButtonWithIcon("Logout", theme.LogoutIcon(), func() {
+		disconnectBtn := widget.NewButtonWithIcon("Disconnect & Forget", theme.LogoutIcon(), func() {
 			close(stopPolling)
 			if syncConn != nil {
 				syncConn.Close()
 			}
-			myApp.Preferences().SetString("token", "")
+			myApp.Preferences().RemoveValue("token")
+			myApp.Preferences().RemoveValue("local_ip")
+			myApp.Preferences().RemoveValue("local_pin")
 			showLogin()
 		})
 		disconnectBtn.Importance = widget.DangerImportance
@@ -680,6 +695,17 @@ func main() {
 		myWindow.SetContent(container.NewBorder(nil, disconnectBtn, nil, nil, tabs))
 	}
 
-	showLogin()
+	localIP := myApp.Preferences().String("local_ip")
+	localPIN := myApp.Preferences().String("local_pin")
+	token := myApp.Preferences().String("token")
+	server := myApp.Preferences().String("server")
+	tlsMode := myApp.Preferences().StringWithFallback("tls_mode", "AUTO")
+
+	if (localIP != "" && localPIN != "") || (token != "" && server != "") {
+		showMain(server, token, localIP, localPIN, tlsMode)
+	} else {
+		showLogin()
+	}
+
 	myWindow.ShowAndRun()
 }
