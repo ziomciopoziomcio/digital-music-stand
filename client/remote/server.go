@@ -22,6 +22,7 @@ import (
 )
 
 type ConcertState struct {
+	ConcertID      string   `json:"concert_id"`
 	ConcertName    string   `json:"concert_name"`
 	CurrentItemIdx int      `json:"current_item_idx"`
 	CurrentPage    int      `json:"current_page"`
@@ -62,17 +63,15 @@ type Server struct {
 	ProfileName     string
 	PairRequestChan chan PairRequest
 
-	server *http.Server
-	port   int
-	db     *localdb.DBManager
-
+	server       *http.Server
+	port         int
+	db           *localdb.DBManager
 	grpcServer   *grpc.Server
 	grpcPort     int
 	localStreams map[string]map[syncpb.LiveSyncService_SyncConcertStreamServer]bool
 	peers        map[string]PeerInfo
-
-	isLeading bool
-	activeCID string
+	isLeading    bool
+	activeCID    string
 }
 
 func NewServer(port int, db *localdb.DBManager, profileName string) *Server {
@@ -99,6 +98,7 @@ func (s *Server) Start() {
 	mux.HandleFunc("/api/pair", s.handlePair)
 
 	s.server = &http.Server{Addr: fmt.Sprintf("0.0.0.0:%d", s.port), Handler: mux}
+
 	go s.server.ListenAndServe()
 	go s.startUDPDiscovery()
 
@@ -107,10 +107,9 @@ func (s *Server) Start() {
 		s.grpcServer = grpc.NewServer()
 		syncpb.RegisterLiveSyncServiceServer(s.grpcServer, s)
 		go s.grpcServer.Serve(lis)
+		go s.p2pBroadcastLoop()
+		go s.p2pListenLoop()
 	}
-
-	go s.p2pBroadcastLoop()
-	go s.p2pListenLoop()
 }
 
 func (s *Server) SetLeading(concertID string, leading bool) {
@@ -150,6 +149,7 @@ func (s *Server) p2pListenLoop() {
 		return
 	}
 	defer conn.Close()
+
 	buf := make([]byte, 1024)
 	for {
 		n, _, err := conn.ReadFromUDP(buf)
@@ -180,6 +180,7 @@ func (s *Server) p2pListenLoop() {
 func (s *Server) GetDiscoveredPeers() []PeerInfo {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	var list []PeerInfo
 	now := time.Now()
 	for _, p := range s.peers {
@@ -193,6 +194,7 @@ func (s *Server) GetDiscoveredPeers() []PeerInfo {
 func (s *Server) GetPeerForConcert(concertID string) (PeerInfo, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	p, ok := s.peers[concertID]
 	if ok && time.Since(p.LastSeen) < 10*time.Second {
 		return p, true
@@ -205,8 +207,8 @@ func (s *Server) SyncConcertStream(stream syncpb.LiveSyncService_SyncConcertStre
 	if err != nil {
 		return err
 	}
-
 	cid := req.GetConcertId()
+
 	s.mu.Lock()
 	if s.localStreams[cid] == nil {
 		s.localStreams[cid] = make(map[syncpb.LiveSyncService_SyncConcertStreamServer]bool)
@@ -295,8 +297,10 @@ func (s *Server) auth(w http.ResponseWriter, r *http.Request) bool {
 	s.mu.RLock()
 	valid := (pin == s.PIN)
 	s.mu.RUnlock()
+
 	if !valid {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return valid
 	}
 	return valid
 }
@@ -321,8 +325,8 @@ func (s *Server) handleCommand(w http.ResponseWriter, r *http.Request) {
 		case s.CommandChan <- cmd:
 		default:
 		}
-		w.WriteHeader(http.StatusOK)
 	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) handleScores(w http.ResponseWriter, r *http.Request) {
@@ -351,10 +355,12 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Score not found", http.StatusNotFound)
 		return
 	}
+
 	if _, err := os.Stat(filePath); err != nil {
 		http.Error(w, "File not found", http.StatusNotFound)
 		return
 	}
+
 	mgr, err := pdf.NewManager(filePath)
 	if err != nil {
 		http.Error(w, "PDF error", http.StatusInternalServerError)
