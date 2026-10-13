@@ -241,7 +241,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		}
 
 		var exitConcertBtn, prevSongBtn, nextSongBtn, prevPageBtn, nextPageBtn *TouchButton
-		var handleRemoteCommand func(action string)
+		var handleRemoteCommand func(cmd remote.Command)
 		var stopGaze func()
 		var toggleTimer func(remote bool)
 
@@ -423,6 +423,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				}
 			}
 			remoteServer.SetState(remote.ConcertState{
+				ConcertID:      concert.ID,
 				ConcertName:    concert.Name,
 				CurrentItemIdx: currentSongIdx,
 				CurrentPage:    currentPage,
@@ -520,40 +521,61 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				return
 			}
 
-			if isLeader && !previewMode {
-				if msg.GetAction() == syncpb.ActionType_UNKNOWN_ACTION {
-					ip := webserver.GetLocalIP()
-					pin := remoteServer.GetPIN()
-					payload := fmt.Sprintf("%s|%s", ip, pin)
-					if isConnectedCloud && syncStreamCloud != nil {
-						_ = syncStreamCloud.Send(&syncpb.SyncRequest{
-							ConcertId: concert.ID,
-							Action:    syncpb.ActionType_BROADCAST_INFO,
-							Payload:   payload,
-							IsLeader:  true,
-						})
-					}
+			if msg.GetAction() == syncpb.ActionType_UNKNOWN_ACTION {
+				ip := webserver.GetLocalIP()
+				pin := remoteServer.GetPIN()
+				payload := fmt.Sprintf("%s|%s", ip, pin)
+				if isConnectedCloud && syncStreamCloud != nil {
+					_ = syncStreamCloud.Send(&syncpb.SyncRequest{
+						ConcertId: concert.ID,
+						Action:    syncpb.ActionType_BROADCAST_INFO,
+						Payload:   payload,
+						IsLeader:  isLeader,
+					})
 				}
-				switch msg.GetAction() {
-				case syncpb.ActionType_NEXT_PAGE:
-					if handleRemoteCommand != nil {
-						handleRemoteCommand("NEXT_PAGE")
+				return
+			}
+
+			if msg.GetAction() == syncpb.ActionType_NEXT_PAGE ||
+				msg.GetAction() == syncpb.ActionType_PREV_PAGE ||
+				msg.GetAction() == syncpb.ActionType_NEXT_ITEM ||
+				msg.GetAction() == syncpb.ActionType_PREV_ITEM ||
+				msg.GetAction() == syncpb.ActionType_TOGGLE_TIMER ||
+				msg.GetAction() == syncpb.ActionType_LOCK_SCREEN ||
+				msg.GetAction() == syncpb.ActionType_UNLOCK_SCREEN ||
+				msg.GetAction() == syncpb.ActionType_JUMP_TO_ITEM {
+
+				payload := msg.GetPayload()
+				myPIN := remoteServer.GetPIN()
+
+				if strings.HasPrefix(payload, myPIN) {
+					actualPayload := strings.TrimPrefix(payload, myPIN)
+					actualPayload = strings.TrimPrefix(actualPayload, "|")
+
+					actionStr := ""
+					switch msg.GetAction() {
+					case syncpb.ActionType_NEXT_PAGE:
+						actionStr = "NEXT_PAGE"
+					case syncpb.ActionType_PREV_PAGE:
+						actionStr = "PREV_PAGE"
+					case syncpb.ActionType_NEXT_ITEM:
+						actionStr = "NEXT_ITEM"
+					case syncpb.ActionType_PREV_ITEM:
+						actionStr = "PREV_ITEM"
+					case syncpb.ActionType_TOGGLE_TIMER:
+						actionStr = "TOGGLE_TIMER"
+					case syncpb.ActionType_LOCK_SCREEN:
+						actionStr = "LOCK_SCREEN"
+					case syncpb.ActionType_UNLOCK_SCREEN:
+						actionStr = "UNLOCK_SCREEN"
+					case syncpb.ActionType_JUMP_TO_ITEM:
+						actionStr = "JUMP_TO_ITEM"
 					}
-				case syncpb.ActionType_PREV_PAGE:
-					if handleRemoteCommand != nil {
-						handleRemoteCommand("PREV_PAGE")
-					}
-				case syncpb.ActionType_NEXT_ITEM:
-					if handleRemoteCommand != nil {
-						handleRemoteCommand("NEXT_ITEM")
-					}
-				case syncpb.ActionType_PREV_ITEM:
-					if handleRemoteCommand != nil {
-						handleRemoteCommand("PREV_ITEM")
-					}
-				case syncpb.ActionType_TOGGLE_TIMER:
-					if handleRemoteCommand != nil {
-						handleRemoteCommand("TOGGLE_TIMER")
+
+					remoteServer.CommandChan <- remote.Command{
+						Action:  actionStr,
+						Value:   int(msg.GetItemIndex()),
+						Payload: actualPayload,
 					}
 				}
 				return
@@ -784,6 +806,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 		topSyncControls := container.NewHBox(
 			syncStatusLabel,
+			syncNowBtn,
 			joinBtn,
 			leadBtn,
 			previewBtn,
@@ -820,25 +843,26 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 		}
 		lockOverlay.Hide()
 
-		handleRemoteCommand = func(action string) {
+		handleRemoteCommand = func(cmd remote.Command) {
+			action := cmd.Action
 			if isLocked && action != "UNLOCK_SCREEN" && action != "TOGGLE_TIMER" {
 				return
 			}
 			switch action {
 			case "NEXT_PAGE":
-				if nextPageBtn != nil {
+				if nextPageBtn != nil && !nextPageBtn.Disabled() {
 					nextPageBtn.OnTapped()
 				}
 			case "PREV_PAGE":
-				if prevPageBtn != nil {
+				if prevPageBtn != nil && !prevPageBtn.Disabled() {
 					prevPageBtn.OnTapped()
 				}
 			case "NEXT_ITEM":
-				if nextSongBtn != nil {
+				if nextSongBtn != nil && !nextSongBtn.Disabled() {
 					nextSongBtn.OnTapped()
 				}
 			case "PREV_ITEM":
-				if prevSongBtn != nil {
+				if prevSongBtn != nil && !prevSongBtn.Disabled() {
 					prevSongBtn.OnTapped()
 				}
 			case "TOGGLE_TIMER":
@@ -853,6 +877,16 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				isLocked = false
 				lockOverlay.Hide()
 				updateRemoteState()
+			case "JUMP_TO_ITEM":
+				if !isLeader {
+					autoFollow = false
+				}
+				if cmd.Value >= 0 && cmd.Value < len(concert.Items) {
+					currentSongIdx = cmd.Value
+					loadCurrentSong(false)
+					sendStateUpdate()
+					updateSyncUI()
+				}
 			}
 		}
 
@@ -866,7 +900,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				case <-stopClockChan:
 					return
 				case cmd := <-remoteServer.CommandChan:
-					handleRemoteCommand(cmd.Action)
+					handleRemoteCommand(cmd)
 				}
 			}
 		}()
@@ -1388,7 +1422,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			widget.NewLabel(" "),
 			prevSongBtn, nextSongBtn,
 		)
-		topBar := container.NewBorder(nil, nil, exitConcertBtn, topRightControls, songTitleLabel, NewClockWidget())
+		topBar := container.NewBorder(nil, nil, exitConcertBtn, topRightControls, songTitleLabel)
 
 		viewer := NewResponsiveViewer(func(size fyne.Size) {
 			viewerSize = size

@@ -393,11 +393,16 @@ func main() {
 				ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token)
 				stream, err := syncClient.SyncConcertStream(ctx)
 				if err == nil {
+					targetPayload := localPIN
+					if payloadStr != "" {
+						targetPayload = localPIN + "|" + payloadStr
+					}
+
 					_ = stream.Send(&syncpb.SyncRequest{
 						ConcertId: activeConcertID,
 						Action:    grpcAction,
-						IsLeader:  true,
-						Payload:   payloadStr,
+						IsLeader:  false,
+						Payload:   targetPayload,
 						ItemIndex: uint32(val),
 					})
 				}
@@ -477,6 +482,9 @@ func main() {
 						if resp, err := httpClient.Do(req); err == nil && resp.StatusCode == 200 {
 							var state map[string]interface{}
 							if json.NewDecoder(resp.Body).Decode(&state) == nil {
+								if cid, ok := state["concert_id"].(string); ok {
+									activeConcertID = cid
+								}
 								name := state["concert_name"].(string)
 								page := int(state["current_page"].(float64))
 								total := int(state["total_pages"].(float64))
