@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"image/color"
 	"strings"
@@ -521,6 +522,38 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 				return
 			}
 
+			if msg.GetAction() == syncpb.ActionType_REQUEST_STATE {
+				ip := webserver.GetLocalIP()
+				pin := remoteServer.GetPIN()
+
+				stateMap := map[string]interface{}{
+					"concert_id":       concert.ID,
+					"concert_name":     concert.Name,
+					"current_item_idx": currentSongIdx,
+					"current_page":     currentPage,
+					"total_pages":      totalPages,
+					"is_timer_running": isTimerRunning,
+					"timer_seconds":    remainingSec,
+					"is_locked":        isLocked,
+					"setlist":          setlistTitles,
+				}
+				if currentPdfMgr != nil && currentSongIdx < len(concert.Items) && concert.Items[currentSongIdx].ScoreID != nil {
+					stateMap["current_score_id"] = *concert.Items[currentSongIdx].ScoreID
+				}
+				stateBytes, _ := json.Marshal(stateMap)
+				payload := fmt.Sprintf("%s|%s|%s", ip, pin, string(stateBytes))
+
+				if isConnectedCloud && syncStreamCloud != nil {
+					_ = syncStreamCloud.Send(&syncpb.SyncRequest{
+						ConcertId: concert.ID,
+						Action:    syncpb.ActionType_BROADCAST_INFO,
+						Payload:   payload,
+						IsLeader:  isLeader,
+					})
+				}
+				return
+			}
+
 			if msg.GetAction() == syncpb.ActionType_UNKNOWN_ACTION {
 				ip := webserver.GetLocalIP()
 				pin := remoteServer.GetPIN()
@@ -647,7 +680,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 			_ = stream.Send(&syncpb.SyncRequest{
 				ConcertId: concert.ID,
-				Action:    syncpb.ActionType_UNKNOWN_ACTION,
+				Action:    syncpb.ActionType_REQUEST_STATE,
 				IsLeader:  false,
 			})
 
@@ -691,7 +724,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 
 			_ = stream.Send(&syncpb.SyncRequest{
 				ConcertId: concert.ID,
-				Action:    syncpb.ActionType_UNKNOWN_ACTION,
+				Action:    syncpb.ActionType_REQUEST_STATE,
 				IsLeader:  false,
 			})
 

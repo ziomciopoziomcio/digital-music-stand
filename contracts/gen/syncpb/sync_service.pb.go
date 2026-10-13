@@ -37,6 +37,7 @@ const (
 	ActionType_LOCK_SCREEN    ActionType = 10
 	ActionType_UNLOCK_SCREEN  ActionType = 11
 	ActionType_JUMP_TO_ITEM   ActionType = 12
+	ActionType_REQUEST_STATE  ActionType = 13
 )
 
 // Enum value maps for ActionType.
@@ -55,6 +56,7 @@ var (
 		10: "LOCK_SCREEN",
 		11: "UNLOCK_SCREEN",
 		12: "JUMP_TO_ITEM",
+		13: "REQUEST_STATE",
 	}
 	ActionType_value = map[string]int32{
 		"UNKNOWN_ACTION": 0,
@@ -70,6 +72,7 @@ var (
 		"LOCK_SCREEN":    10,
 		"UNLOCK_SCREEN":  11,
 		"JUMP_TO_ITEM":   12,
+		"REQUEST_STATE":  13,
 	}
 )
 
@@ -347,7 +350,7 @@ const file_contracts_proto_sync_service_proto_rawDesc = "" +
 	"\tis_leader\x18\b \x01(\bR\bisLeader\x12!\n" +
 	"\ftimestamp_ms\x18\t \x01(\x03R\vtimestampMs\x12\x18\n" +
 	"\apayload\x18\n" +
-	" \x01(\tR\apayload*\xf0\x01\n" +
+	" \x01(\tR\apayload*\x83\x02\n" +
 	"\n" +
 	"ActionType\x12\x12\n" +
 	"\x0eUNKNOWN_ACTION\x10\x00\x12\x10\n" +
@@ -363,7 +366,8 @@ const file_contracts_proto_sync_service_proto_rawDesc = "" +
 	"\vLOCK_SCREEN\x10\n" +
 	"\x12\x11\n" +
 	"\rUNLOCK_SCREEN\x10\v\x12\x10\n" +
-	"\fJUMP_TO_ITEM\x10\f2y\n" +
+	"\fJUMP_TO_ITEM\x10\f\x12\x11\n" +
+	"\rREQUEST_STATE\x10\r2y\n" +
 	"\x0fLiveSyncService\x12f\n" +
 	"\x11SyncConcertStream\x12%.digital_music_stand.sync.SyncRequest\x1a&.digital_music_stand.sync.SyncResponse(\x010\x01BFZDgithub.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpbb\x06proto3"
 
