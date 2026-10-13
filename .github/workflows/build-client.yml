@@ -45,20 +45,18 @@ jobs:
           fyne-cross linux -arch=amd64 -dir=client -name=dms-linux-amd64 -debug -app-id=com.digitalmusicstand.client
 
       # 3. Linux (ARM 64-bit)
-      - name: Build Linux arm64
-        run: |
-          fyne-cross linux -arch=arm64 -dir=client -name=dms-linux-arm64 -debug -app-id=com.digitalmusicstand.client
+      #- name: Build Linux arm64
+      #  run: |
+      #    fyne-cross linux -arch=arm64 -dir=client -name=dms-linux-arm64 -debug -app-id=com.digitalmusicstand.client
           
       - name: Extract raw Linux binaries
         run: |
           cd client
           
           AMD_TAR=$(find fyne-cross -name "dms-linux-amd64.tar.xz" | head -n 1)
-          ARM_TAR=$(find fyne-cross -name "dms-linux-arm64.tar.xz" | head -n 1)
           
           mkdir -p tmp_extract
           mkdir -p fyne-cross/bin/linux-amd64
-          mkdir -p fyne-cross/bin/linux-arm64
           
           tar -xf "$AMD_TAR" -C tmp_extract/
           AMD_BIN=$(find tmp_extract -type f -path "*/bin/*" | head -n 1)
@@ -66,12 +64,7 @@ jobs:
           
           rm -rf tmp_extract/*
           
-          tar -xf "$ARM_TAR" -C tmp_extract/
-          ARM_BIN=$(find tmp_extract -type f -path "*/bin/*" | head -n 1)
-          mv "$ARM_BIN" fyne-cross/bin/linux-arm64/dms-linux-arm64
-          
           chmod +x fyne-cross/bin/linux-amd64/dms-linux-amd64
-          chmod +x fyne-cross/bin/linux-arm64/dms-linux-arm64
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
@@ -79,7 +72,6 @@ jobs:
           files: |
             client/fyne-cross/bin/windows-amd64/dms-windows-amd64.exe
             client/fyne-cross/bin/linux-amd64/dms-linux-amd64
-            client/fyne-cross/bin/linux-arm64/dms-linux-arm64
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
