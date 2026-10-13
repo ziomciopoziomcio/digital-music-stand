@@ -358,7 +358,8 @@ func main() {
 		fastClient := &http.Client{Timeout: 500 * time.Millisecond}
 		stopPolling := make(chan struct{})
 
-		infoLabel := widget.NewLabelWithStyle("Fetching state...", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+		infoLabel := widget.NewLabelWithStyle("Fetching state...", fyne.TextAlignCenter, fyne.TextStyle{})
+		itemInfoLabel := widget.NewLabelWithStyle("-", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 		pageInfoLabel := widget.NewLabelWithStyle("-", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
 
 		connStatusLabel := canvas.NewText("Connecting...", theme.DisabledColor())
@@ -408,6 +409,13 @@ func main() {
 				}
 			}
 		}
+
+		prevItemBtn := widget.NewButtonWithIcon("Previous Item", theme.MediaSkipPreviousIcon(), func() {
+			sendCommand("PREV_ITEM", syncpb.ActionType_PREV_ITEM, "", 0)
+		})
+		nextItemBtn := widget.NewButtonWithIcon("Next Item", theme.MediaSkipNextIcon(), func() {
+			sendCommand("NEXT_ITEM", syncpb.ActionType_NEXT_ITEM, "", 0)
+		})
 
 		prevPageBtn := widget.NewButtonWithIcon("Previous Page", theme.NavigateBackIcon(), func() {
 			sendCommand("PREV_PAGE", syncpb.ActionType_PREV_PAGE, "", 0)
@@ -523,9 +531,17 @@ func main() {
 
 								if name == "" {
 									infoLabel.SetText("Tablet is idle")
+									itemInfoLabel.SetText("-")
 									pageInfoLabel.SetText("")
 								} else {
 									infoLabel.SetText(name)
+
+									if len(setlistTitles) > 0 && currentItemIdx >= 0 && currentItemIdx < len(setlistTitles) {
+										itemInfoLabel.SetText(fmt.Sprintf("Item %d/%d: %s", currentItemIdx+1, len(setlistTitles), setlistTitles[currentItemIdx]))
+									} else {
+										itemInfoLabel.SetText("-")
+									}
+
 									if total > 0 {
 										pageInfoLabel.SetText(fmt.Sprintf("Page %d of %d", page+1, total))
 									} else {
@@ -545,6 +561,8 @@ func main() {
 										}
 										prevPageBtn.Disable()
 										nextPageBtn.Disable()
+										prevItemBtn.Disable()
+										nextItemBtn.Disable()
 									} else {
 										lockBtn.SetText("Lock Tablet")
 										lockBtn.SetIcon(theme.LogoutIcon())
@@ -553,6 +571,8 @@ func main() {
 										}
 										prevPageBtn.Enable()
 										nextPageBtn.Enable()
+										prevItemBtn.Enable()
+										nextItemBtn.Enable()
 									}
 								}
 
@@ -570,12 +590,14 @@ func main() {
 							connStatusLabel.Color = theme.WarningColor()
 							connStatusLabel.Refresh()
 							infoLabel.SetText("Waiting for stage data...")
+							itemInfoLabel.SetText("-")
 							pageInfoLabel.SetText("")
 						} else {
 							connStatusLabel.Text = "Link: Offline"
 							connStatusLabel.Color = theme.ErrorColor()
 							connStatusLabel.Refresh()
 							infoLabel.SetText("No connection")
+							itemInfoLabel.SetText("-")
 							pageInfoLabel.SetText("")
 						}
 					}
@@ -585,12 +607,16 @@ func main() {
 
 		remoteContent := container.NewVBox(
 			infoLabel,
+			itemInfoLabel,
 			pageInfoLabel,
 			widget.NewSeparator(),
+			widget.NewLabel(""),
+			container.NewGridWithColumns(2, prevItemBtn, nextItemBtn),
 			widget.NewLabel(""),
 			container.NewGridWithColumns(2, prevPageBtn, nextPageBtn),
 			widget.NewLabel(""),
 			container.NewGridWithColumns(2, timerBtn, lockBtn),
+			widget.NewLabel(""),
 			previewBtn,
 			layout.NewSpacer(),
 			container.NewCenter(connStatusLabel),
