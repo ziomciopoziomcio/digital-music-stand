@@ -3,6 +3,8 @@ package ui
 import (
 	"sync"
 	"time"
+
+	"fyne.io/fyne/v2/widget"
 )
 
 func ThrottledSliderHandler(delay time.Duration, action func(int)) func(float64) {
@@ -37,4 +39,17 @@ func ThrottledSliderHandler(delay time.Duration, action func(int)) func(float64)
 			})
 		}
 	}
+}
+
+func NewClockWidget() *widget.Label {
+	clock := widget.NewLabel(time.Now().Format("15:04:05"))
+
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		for range ticker.C {
+			clock.SetText(time.Now().Format("15:04:05"))
+		}
+	}()
+
+	return clock
 }

@@ -1355,7 +1355,7 @@ func BuildConcertMode(w fyne.Window, app fyne.App, db *localdb.DBManager, remote
 			widget.NewLabel(" "),
 			prevSongBtn, nextSongBtn,
 		)
-		topBar := container.NewBorder(nil, nil, exitConcertBtn, topRightControls, songTitleLabel)
+		topBar := container.NewBorder(nil, nil, exitConcertBtn, topRightControls, songTitleLabel, NewClockWidget())
 
 		viewer := NewResponsiveViewer(func(size fyne.Size) {
 			viewerSize = size

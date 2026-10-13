@@ -207,7 +207,7 @@ func BuildPracticeMode(w fyne.Window, app fyne.App, db *localdb.DBManager, profi
 		titleLabel := widget.NewLabelWithStyle(score.DisplayTitle(), fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 		topBarControls := container.NewHBox(exitBtn, widget.NewLabel("  "), recIndicatorContainer, widget.NewLabel(" "), metroIndicatorContainer)
-		topBar := container.NewBorder(nil, nil, topBarControls, nil, titleLabel)
+		topBar := container.NewBorder(nil, nil, topBarControls, nil, titleLabel, NewClockWidget())
 
 		toolsBtn := NewTouchButtonWithIcon("Tools", theme.SettingsIcon(), func() {
 			ShowToolsMenu(w, app, metroAudio, recorderAudio, nil, db, score.ID, score.Title, profilePath, func(cb func(bool)) {

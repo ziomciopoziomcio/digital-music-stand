@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"time"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
@@ -12,9 +10,6 @@ import (
 )
 
 func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin func(), openPractice func(), openConcert func(), openPairing func(), openInbox func(), openProfile func(), isCloudConnected func() bool, hasCredentials func() bool, forceSync func()) *fyne.Container {
-	clock := widget.NewLabel(time.Now().Format("15:04"))
-	clock.TextStyle = fyne.TextStyle{Bold: true}
-
 	statusText := "Offline"
 	statusIcon := theme.WarningIcon()
 
@@ -44,7 +39,7 @@ func BuildDashboard(w fyne.Window, app fyne.App, openSettings func(), openLogin 
 	}
 
 	topBar := container.NewHBox(
-		clock,
+		NewClockWidget(),
 		layout.NewSpacer(),
 		syncBtn,
 		inboxBtn,
