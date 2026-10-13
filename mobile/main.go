@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,15 +22,16 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/ziomciopoziomcio/digital-music-stand/client/pdf"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/concertpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/scorepb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/syncpb"
 	"github.com/ziomciopoziomcio/digital-music-stand/contracts/gen/userpb"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 )
 
 type ScoreItem struct {
@@ -39,14 +41,37 @@ type ScoreItem struct {
 	OnCloud bool
 }
 
+func sanitizeAddress(addr string) string {
+	addr = strings.TrimPrefix(addr, "https://")
+	addr = strings.TrimPrefix(addr, "http://")
+	return strings.TrimRight(addr, "/")
+}
+
+func shouldUseTLS(serverAddr, mode string) bool {
+	if mode == "ON" {
+		return true
+	}
+	if mode == "OFF" {
+		return false
+	}
+	return strings.HasSuffix(serverAddr, ":443") || strings.HasPrefix(serverAddr, "https://")
+}
+
+func getTransportCredentials(useTLS bool) credentials.TransportCredentials {
+	if useTLS {
+		return credentials.NewTLS(&tls.Config{})
+	}
+	return insecure.NewCredentials()
+}
+
 func main() {
 	myApp := app.NewWithID("com.digitalmusicstand.mobile")
 	myWindow := myApp.NewWindow("DMS Remote")
 	myWindow.Resize(fyne.NewSize(360, 800))
 
 	var showLogin func()
-	var showMain func(server, token, localIP, localPIN string)
-	var viewScore func(ip, pin, server, token, scoreID, title string, startPage int, useLAN bool)
+	var showMain func(server, token, localIP, localPIN string, tlsMode string)
+	var viewScore func(ip, pin, server, token, scoreID, title string, startPage int, useLAN bool, tlsMode string)
 
 	httpClient := &http.Client{Timeout: 3 * time.Second}
 
@@ -55,6 +80,7 @@ func main() {
 
 		go func() {
 			var localIP, localPIN string
+
 			connUDP, err := net.ListenPacket("udp4", ":0")
 			if err == nil {
 				addr, _ := net.ResolveUDPAddr("udp4", "255.255.255.255:8090")
@@ -69,29 +95,43 @@ func main() {
 				connUDP.Close()
 			}
 
+			tlsMode := myApp.Preferences().StringWithFallback("tls_mode", "AUTO")
+
 			if localIP != "" && localPIN != "" {
 				myApp.Preferences().SetString("local_ip", localIP)
 				myApp.Preferences().SetString("local_pin", localPIN)
-				showMain("", "", localIP, localPIN)
+				showMain("", "", localIP, localPIN, tlsMode)
 				return
 			}
 
 			serverEntry := widget.NewEntry()
 			serverEntry.SetText(myApp.Preferences().StringWithFallback("server", "localhost:50051"))
+
 			emailEntry := widget.NewEntry()
 			emailEntry.SetText(myApp.Preferences().String("email"))
+
 			passEntry := widget.NewPasswordEntry()
+
+			tlsSelect := widget.NewSelect([]string{"AUTO", "ON", "OFF"}, nil)
+			tlsSelect.SetSelected(tlsMode)
 
 			loginBtn := widget.NewButtonWithIcon("Login to Cloud", theme.LoginIcon(), func() {
 				server := serverEntry.Text
+				selectedTlsMode := tlsSelect.Selected
+
 				myApp.Preferences().SetString("server", server)
 				myApp.Preferences().SetString("email", emailEntry.Text)
+				myApp.Preferences().SetString("tls_mode", selectedTlsMode)
 
 				progress := dialog.NewCustomWithoutButtons("", container.NewPadded(widget.NewProgressBarInfinite()), myWindow)
 				progress.Show()
 
 				go func() {
-					conn, err := grpc.NewClient(server, grpc.WithTransportCredentials(insecure.NewCredentials()))
+					cleanServer := sanitizeAddress(server)
+					useTLS := shouldUseTLS(server, selectedTlsMode)
+					creds := getTransportCredentials(useTLS)
+
+					conn, err := grpc.NewClient(cleanServer, grpc.WithTransportCredentials(creds))
 					if err != nil {
 						progress.Hide()
 						dialog.ShowError(err, myWindow)
@@ -108,7 +148,6 @@ func main() {
 						Password: passEntry.Text,
 					})
 					progress.Hide()
-
 					if err != nil {
 						dialog.ShowError(err, myWindow)
 						return
@@ -119,7 +158,6 @@ func main() {
 					concertClient := concertpb.NewConcertServiceClient(conn)
 					ctx2 := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+resp.GetToken())
 					concertsResp, err := concertClient.ListMyConcerts(ctx2, &concertpb.ListMyConcertsRequest{})
-
 					if err == nil && len(concertsResp.GetConcerts()) > 0 {
 						for _, c := range concertsResp.GetConcerts() {
 							syncClient := syncpb.NewLiveSyncServiceClient(conn)
@@ -142,8 +180,8 @@ func main() {
 										if len(parts) == 2 {
 											localIP = parts[0]
 											localPIN = parts[1]
-											break
 										}
+										break
 									}
 								}
 							}
@@ -153,36 +191,42 @@ func main() {
 						}
 					}
 
-					showMain(server, resp.GetToken(), localIP, localPIN)
+					showMain(server, resp.GetToken(), localIP, localPIN, selectedTlsMode)
 				}()
 			})
 			loginBtn.Importance = widget.HighImportance
 
 			skipBtn := widget.NewButton("Skip & Work Offline", func() {
-				showMain("", "", "", "")
+				showMain("", "", "", "", tlsSelect.Selected)
 			})
 
 			form := container.NewVScroll(container.NewVBox(
 				widget.NewLabelWithStyle("Digital Music Stand", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 				widget.NewSeparator(),
-				widget.NewLabel("Server:"), serverEntry,
-				widget.NewLabel("Email:"), emailEntry,
-				widget.NewLabel("Password:"), passEntry,
+				widget.NewLabel("Server:"),
+				serverEntry,
+				widget.NewLabel("TLS Mode:"),
+				tlsSelect,
+				widget.NewLabel("Email:"),
+				emailEntry,
+				widget.NewLabel("Password:"),
+				passEntry,
 				widget.NewLabel(""),
 				loginBtn,
 				widget.NewLabel(""),
 				skipBtn,
 			))
+
 			myWindow.SetContent(container.NewPadded(form))
 		}()
 	}
 
-	viewScore = func(ip, pin, server, token, scoreID, title string, startPage int, useLAN bool) {
+	viewScore = func(ip, pin, server, token, scoreID, title string, startPage int, useLAN bool, tlsMode string) {
 		page := startPage
 		imgCanvas := canvas.NewImageFromResource(nil)
 		imgCanvas.FillMode = canvas.ImageFillContain
-		pageLabel := widget.NewLabelWithStyle("Loading...", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
+		pageLabel := widget.NewLabelWithStyle("Loading...", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 		var pdfMgr *pdf.Manager
 		var totalPages int
 
@@ -191,7 +235,6 @@ func main() {
 				url := fmt.Sprintf("http://%s:8089/api/render?id=%s&page=%d", ip, scoreID, page)
 				req, _ := http.NewRequest("GET", url, nil)
 				req.Header.Set("X-Remote-PIN", pin)
-
 				resp, err := httpClient.Do(req)
 				if err != nil || resp.StatusCode != 200 {
 					if page > 0 {
@@ -221,15 +264,18 @@ func main() {
 			progress.Show()
 
 			go func() {
-				conn, _ := grpc.NewClient(server, grpc.WithTransportCredentials(insecure.NewCredentials()))
-				defer conn.Close()
+				cleanServer := sanitizeAddress(server)
+				useTLS := shouldUseTLS(server, tlsMode)
+				creds := getTransportCredentials(useTLS)
 
+				conn, _ := grpc.NewClient(cleanServer, grpc.WithTransportCredentials(creds))
+				defer conn.Close()
 				client := scorepb.NewScoreServiceClient(conn)
 				ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+token)
 				stream, err := client.DownloadScore(ctx, &scorepb.DownloadScoreRequest{ScoreId: scoreID})
 				if err != nil {
 					progress.Hide()
-					showMain(server, token, ip, pin)
+					showMain(server, token, ip, pin, tlsMode)
 					return
 				}
 
@@ -246,13 +292,12 @@ func main() {
 
 				mgr, err := pdf.NewManager(tmpFile)
 				progress.Hide()
-
 				if err == nil {
 					pdfMgr = mgr
 					totalPages = mgr.GetPageCount()
 					loadPage()
 				} else {
-					showMain(server, token, ip, pin)
+					showMain(server, token, ip, pin, tlsMode)
 				}
 			}()
 		} else {
@@ -265,6 +310,7 @@ func main() {
 				loadPage()
 			}
 		})
+
 		nextBtn := widget.NewButtonWithIcon("", theme.NavigateNextIcon(), func() {
 			if !useLAN {
 				if page < totalPages-1 {
@@ -276,12 +322,13 @@ func main() {
 				loadPage()
 			}
 		})
+
 		closeBtn := widget.NewButtonWithIcon("Back", theme.CancelIcon(), func() {
 			if pdfMgr != nil {
 				pdfMgr.Close()
 				os.Remove(filepath.Join(os.TempDir(), scoreID+".pdf"))
 			}
-			showMain(server, token, ip, pin)
+			showMain(server, token, ip, pin, tlsMode)
 		})
 
 		topBar := container.NewBorder(nil, nil, closeBtn, nil, widget.NewLabelWithStyle(title, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}))
@@ -290,7 +337,7 @@ func main() {
 		myWindow.SetContent(container.NewBorder(topBar, bottomBar, nil, nil, imgCanvas))
 	}
 
-	showMain = func(server, token, localIP, localPIN string) {
+	showMain = func(server, token, localIP, localPIN string, tlsMode string) {
 		var syncConn *grpc.ClientConn
 		var syncClient syncpb.LiveSyncServiceClient
 		var activeConcertID string
@@ -300,11 +347,16 @@ func main() {
 
 		infoLabel := widget.NewLabelWithStyle("Fetching state...", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 		pageInfoLabel := widget.NewLabelWithStyle("-", fyne.TextAlignCenter, fyne.TextStyle{Italic: true})
+
 		connStatusLabel := canvas.NewText("Connecting...", theme.DisabledColor())
 		connStatusLabel.Alignment = fyne.TextAlignCenter
 
 		if server != "" && token != "" {
-			syncConn, _ = grpc.NewClient(server, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			cleanServer := sanitizeAddress(server)
+			useTLS := shouldUseTLS(server, tlsMode)
+			creds := getTransportCredentials(useTLS)
+
+			syncConn, _ = grpc.NewClient(cleanServer, grpc.WithTransportCredentials(creds))
 			if syncConn != nil {
 				syncClient = syncpb.NewLiveSyncServiceClient(syncConn)
 			}
@@ -316,7 +368,6 @@ func main() {
 				payload, _ := json.Marshal(map[string]interface{}{"action": actionStr, "value": val, "payload": payloadStr})
 				req, _ := http.NewRequest("POST", url, bytes.NewBuffer(payload))
 				req.Header.Set("X-Remote-PIN", localPIN)
-
 				resp, err := fastClient.Do(req)
 				if err == nil && resp.StatusCode == 200 {
 					return
@@ -327,7 +378,6 @@ func main() {
 				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 				defer cancel()
 				ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token)
-
 				stream, err := syncClient.SyncConcertStream(ctx)
 				if err == nil {
 					_ = stream.Send(&syncpb.SyncRequest{
@@ -341,10 +391,17 @@ func main() {
 			}
 		}
 
-		prevPageBtn := widget.NewButtonWithIcon("Previous Page", theme.NavigateBackIcon(), func() { sendCommand("PREV_PAGE", syncpb.ActionType_PREV_PAGE, "", 0) })
-		nextPageBtn := widget.NewButtonWithIcon("Next Page", theme.NavigateNextIcon(), func() { sendCommand("NEXT_PAGE", syncpb.ActionType_NEXT_PAGE, "", 0) })
+		prevPageBtn := widget.NewButtonWithIcon("Previous Page", theme.NavigateBackIcon(), func() {
+			sendCommand("PREV_PAGE", syncpb.ActionType_PREV_PAGE, "", 0)
+		})
+		nextPageBtn := widget.NewButtonWithIcon("Next Page", theme.NavigateNextIcon(), func() {
+			sendCommand("NEXT_PAGE", syncpb.ActionType_NEXT_PAGE, "", 0)
+		})
 
-		timerBtn := widget.NewButtonWithIcon("Play/Pause Timer", theme.HistoryIcon(), func() { sendCommand("TOGGLE_TIMER", syncpb.ActionType_TOGGLE_TIMER, "", 0) })
+		timerBtn := widget.NewButtonWithIcon("Play/Pause Timer", theme.HistoryIcon(), func() {
+			sendCommand("TOGGLE_TIMER", syncpb.ActionType_TOGGLE_TIMER, "", 0)
+		})
+
 		lockBtn := widget.NewButtonWithIcon("Lock Tablet", theme.LogoutIcon(), nil)
 
 		var setlistTitles []string
@@ -364,9 +421,7 @@ func main() {
 				box := o.(*fyne.Container).Objects[0].(*fyne.Container)
 				icon := box.Objects[0].(*widget.Icon)
 				label := box.Objects[1].(*widget.Label)
-
 				label.SetText(fmt.Sprintf("%d. %s", i+1, setlistTitles[i]))
-
 				if int(i) < currentItemIdx {
 					icon.SetResource(theme.ConfirmIcon())
 					label.TextStyle = fyne.TextStyle{Italic: true}
@@ -389,14 +444,13 @@ func main() {
 		previewBtn := widget.NewButtonWithIcon("Preview Current Page", theme.VisibilityIcon(), func() {
 			if currentScoreID != "" {
 				close(stopPolling)
-				viewScore(localIP, localPIN, server, token, currentScoreID, "Preview", currentPage, localIP != "")
+				viewScore(localIP, localPIN, server, token, currentScoreID, "Preview", currentPage, localIP != "", tlsMode)
 			}
 		})
 
 		go func() {
 			ticker := time.NewTicker(1 * time.Second)
 			defer ticker.Stop()
-
 			for {
 				select {
 				case <-stopPolling:
@@ -407,7 +461,6 @@ func main() {
 						url := fmt.Sprintf("http://%s:8089/api/state", localIP)
 						req, _ := http.NewRequest("GET", url, nil)
 						req.Header.Set("X-Remote-PIN", localPIN)
-
 						if resp, err := httpClient.Do(req); err == nil && resp.StatusCode == 200 {
 							var state map[string]interface{}
 							if json.NewDecoder(resp.Body).Decode(&state) == nil {
@@ -416,6 +469,7 @@ func main() {
 								total := int(state["total_pages"].(float64))
 								isLocked, _ := state["is_locked"].(bool)
 								timerSec, _ := state["timer_seconds"].(float64)
+
 								currentScoreID, _ = state["current_score_id"].(string)
 								currentPage = page
 
@@ -425,6 +479,7 @@ func main() {
 										newList = append(newList, v.(string))
 									}
 								}
+
 								newIdx := int(state["current_item_idx"].(float64))
 
 								setlistChanged := false
@@ -455,27 +510,29 @@ func main() {
 									} else {
 										pageInfoLabel.SetText(fmt.Sprintf("Timer: %02d:%02d", int(timerSec)/60, int(timerSec)%60))
 									}
-								}
 
-								if isLocked {
-									lockBtn.SetText("Unlock Tablet")
-									lockBtn.SetIcon(theme.LoginIcon())
-									lockBtn.OnTapped = func() {
-										pinEntry := widget.NewPasswordEntry()
-										dialog.ShowCustomConfirm("Unlock Tablet", "Unlock", "Cancel", pinEntry, func(ok bool) {
-											if ok {
-												sendCommand("UNLOCK_SCREEN", syncpb.ActionType_UNLOCK_SCREEN, pinEntry.Text, 0)
-											}
-										}, myWindow)
+									if isLocked {
+										lockBtn.SetText("Unlock Tablet")
+										lockBtn.SetIcon(theme.LoginIcon())
+										lockBtn.OnTapped = func() {
+											pinEntry := widget.NewPasswordEntry()
+											dialog.ShowCustomConfirm("Unlock Tablet", "Unlock", "Cancel", pinEntry, func(ok bool) {
+												if ok {
+													sendCommand("UNLOCK_SCREEN", syncpb.ActionType_UNLOCK_SCREEN, pinEntry.Text, 0)
+												}
+											}, myWindow)
+										}
+										prevPageBtn.Disable()
+										nextPageBtn.Disable()
+									} else {
+										lockBtn.SetText("Lock Tablet")
+										lockBtn.SetIcon(theme.LogoutIcon())
+										lockBtn.OnTapped = func() {
+											sendCommand("LOCK_SCREEN", syncpb.ActionType_LOCK_SCREEN, "", 0)
+										}
+										prevPageBtn.Enable()
+										nextPageBtn.Enable()
 									}
-									prevPageBtn.Disable()
-									nextPageBtn.Disable()
-								} else {
-									lockBtn.SetText("Lock Tablet")
-									lockBtn.SetIcon(theme.LogoutIcon())
-									lockBtn.OnTapped = func() { sendCommand("LOCK_SCREEN", syncpb.ActionType_LOCK_SCREEN, "", 0) }
-									prevPageBtn.Enable()
-									nextPageBtn.Enable()
 								}
 
 								connStatusLabel.Text = "Link: Wi-Fi"
@@ -506,7 +563,8 @@ func main() {
 		}()
 
 		remoteContent := container.NewVBox(
-			infoLabel, pageInfoLabel,
+			infoLabel,
+			pageInfoLabel,
 			widget.NewSeparator(),
 			widget.NewLabel(""),
 			container.NewGridWithColumns(2, prevPageBtn, nextPageBtn),
@@ -527,9 +585,12 @@ func main() {
 			widget.NewButtonWithIcon("Refresh Library", theme.ViewRefreshIcon(), func() {
 				go func() {
 					scoresMap := make(map[string]ScoreItem)
-
 					if server != "" && token != "" {
-						conn, err := grpc.NewClient(server, grpc.WithTransportCredentials(insecure.NewCredentials()))
+						cleanServer := sanitizeAddress(server)
+						useTLS := shouldUseTLS(server, tlsMode)
+						creds := getTransportCredentials(useTLS)
+
+						conn, err := grpc.NewClient(cleanServer, grpc.WithTransportCredentials(creds))
 						if err == nil {
 							client := scorepb.NewScoreServiceClient(conn)
 							ctx := metadata.AppendToOutgoingContext(context.Background(), "authorization", "Bearer "+token)
@@ -573,24 +634,24 @@ func main() {
 					}
 
 					libraryList.Length = func() int { return len(fetched) }
-					libraryList.CreateItem = func() fyne.CanvasObject { return widget.NewButton("", nil) }
+					libraryList.CreateItem = func() fyne.CanvasObject {
+						return widget.NewButton("", nil)
+					}
 					libraryList.UpdateItem = func(i widget.ListItemID, o fyne.CanvasObject) {
 						btn := o.(*widget.Button)
 						s := fetched[i]
-
 						icon := theme.DocumentIcon()
 						if s.OnLAN {
 							icon = theme.ComputerIcon()
 						} else if s.OnCloud {
 							icon = theme.StorageIcon()
 						}
-
 						btn.SetText(s.Title)
 						btn.SetIcon(icon)
 						btn.OnTapped = func() {
 							close(stopPolling)
 							useLAN := s.OnLAN && localIP != ""
-							viewScore(localIP, localPIN, server, token, s.ID, s.Title, 0, useLAN)
+							viewScore(localIP, localPIN, server, token, s.ID, s.Title, 0, useLAN, tlsMode)
 						}
 					}
 					libraryList.Refresh()
