@@ -11,6 +11,12 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+var (
+	_ fyne.Focusable    = (*TouchButton)(nil)
+	_ fyne.Tappable     = (*TouchButton)(nil)
+	_ desktop.Hoverable = (*TouchButton)(nil)
+)
+
 type TouchButton struct {
 	widget.BaseWidget
 	Text       string
@@ -19,6 +25,7 @@ type TouchButton struct {
 	OnTapped   func()
 	disabled   bool
 	hovered    bool
+	focused    bool
 }
 
 func NewTouchButton(text string, tapped func()) *TouchButton {
@@ -44,6 +51,8 @@ func NewTouchButtonWithIcon(text string, icon fyne.Resource, tapped func()) *Tou
 
 func (b *TouchButton) Disable() {
 	b.disabled = true
+	b.focused = false
+	b.hovered = false
 	b.Refresh()
 }
 
@@ -66,17 +75,54 @@ func (b *TouchButton) SetIcon(icon fyne.Resource) {
 	b.Refresh()
 }
 
+// FocusGained marks the button as focused for keyboard navigation and triggers visual refresh.
+func (b *TouchButton) FocusGained() {
+	if b.disabled {
+		return
+	}
+	b.focused = true
+	b.Refresh()
+}
+
+// FocusLost clears the button focus state.
+func (b *TouchButton) FocusLost() {
+	b.focused = false
+	b.Refresh()
+}
+
+// Focused returns whether the button currently has keyboard focus.
+func (b *TouchButton) Focused() bool {
+	return b.focused
+}
+
+// TypedRune implements fyne.Focusable.
+func (b *TouchButton) TypedRune(_ rune) {}
+
+// TypedKey implements fyne.Focusable so Enter and Space activate the button.
+func (b *TouchButton) TypedKey(e *fyne.KeyEvent) {
+	if b.disabled {
+		return
+	}
+	if e.Name == fyne.KeySpace || e.Name == fyne.KeyReturn || e.Name == fyne.KeyEnter {
+		b.Tapped(nil)
+	}
+}
+
+// Tapped is triggered when the button is activated by a tap, click, or keyboard activation.
 func (b *TouchButton) Tapped(_ *fyne.PointEvent) {
 	if b.disabled {
 		return
 	}
 
+	// Reset hover state so touchscreen taps don't leave lingering hover backgrounds.
+	b.hovered = false
+	b.Refresh()
+
+	// Clear focus on this canvas if this button was focused, matching standard Fyne button behavior.
 	if app := fyne.CurrentApp(); app != nil {
 		if driver := app.Driver(); driver != nil {
-			for _, window := range driver.AllWindows() {
-				if canvas := window.Canvas(); canvas != nil {
-					canvas.Unfocus()
-				}
+			if c := driver.CanvasForObject(b); c != nil {
+				c.Focus(nil)
 			}
 		}
 	}
@@ -165,6 +211,16 @@ func (r *touchButtonRenderer) Refresh() {
 		}
 	}
 
+	// Focus highlight indicator for keyboard navigation
+	if r.button.focused && !r.button.Disabled() {
+		r.bg.StrokeColor = theme.FocusColor()
+		r.bg.StrokeWidth = 2
+	} else {
+		r.bg.StrokeColor = color.Transparent
+		r.bg.StrokeWidth = 0
+	}
+
+	// Hover highlight for mouse pointers
 	if r.button.hovered && !r.button.Disabled() {
 		r.hoverBg.FillColor = theme.HoverColor()
 		r.hoverBg.Show()

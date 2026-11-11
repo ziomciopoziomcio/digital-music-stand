@@ -63,7 +63,9 @@ func main() {
 
 	myWindow.Resize(fyne.NewSize(800, 480))
 	myWindow.SetFullScreen(true)
-	myWindow.ShowAndRun()
+	myWindow.Show()
+	InitPlatformWindow(myWindow)
+	myApp.Run()
 }
 
 func launchProfileSession(myWindow fyne.Window, myApp fyne.App, pm *profiles.Manager, profileID string) {
