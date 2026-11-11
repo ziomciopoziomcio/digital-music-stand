@@ -61,7 +61,7 @@ func BuildProfile(
 		if len(errMsg) > 50 || strings.Contains(errMsg, "rpc error") || strings.Contains(errMsg, "connection error") {
 			return fmt.Errorf("Server is unavailable. You are currently offline.")
 		}
-		return fmt.Errorf(errMsg)
+		return fmt.Errorf("%s", errMsg)
 	}
 
 	changePassBtn := NewTouchButtonWithIcon("Change Password", theme.SettingsIcon(), func() {
